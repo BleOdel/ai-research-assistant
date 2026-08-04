@@ -57,6 +57,24 @@ describe("parseSearchResponse", () => {
     expect(results[0].venue).toBe("Nature");
   });
 
+  test("strips only the trailing year, not one embedded earlier in a truncated venue title (regression: real SerpApi response for GAZEploit)", () => {
+    const { results } = parseSearchResponse({
+      organic_results: [
+        rawResult({
+          publication_info: {
+            summary: "H Wang, Z Zhan, H Shan, S Dai, M Panoff… - Proceedings of the 2024 …, 2024 - dl.acm.org",
+            authors: [],
+          },
+        }),
+      ],
+    });
+    expect(results[0].year).toBe(2024);
+    // The venue's own truncated title legitimately contains "2024" (it's "Proceedings
+    // of the 2024 ACM SIGSAC Conference..." before Scholar truncated it) - only the
+    // trailing ", 2024" publication-year token should be stripped, not this one.
+    expect(results[0].venue).toBe("Proceedings of the 2024 …");
+  });
+
   test("handles a summary with no venue, just author(s) and year", () => {
     const { results } = parseSearchResponse({
       organic_results: [rawResult({ publication_info: { summary: "E Author - 2019 - arxiv.org", authors: [] } })],

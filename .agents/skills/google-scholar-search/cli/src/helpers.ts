@@ -103,14 +103,23 @@ function extractYear(summary: string): number | null {
 }
 
 /** Best-effort venue extraction: the middle " - "-delimited segment, with the
- * year token stripped out. Returns null if the segment is empty or looks like
- * just a bare year (no venue name at all - common for some preprints). */
+ * trailing ", YYYY" publication-year token stripped. Returns null if the segment
+ * is empty or was just a bare year (no venue name at all - common for some
+ * preprints).
+ *
+ * The year is only stripped from the END of the segment, not wherever it first
+ * appears: Scholar's own truncation can embed a year earlier in the segment as
+ * part of the venue's actual title (e.g. summary
+ * "...  - Proceedings of the 2024 …, 2024 - dl.acm.org", where "Proceedings of
+ * the 2024 ACM SIGSAC Conference..." was truncated mid-name). A naive first-match
+ * replace would strip that embedded title year and leave the real trailing
+ * publication-year token behind - the opposite of what's wanted. */
 function extractVenue(summary: string, year: number | null): string | null {
   const segments = summary.split(" - ")
   if (segments.length < 2) return null
   const middle = segments[1]
-  const withoutYear = year ? middle.replace(String(year), "").replace(/,\s*,/g, ",") : middle
-  const cleaned = withoutYear.replace(/^,\s*|,\s*$/g, "").trim()
+  const withoutTrailingYear = year ? middle.replace(new RegExp(`,?\\s*${year}\\s*$`), "") : middle
+  const cleaned = withoutTrailingYear.replace(/^,\s*|,\s*$/g, "").trim()
   return cleaned.length > 0 ? cleaned : null
 }
 
