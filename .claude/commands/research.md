@@ -1,8 +1,8 @@
 # /research - Source Discovery
 
 Discovers sources on a topic via installed connector CLIs (arXiv, Semantic Scholar,
-and any connectors added later). Deduplicates across runs and quick-triages by
-relevance.
+Google Scholar, and any connectors added later). Deduplicates across runs and
+quick-triages by relevance.
 
 `$ARGUMENTS` is the topic (free text), e.g. `/research retrieval-augmented generation
 for code search`. If empty, use the first Research Interest topic from
@@ -66,9 +66,17 @@ succeed where the built-in one didn't, and will just burn more time against a li
 that needs real wall-clock recovery (Semantic Scholar's unauthenticated pool is shared
 globally and can take minutes to free up; a `SEMANTIC_SCHOLAR_API_KEY` env var moves it
 to a dedicated per-key quota if this happens often). Instead: log it, fall back to the
-other connector or WebSearch for this query, and say so plainly in the Step 5 output -
-do not silently under-report source coverage. Any other non-zero exit: log the error
-and continue - do not abort the whole search.
+other connectors or WebSearch for this query, and say so plainly in the Step 5 output -
+do not silently under-report source coverage.
+
+If a CLI exits non-zero with `code: "NO_API_KEY"` (currently only
+`google-scholar-search`, which has no unauthenticated tier at all), treat that
+connector as **unavailable for the rest of this run**, not just this one query - do
+not retry it on a differently-worded query either, since the failure is permanent
+until the user sets the key. Skip straight to the other connectors/WebSearch for the
+topic and note in Step 5 that this connector was skipped for lacking a key.
+
+Any other non-zero exit: log the error and continue - do not abort the whole search.
 
 ### 1c. WebSearch fallback
 
@@ -115,7 +123,7 @@ Add ALL fetched sources (new and skipped) to `research/seen_sources.json`:
       "year": 2024,
       "venue": "...",
       "url": "...",
-      "source_connector": "arxiv-search | semantic-scholar-search",
+      "source_connector": "arxiv-search | semantic-scholar-search | google-scholar-search",
       "first_seen": "YYYY-MM-DD",
       "relevance": "high/medium/low",
       "status": "new/skipped/scored/synthesized"
@@ -170,3 +178,5 @@ After presenting, ask:
    time.
 6. **Never hand-retry a `RATE_LIMITED` exit.** The CLI already backed off as far as it
    usefully can. Fall back per Step 1b/1c instead of looping.
+7. **Never retry a `NO_API_KEY` exit at all, on any query.** It's not transient -
+   skip that connector for the rest of the run.

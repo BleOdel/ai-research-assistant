@@ -11,8 +11,9 @@ their relevance, and synthesize a cited, compiled state-of-the-art report.
 A structured workflow that turns Claude Code into a literature-discovery and
 synthesis assistant. The core loop — discover sources, score them, draft a cited
 report, fact-check every citation with a second agent, compile to PDF — is
-field-agnostic. The two shipped connector skills (arXiv, Semantic Scholar) cover
-academic search broadly; the pattern is designed to extend to other source databases.
+field-agnostic. The three shipped connector skills (arXiv, Semantic Scholar, Google
+Scholar) cover academic search broadly; the pattern is designed to extend to other
+source databases.
 
 ```
 /setup          /research <topic>        /synthesize <topic>
@@ -67,14 +68,17 @@ cd ai-research-assistant
 ### 2. Install connector tools
 
 ```bash
-for tool in arxiv-search semantic-scholar-search; do
+for tool in arxiv-search semantic-scholar-search google-scholar-search; do
   cd .agents/skills/$tool/cli && bun install && cd ../../../..
 done
 ```
 
-Both connectors have **zero runtime dependencies** — `bun install` only pulls
+All three connectors have **zero runtime dependencies** — `bun install` only pulls
 TypeScript dev types, so this step is optional if you just want to run them with
-plain `bun`.
+plain `bun`. `google-scholar-search` additionally needs a `SERPAPI_API_KEY` (a free
+SerpApi account, 250 searches/month) before it'll actually run - see
+[Source connectors](#source-connectors) below. Without it, `/research` and
+`/synthesize` still work fine with the other two.
 
 ### 3. Set up your profile
 
@@ -136,7 +140,8 @@ ai-research-assistant/
 │   └── settings.json                      # Claude Code permissions (scoped)
 ├── .agents/skills/                        # Source connector CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
-│   └── semantic-scholar-search/           # Semantic Scholar Graph API (cross-field, citations)
+│   ├── semantic-scholar-search/           # Semantic Scholar Graph API (cross-field, citations)
+│   └── google-scholar-search/             # Google Scholar via SerpApi (broadest coverage, needs API key)
 ├── report/
 │   ├── report_example.tex                 # LaTeX report template (article + BibTeX)
 │   └── references.bib                     # Example bibliography
@@ -193,22 +198,37 @@ which `\bibliographystyle` and `natbib` package option each citation style maps 
 
 ### Source connectors
 
-The two shipped connectors (arXiv, Semantic Scholar) cover general academic search.
-Both are self-contained TypeScript CLIs under `.agents/skills/` with zero runtime
-dependencies — see `.agents/skills/arxiv-search/SKILL.md` and
-`.agents/skills/semantic-scholar-search/SKILL.md` for their exact flags. Adding a new
-source database (PubMed, OpenAlex, a domain-specific archive) means writing a new
-connector skill in the same shape; there is no generator command for this yet (see
-below).
+Three shipped connectors cover academic search from different angles:
+
+- **`arxiv-search`** — arXiv Export API. No account needed. Preprints only, CS/
+  physics/math/stats coverage.
+- **`semantic-scholar-search`** — Semantic Scholar Graph API. No account needed for
+  basic use, but its unauthenticated pool is shared globally across every caller and
+  is often rate-limited; an optional free `SEMANTIC_SCHOLAR_API_KEY` gets a dedicated
+  quota.
+- **`google-scholar-search`** — Google Scholar via SerpApi. Broadest cross-publisher
+  coverage and the most reliable citation counts, but **requires a SerpApi account
+  and API key for every single request** (free tier: 250 searches/month) - there is
+  no unauthenticated option at all. It also has a `cited-by` command the other two
+  don't: find papers that cite a specific work.
+
+All three are self-contained TypeScript CLIs under `.agents/skills/` with zero
+runtime dependencies — see each one's `SKILL.md` for exact flags
+(`.agents/skills/<name>/SKILL.md`). `/research` discovers installed connectors by
+globbing `.agents/skills/*/SKILL.md`, so a connector missing its API key (or not
+installed at all) doesn't break discovery - it's just skipped in favor of the others,
+with the gap noted in the output. Adding a new source database (PubMed, OpenAlex, a
+domain-specific archive) means writing a new connector skill in the same shape; there
+is no generator command for this yet (see below).
 
 ## Scope
 
-This is a lean build: profile setup, two academic connectors, source discovery, and
-synthesis with citation verification. Deliberately not (yet) built:
+This is a lean build: profile setup, three academic connectors, source discovery,
+and synthesis with citation verification. Deliberately not (yet) built:
 
 - A `/rank` command to batch-triage a large `/research` haul before committing to a
   full `/synthesize` pass
-- Additional connectors (OpenAlex, PubMed, GitHub/HN for industry signal)
+- Further connectors (OpenAlex, PubMed, GitHub/HN for industry signal)
 - An `/add-source` generator for scaffolding new connector skills
 - Living-document mode (re-synthesizing a tracked topic to append only what's new)
 - Contradiction/consensus flagging across sources

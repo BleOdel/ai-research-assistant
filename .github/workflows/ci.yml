@@ -2,9 +2,11 @@
 # typechecks and tests.
 #
 # Deliberately NOT here: live smoke tests of the connector CLIs against the real
-# arXiv / Semantic Scholar APIs. CI runs typechecks and the checked-in fixture test
-# suites only (network-flaky, and Semantic Scholar's unauthenticated pool is rate
-# limited); live connector testing stays a local, on-demand step.
+# arXiv / Semantic Scholar / Google Scholar (SerpApi) APIs. CI runs typechecks and
+# the checked-in fixture test suites only - network-flaky, Semantic Scholar's
+# unauthenticated pool is rate limited, and google-scholar-search requires a paid
+# account's API key CI does not have. Live connector testing stays a local,
+# on-demand step.
 #
 # Security posture: this repo ships pre-approved Claude Code permissions and CLI
 # code that every fork user executes, so the security-guards job fails PRs that
@@ -89,6 +91,7 @@ jobs:
         tool:
           - arxiv-search
           - semantic-scholar-search
+          - google-scholar-search
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

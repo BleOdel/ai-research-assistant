@@ -29,8 +29,8 @@ lint tool also needs PyYAML: `pip install pyyaml`.
 
 ### Bun (for the connector CLIs)
 
-The source-connector CLIs (`arxiv-search`, `semantic-scholar-search`) are written in
-TypeScript and run with Bun.
+The source-connector CLIs (`arxiv-search`, `semantic-scholar-search`,
+`google-scholar-search`) are written in TypeScript and run with Bun.
 
 - macOS/Linux:
 
@@ -46,9 +46,25 @@ powershell -ExecutionPolicy Bypass -c "irm https://bun.sh/install.ps1 | iex"
 
 If you prefer a package manager, `winget install Oven-sh.Bun` also works on Windows.
 
-Both connectors have **zero runtime dependencies** — `bun install` only pulls
+All three connectors have **zero runtime dependencies** — `bun install` only pulls
 TypeScript dev types for the typechecker, so you can also just run them directly with
 `bun run src/cli.ts` without installing anything.
+
+### SerpApi account (optional, for `google-scholar-search` only)
+
+`arxiv-search` and `semantic-scholar-search` work with no account at all.
+`google-scholar-search` is different: **every request requires an API key**, with no
+unauthenticated tier. If you want Google Scholar's broader cross-publisher coverage
+and its more reliable citation counts, sign up for a free key (250 searches/month) at
+[serpapi.com/users/sign_up](https://serpapi.com/users/sign_up), then:
+
+```bash
+export SERPAPI_API_KEY="your-key-here"
+```
+
+Skipping this is fine - `/research` and `/synthesize` work with just the other two
+connectors, and will note in their output when `google-scholar-search` was skipped
+for lacking a key.
 
 ### LaTeX (for compiling synthesis reports)
 

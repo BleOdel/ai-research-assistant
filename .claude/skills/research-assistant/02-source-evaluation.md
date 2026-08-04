@@ -68,9 +68,14 @@ impactful than a 2015 paper with 20 citations).
 | 0-39 | Very low or no citations, and old enough that this is meaningful (recent papers should not be penalized here - see Recency instead) |
 
 Semantic Scholar's `citationCount` and `influentialCitationCount` fields are the
-primary signal. arXiv-only results with no Semantic Scholar match get this dimension
-scored as "insufficient data" rather than defaulted to 0 - say so explicitly rather
-than silently zeroing a real paper.
+primary signal when available. Semantic Scholar's unauthenticated API is frequently
+rate-limited (see `04-citation-rules.md`'s connector notes), so when it's unavailable
+for a run, `google-scholar-search`'s `citedByCount` (if that connector is configured)
+is an acceptable substitute - Google Scholar's citation counts tend to run higher
+than Semantic Scholar's since it indexes more broadly, so note which source a citation
+count came from rather than treating the two as interchangeable across a comparison
+table. If neither is available, score this dimension "insufficient data" rather than
+defaulted to 0 - say so explicitly rather than silently zeroing a real paper.
 
 ## Weighting
 
