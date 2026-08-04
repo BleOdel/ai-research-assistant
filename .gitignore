@@ -7,15 +7,19 @@ bun.lock
 # Bun / TypeScript build output
 *.tsbuildinfo
 
-# Personal research state and output — regenerated locally, never shared as-is
+# Personal research state and output — regenerated locally, never shared as-is.
+# /synthesize writes into a per-topic subdirectory (reports/<topic_slug>/...), so
+# these must be recursive (reports/**/*) - a flat reports/*.pdf pattern silently
+# fails to ignore anything /synthesize actually produces.
 research/seen_sources.json
-reports/*.pdf
-reports/*.tex
-reports/*.aux
-reports/*.log
-reports/*.bbl
-reports/*.blg
-reports/*.out
+reports/**/*.pdf
+reports/**/*.tex
+reports/**/*.bib
+reports/**/*.aux
+reports/**/*.log
+reports/**/*.bbl
+reports/**/*.blg
+reports/**/*.out
 !reports/.gitkeep
 
 # LaTeX compile artifacts (report/ example stays tracked, its build junk doesn't)

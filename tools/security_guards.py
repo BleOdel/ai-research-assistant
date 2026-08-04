@@ -42,8 +42,9 @@ ALLOWED_PERMISSIONS = {
 # Personal-data ignore rules that must never disappear from .gitignore.
 REQUIRED_IGNORE_RULES = [
     "research/seen_sources.json",
-    "reports/*.pdf",
-    "reports/*.tex",
+    "reports/**/*.pdf",
+    "reports/**/*.tex",
+    "reports/**/*.bib",
     "!reports/.gitkeep",
 ]
 
