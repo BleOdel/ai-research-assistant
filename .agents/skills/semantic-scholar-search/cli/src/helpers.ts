@@ -3,7 +3,13 @@
 // saturated by traffic that has nothing to do with this CLI - a 429 here often means
 // "try again later," not "you personally are over a limit." Set SEMANTIC_SCHOLAR_API_KEY
 // (a free key from https://www.semanticscholar.org/product/api) to move onto S2's
-// per-key quota instead of the shared pool.
+// per-key quota instead of the shared pool - per S2's own docs, that quota is a firm
+// 1 request/second, cumulative across every endpoint (search + detail together, not
+// 1/sec each). This CLI makes one request per invocation, so a single `search` or
+// `detail` call is always within budget; the caller (e.g. /research, /synthesize)
+// is what needs to space out *sequential* invocations by >=1s - see those commands'
+// own guidance rather than this file, since pacing across separate CLI invocations
+// can't be enforced from inside a single one.
 // https://api.semanticscholar.org/api-docs/graph
 
 export const BASE_URL = "https://api.semanticscholar.org/graph/v1"

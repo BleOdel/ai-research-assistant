@@ -39,6 +39,16 @@ variable to a free key from
 CLI sends it as the `x-api-key` header automatically when present, moving traffic onto
 a dedicated per-key quota instead of the shared pool.
 
+**With a key, the quota is a firm 1 request/second, cumulative across every S2
+endpoint** (a `search` followed immediately by a `detail` call counts as two
+requests against the same 1/sec budget, not one each). A single CLI invocation is
+always within that budget on its own - the requirement is on whoever *sequences*
+multiple invocations: `/research` and `/synthesize` must space consecutive calls to
+this connector by at least one second, the same "one query at a time, no
+back-to-back calls to the same connector" rule they already apply for the
+unauthenticated case, just now with a precise number behind it instead of a vague
+"keep volume low."
+
 Also **keep query volume low** generally - avoid looping `detail` calls over long
 result lists; fetch detail only for sources that survived a first relevance pass.
 

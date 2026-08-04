@@ -29,7 +29,12 @@ Read the scoring framework and profile **once**:
 
 For each candidate source, fetch its full content if not already fetched (use each
 connector's `detail` command per its `SKILL.md`, or `WebFetch` on its URL), then score
-all four dimensions (Relevance, Recency, Rigor, Impact) per the framework.
+all four dimensions (Relevance, Recency, Rigor, Impact) per the framework. If several
+candidates in this batch came from `semantic-scholar-search`, space consecutive
+`detail` calls to it at least one second apart - its authenticated quota is a firm
+1 request/second cumulative across all its endpoints (see its `SKILL.md`), not a
+per-call allowance, and this step is exactly the kind of "several sources, one
+connector" loop that can burn through it quickly if called back-to-back.
 
 Present the scoring table (see `02-source-evaluation.md`'s Output Format) and ask:
 > "Proceed to draft the synthesis with these sources? Reply yes, or tell me which to

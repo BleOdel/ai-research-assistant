@@ -94,6 +94,13 @@ authors, year, venue/category, and URL/ID. For sources worth a closer look, fetc
 detail with that connector's `detail` command (see its `SKILL.md` - do not guess flags)
 to get the full abstract.
 
+When fetching multiple `detail` calls against `semantic-scholar-search` in this step
+(even with `SEMANTIC_SCHOLAR_API_KEY` set), space them at least one second apart - its
+authenticated quota is a firm 1 request/second cumulative across search and detail
+together, not a per-call allowance. `arxiv-search` and `google-scholar-search` don't
+have this specific constraint documented, but the general "one call at a time per
+connector" rule from Step 1b still applies to all three.
+
 For every candidate:
 - Skip if its DOI/arXiv ID/S2 paper ID/URL already exists in `seen_sources.json`
 
