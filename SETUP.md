@@ -150,9 +150,17 @@ This builds your researcher profile in `CLAUDE.md` and
 you may need to restart your shell or `source` the profile file it modifies.
 
 **arXiv/Semantic Scholar requests failing or rate-limited** — Semantic Scholar's
-unauthenticated pool is tightly rate-limited; the CLI retries with exponential
-backoff, but keep query volume low. arXiv asks integrators to be considerate of
-request volume as well.
+unauthenticated pool is **shared globally across every unauthenticated caller**, not
+per-user, so a `429` can happen even on your very first request of a session; it isn't
+necessarily this CLI being over-used. arXiv asks integrators to keep to roughly one
+request per 3 seconds with no concurrent connections. Both CLIs retry with exponential
+backoff and, if every retry is exhausted, exit with `code: "RATE_LIMITED"` and an
+explanatory message — Claude is instructed (see `.claude/commands/research.md`) not to
+hand-retry that, but to fall back to the other connector or WebSearch instead. If you
+hit this often on Semantic Scholar, get a free API key at
+[semanticscholar.org/product/api](https://www.semanticscholar.org/product/api) and set
+it as `SEMANTIC_SCHOLAR_API_KEY` in your shell — the CLI picks it up automatically and
+moves you onto a dedicated per-key quota instead of the shared pool.
 
 **`natbib Error: Bibliography not compatible with author-year citations`** — the
 `natbib` package option must match your `\bibliographystyle`: numbered styles

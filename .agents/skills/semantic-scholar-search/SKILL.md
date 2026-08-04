@@ -13,8 +13,9 @@ allowed-tools: Bash(bun run .agents/skills/semantic-scholar-search/cli/src/cli.t
 
 # Semantic Scholar Search Skill
 
-Search papers on Semantic Scholar via its public Graph API. No authentication, no API
-key, **zero runtime dependencies** - runs with just `bun`.
+Search papers on Semantic Scholar via its public Graph API. No authentication
+required, **zero runtime dependencies** - runs with just `bun`. An optional free API
+key raises the rate limit (see below).
 
 Complements `arxiv-search`: Semantic Scholar indexes across all fields (not just
 arXiv's CS/physics/math/stats coverage) and returns venue and citation-count data,
@@ -23,10 +24,23 @@ which arXiv's own API does not provide. Use it for the Rigor and Impact dimensio
 
 ## ⚠️ Rate limits
 
-Unauthenticated Semantic Scholar traffic shares a small, tightly-limited request pool.
-The CLI retries 429/5xx with exponential backoff, but **keep query volume low** -
-avoid looping `detail` calls over long result lists; fetch detail only for sources
-that survived a first relevance pass.
+Unauthenticated Semantic Scholar traffic shares **one small pool across every
+unauthenticated caller globally** - not a per-user limit. This means a `429` can
+happen even on the very first request of a session; it is not necessarily a sign this
+CLI is being over-used. The CLI retries with exponential backoff, and if every retry
+is exhausted it exits with **`code: "RATE_LIMITED"`** and a message explaining the
+situation - do not hand-retry or sleep-loop on that exit, since the CLI has already
+backed off as far as usefully possible. Fall back to `arxiv-search` or `WebSearch` for
+that query instead (`/research`'s Step 1b covers this).
+
+**To reduce how often this happens:** set the `SEMANTIC_SCHOLAR_API_KEY` environment
+variable to a free key from
+[semanticscholar.org/product/api](https://www.semanticscholar.org/product/api). The
+CLI sends it as the `x-api-key` header automatically when present, moving traffic onto
+a dedicated per-key quota instead of the shared pool.
+
+Also **keep query volume low** generally - avoid looping `detail` calls over long
+result lists; fetch detail only for sources that survived a first relevance pass.
 
 ## When to use this skill
 

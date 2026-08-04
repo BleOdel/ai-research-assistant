@@ -1,4 +1,12 @@
-import { BASE_URL, atomFetch, parseFeed, buildSearchQuery, writeError, type ArxivPaper } from "../helpers.js"
+import {
+  BASE_URL,
+  atomFetch,
+  parseFeed,
+  buildSearchQuery,
+  writeError,
+  RateLimitError,
+  type ArxivPaper,
+} from "../helpers.js"
 
 export interface SearchOpts {
   query?: string
@@ -64,6 +72,10 @@ export async function runSearch(opts: SearchOpts): Promise<number> {
     }
     return 0
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      writeError(e.message, "RATE_LIMITED")
+      return 1
+    }
     writeError(e instanceof Error ? e.message : String(e), "SEARCH_FAILED")
     return 1
   }

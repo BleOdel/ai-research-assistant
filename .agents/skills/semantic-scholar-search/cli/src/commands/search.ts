@@ -5,6 +5,7 @@ import {
   parseSearchResponse,
   buildYearParam,
   writeError,
+  RateLimitError,
   type S2Paper,
 } from "../helpers.js"
 
@@ -70,6 +71,10 @@ export async function runSearch(opts: SearchOpts): Promise<number> {
     }
     return 0
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      writeError(e.message, "RATE_LIMITED")
+      return 1
+    }
     writeError(e instanceof Error ? e.message : String(e), "SEARCH_FAILED")
     return 1
   }

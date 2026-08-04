@@ -45,21 +45,37 @@ includes any connector added later without requiring changes to this file.
 For each installed connector skill:
 
 1. Read its `SKILL.md` for the correct `bun run …` invocation and supported flags.
-2. Translate the topic into that connector's query format.
+2. Translate the topic into **one well-formed query** for that connector. Do not fire
+   several differently-worded phrasings at the same connector to "cover more ground" -
+   both arXiv and Semantic Scholar rate-limit on request volume, and a handful of
+   query variants within a short window is the single most common way to trip that.
+   If the first query's results genuinely look too narrow, try one broader
+   reformulation - not three or four.
 3. Cap results to ~20 per call using the connector's limit flag.
 4. Use `--format json` for machine-readable output.
 
-Run all connector CLI calls in parallel where possible using the Agent tool. Collect
-all `results` arrays into a single pool, tagged with source connector (for Step 2
-`detail` lookups).
+It's fine to run the (at most one) query per *different* connector in parallel (e.g.
+arXiv and Semantic Scholar at the same time) - the rate limits are per-connector, not
+shared across them. Do not run multiple queries against the *same* connector in
+parallel or back-to-back. Collect all `results` arrays into a single pool, tagged with
+source connector (for Step 2 `detail` lookups).
 
-If a CLI exits non-zero, log the error and continue - do not abort the whole search.
+If a CLI exits non-zero with `code: "RATE_LIMITED"`, **do not retry it** - the CLI has
+already exhausted its own exponential backoff, so a manual retry or sleep loop will not
+succeed where the built-in one didn't, and will just burn more time against a limit
+that needs real wall-clock recovery (Semantic Scholar's unauthenticated pool is shared
+globally and can take minutes to free up; a `SEMANTIC_SCHOLAR_API_KEY` env var moves it
+to a dedicated per-key quota if this happens often). Instead: log it, fall back to the
+other connector or WebSearch for this query, and say so plainly in the Step 5 output -
+do not silently under-report source coverage. Any other non-zero exit: log the error
+and continue - do not abort the whole search.
 
 ### 1c. WebSearch fallback
 
-Use `WebSearch` for any connector whose CLI fails at runtime, or when bun is
-unavailable. Use the topic directly as the query, appended with the connector's domain
-(e.g. `site:arxiv.org <topic>`) as a rough substitute.
+Use `WebSearch` for any connector whose CLI fails at runtime (including after a
+`RATE_LIMITED` exit), or when bun is unavailable. Use the topic directly as the query,
+appended with the connector's domain (e.g. `site:arxiv.org <topic>`) as a rough
+substitute.
 
 ---
 
@@ -130,6 +146,11 @@ For each high-relevance source, add 1-2 bullets on why it matches the topic (fro
 actually-fetched abstract, not the title).
 ```
 
+If any connector hit `RATE_LIMITED` and fell back to WebSearch (or was skipped
+entirely), say so explicitly here - e.g. "Semantic Scholar was rate-limited for this
+run; results below are arXiv + WebSearch only." Coverage gaps should be visible, not
+silently absorbed.
+
 After presenting, ask:
 > "Want me to synthesize a report from any of these? Give me the numbers (or 'all') and
 > I'll run `/synthesize`."
@@ -144,5 +165,8 @@ After presenting, ask:
 3. **Respect standing exclusions** from the researcher profile.
 4. **Be efficient with detail fetches.** Pre-filter by title/abstract snippet before
    running `detail` on every hit.
-5. **Parallel searches.** Run connector CLI searches in parallel; use WebSearch only
-   for gaps the CLIs don't cover.
+5. **Parallel across connectors, not within one.** Different connectors can be queried
+   at the same time; a single connector should see one query at a time, one topic at a
+   time.
+6. **Never hand-retry a `RATE_LIMITED` exit.** The CLI already backed off as far as it
+   usefully can. Fall back per Step 1b/1c instead of looping.

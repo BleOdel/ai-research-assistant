@@ -1,6 +1,9 @@
-// Data source: Semantic Scholar's public Graph API. No authentication required for
-// unauthenticated use, but the shared unauthenticated pool is tightly rate-limited -
-// this module backs off aggressively on 429 rather than retrying fast.
+// Data source: Semantic Scholar's public Graph API. The unauthenticated pool is
+// shared globally across every unauthenticated caller (not per-user), so it can be
+// saturated by traffic that has nothing to do with this CLI - a 429 here often means
+// "try again later," not "you personally are over a limit." Set SEMANTIC_SCHOLAR_API_KEY
+// (a free key from https://www.semanticscholar.org/product/api) to move onto S2's
+// per-key quota instead of the shared pool.
 // https://api.semanticscholar.org/api-docs/graph
 
 export const BASE_URL = "https://api.semanticscholar.org/graph/v1"
@@ -14,15 +17,35 @@ export function writeError(error: string, code: string): void {
   process.stderr.write(JSON.stringify({ error, code }) + "\n")
 }
 
+/** Thrown when 429s persist through every retry - callers should treat this as "back
+ * off and try another source," not as a bug to retry harder on. */
+export class RateLimitError extends Error {}
+
 /** Fetch JSON with exponential backoff on 429/5xx. Unauthenticated S2 traffic is rate-limited, so backoff starts slow. */
 export async function jsonFetch(url: string): Promise<unknown> {
   const maxRetries = 5
   let delay = 2000
+  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY
+  const headers: Record<string, string> = { Accept: "application/json" }
+  if (apiKey) headers["x-api-key"] = apiKey
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-    })
-    if (response.status === 429 || response.status >= 500) {
+    const response = await fetch(url, { headers })
+    if (response.status === 429) {
+      if (attempt === maxRetries) {
+        throw new RateLimitError(
+          "Semantic Scholar's unauthenticated pool is rate-limited (shared globally, not per-user - " +
+            "this can happen even on the first request of a session). Set SEMANTIC_SCHOLAR_API_KEY " +
+            "for a dedicated quota (free: https://www.semanticscholar.org/product/api), or fall back " +
+            "to arxiv-search / WebSearch for this query rather than retrying further.",
+        )
+      }
+      const jitter = Math.floor(Math.random() * 1000)
+      await new Promise((r) => setTimeout(r, delay + jitter))
+      delay = Math.min(delay * 2, 16000)
+      continue
+    }
+    if (response.status >= 500) {
       if (attempt === maxRetries) {
         throw new Error(`Request failed: ${response.status} ${response.statusText}`)
       }

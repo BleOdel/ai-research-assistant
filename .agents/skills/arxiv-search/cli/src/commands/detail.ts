@@ -1,4 +1,4 @@
-import { BASE_URL, atomFetch, parseFeed, normalizeId, writeError } from "../helpers.js"
+import { BASE_URL, atomFetch, parseFeed, normalizeId, writeError, RateLimitError } from "../helpers.js"
 
 export interface DetailOpts {
   id: string
@@ -39,6 +39,10 @@ export async function runDetail(opts: DetailOpts): Promise<number> {
     }
     return 0
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      writeError(e.message, "RATE_LIMITED")
+      return 1
+    }
     writeError(e instanceof Error ? e.message : String(e), "DETAIL_FAILED")
     return 1
   }

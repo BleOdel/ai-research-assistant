@@ -82,5 +82,9 @@ process exits with code `1`.
 - arXiv is preprint-only: results carry no peer-review signal by themselves. Combine
   with `semantic-scholar-search` for citation counts and venue information, or note the
   preprint status explicitly per `02-source-evaluation.md`'s Rigor dimension.
-- The API asks integrators to be considerate of request volume; the CLI retries
-  429/5xx with exponential backoff, but keep batch sizes reasonable.
+- The API asks integrators to be considerate of request volume - roughly one request
+  per 3 seconds, no concurrent connections. The CLI retries 429/5xx with exponential
+  backoff; if every retry is exhausted it exits with **`code: "RATE_LIMITED"`**. Do
+  not hand-retry or sleep-loop on that exit - space out queries instead (one
+  well-formed query per topic, not several phrasings back to back), or fall back to
+  `semantic-scholar-search` / `WebSearch` for that query.

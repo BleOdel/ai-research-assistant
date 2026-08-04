@@ -12,7 +12,13 @@ export function writeError(error: string, code: string): void {
   process.stderr.write(JSON.stringify({ error, code }) + "\n")
 }
 
-/** Fetch with exponential backoff on 429/5xx. */
+/** Thrown when 429s persist through every retry - callers should treat this as "back
+ * off and try another source," not as a bug to retry harder on. */
+export class RateLimitError extends Error {}
+
+/** Fetch with exponential backoff on 429/5xx. arXiv's own guidance asks for no more
+ * than one request every ~3 seconds and no concurrent connections - firing several
+ * differently-worded queries back to back is the most common way to trip this. */
 export async function atomFetch(url: string): Promise<string> {
   const maxRetries = 5
   let delay = 1000
@@ -20,7 +26,20 @@ export async function atomFetch(url: string): Promise<string> {
     const response = await fetch(url, {
       headers: { Accept: "application/atom+xml" },
     })
-    if (response.status === 429 || response.status >= 500) {
+    if (response.status === 429) {
+      if (attempt === maxRetries) {
+        throw new RateLimitError(
+          "arXiv is rate-limiting this client (it asks for roughly one request per 3 seconds, " +
+            "no concurrent connections). Space out queries rather than firing several phrasings " +
+            "back to back, or fall back to semantic-scholar-search / WebSearch for this query.",
+        )
+      }
+      const jitter = Math.floor(Math.random() * 500)
+      await new Promise((r) => setTimeout(r, delay + jitter))
+      delay = Math.min(delay * 2, 8000)
+      continue
+    }
+    if (response.status >= 500) {
       if (attempt === maxRetries) {
         throw new Error(`Request failed: ${response.status} ${response.statusText}`)
       }
