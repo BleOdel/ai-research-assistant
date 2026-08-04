@@ -47,10 +47,20 @@ fetched content is a defect, not a stylistic nitpick.
 
 ## Quick start
 
-### 1. Fork and clone
+### 1. Get the code
+
+If this is your own repo, just clone it:
 
 ```bash
-gh repo fork BleOdel/ai-research-assistant --clone
+git clone https://github.com/BleOdel/ai-research-assistant.git
+cd ai-research-assistant
+```
+
+If you're starting from someone else's copy of this framework, fork it instead (a
+GitHub account can't fork its own repo):
+
+```bash
+gh repo fork <owner>/ai-research-assistant --clone
 cd ai-research-assistant
 ```
 

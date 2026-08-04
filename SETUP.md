@@ -79,10 +79,20 @@ If a package is reported missing on compile, install it directly:
 tlmgr install geometry hyperref natbib booktabs
 ```
 
-## 2. Fork and clone
+## 2. Get the code
+
+If this is your own repo, just clone it:
 
 ```bash
-gh repo fork BleOdel/ai-research-assistant --clone
+git clone https://github.com/BleOdel/ai-research-assistant.git
+cd ai-research-assistant
+```
+
+If you're starting from someone else's copy of this framework, fork it instead (a
+GitHub account can't fork its own repo):
+
+```bash
+gh repo fork <owner>/ai-research-assistant --clone
 cd ai-research-assistant
 ```
 
