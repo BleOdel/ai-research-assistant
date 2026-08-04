@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.agents/skills/*/cli/node_modules/
+bun.lock
+*.lockb
+
+# Bun / TypeScript build output
+*.tsbuildinfo
+
+# Personal research state and output — regenerated locally, never shared as-is
+research/seen_sources.json
+reports/*.pdf
+reports/*.tex
+reports/*.aux
+reports/*.log
+reports/*.bbl
+reports/*.blg
+reports/*.out
+!reports/.gitkeep
+
+# LaTeX compile artifacts (report/ example stays tracked, its build junk doesn't)
+report/*.aux
+report/*.log
+report/*.bbl
+report/*.blg
+report/*.out
+report/*.pdf
+
+# Python
+__pycache__/
+*.pyc
+
+# Env / secrets
+.env
+.env.local
+
+# OS
+.DS_Store

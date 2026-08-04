@@ -1,0 +1,112 @@
+% report_example.tex — structural reference for the /synthesize report template.
+% This is a compile/structure demo, not a live-verified synthesis output: a real
+% /synthesize run writes reports/<topic_slug>/report.tex from sources actually
+% fetched during that run, per 04-citation-rules.md. See 03-report-templates.md
+% for the section-by-section rules this file demonstrates.
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+% natbib's citation mode must match \bibliographystyle: [numbers] for numbered
+% styles (ieeetr, plain); no option (default author-year) for apalike/plainnat.
+% See 04-citation-rules.md's style table.
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{booktabs}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=blue,
+  urlcolor=blue,
+}
+
+\title{Retrieval-Augmented Generation: A Synthesis}
+\author{Prepared by AI Research Assistant}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\noindent\textit{Search scope: arXiv (cs.CL, cs.LG) and Semantic Scholar, queried for
+``retrieval-augmented generation'' and related terms. This example demonstrates report
+structure and LaTeX/BibTeX mechanics; it is not a live-verified output of a
+\texttt{/synthesize} run.}
+
+\begin{abstract}
+Retrieval-augmented generation (RAG) combines a parametric language model with a
+non-parametric retrieval mechanism over an external corpus, letting a generation model
+condition on retrieved evidence rather than relying solely on knowledge encoded in its
+weights. Early approaches established the core recipe: encode a query, retrieve
+relevant passages with a dense retriever, and condition generation on the retrieved
+context~\citep{lewis2020rag,karpukhin2020dpr,guu2020realm}. Subsequent work explored
+how retrieved passages are fused into generation~\citep{izacard2021fid}. The main open
+questions concern how retrieval and generation should be jointly trained, and how to
+evaluate factual grounding rather than just downstream task accuracy.
+\end{abstract}
+
+\section{Background}
+A parametric language model stores factual knowledge implicitly in its weights, which
+makes updating that knowledge or attributing a specific claim to a source difficult.
+Retrieval-augmented approaches instead give the model access to an external,
+inspectable corpus at inference time, addressing both problems: the corpus can be
+updated without retraining, and retrieved passages provide provenance for generated
+claims.
+
+\section{Approaches}
+
+\subsection{Dense Retrieval Foundations}
+Dense Passage Retrieval~\citep{karpukhin2020dpr} showed that a dual-encoder retriever,
+trained with in-batch negatives, substantially outperforms sparse lexical retrieval
+(e.g.\ BM25) for open-domain question answering. This dense-retrieval recipe became the
+standard retrieval component for the generation-focused work that followed.
+
+\subsection{End-to-End Differentiable Retrieval}
+REALM~\citep{guu2020realm} and the original RAG
+formulation~\citep{lewis2020rag} both make the retrieval step differentiable with
+respect to the end task, so the retriever can be fine-tuned jointly with the generator
+rather than treated as a frozen upstream component.
+RAG in particular formulates two variants: RAG-Sequence, which conditions on the same
+retrieved passages for the whole output, and RAG-Token, which can attend to different
+passages at each generated token.
+
+\subsection{Fusion Strategies for Generation}
+Fusion-in-Decoder~\citep{izacard2021fid} processes each retrieved passage
+independently in the encoder, then fuses all of them in a single decoder pass. This
+scales more gracefully to a larger number of retrieved passages than RAG's approach of
+marginalizing over passages, at the cost of encoder compute proportional to the number
+of passages retrieved.
+
+\section{Comparison of Approaches}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{2.6cm}p{3.4cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Approach} & \textbf{Key Paper} & \textbf{Strengths} & \textbf{Limitations} \\
+\midrule
+RAG & Lewis et al.~\citep{lewis2020rag} & Joint retriever/generator fine-tuning; two token/sequence variants & Retrieval quality bounded by a single dense retriever pass \\
+REALM & Guu et al.~\citep{guu2020realm} & Retrieval pre-trained jointly with masked LM objective & Pre-training cost; less flexible at fine-tuning time \\
+FiD & Izacard \& Grave~\citep{izacard2021fid} & Scales well to many retrieved passages via per-passage encoding & Encoder cost grows linearly with passages retrieved \\
+\bottomrule
+\end{tabular}
+\caption{Representative approaches to retrieval-augmented generation.}
+\end{table}
+
+\section{Open Questions}
+\begin{itemize}
+  \item \textbf{Joint vs.\ frozen retrieval:} it remains unsettled whether jointly
+    fine-tuning the retriever consistently outperforms a strong frozen retriever
+    (e.g.\ DPR) paired with a well-tuned generator, or whether gains are
+    task-dependent.
+  \item \textbf{Evaluating faithfulness:} downstream task accuracy does not directly
+    measure whether generated text is actually grounded in the retrieved passages;
+    the surveyed works report task metrics rather than faithfulness metrics.
+  \item \textbf{Passage count vs.\ compute:} FiD's linear encoder cost in the number of
+    passages trades off against RAG's fixed-cost marginalization; no work surveyed
+    here directly compares the two under matched compute budgets.
+\end{itemize}
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}

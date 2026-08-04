@@ -1,0 +1,20 @@
+{
+  "name": "semantic-scholar-cli",
+  "version": "1.0.0",
+  "description": "CLI for searching papers on Semantic Scholar via its public Graph API. No authentication required, zero runtime dependencies.",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "semantic-scholar-search": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test --timeout 30000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/bun": "latest"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(research-assistant)",
+      "Bash(bun run:*)",
+      "Bash(pdflatex:*)",
+      "Bash(bibtex:*)"
+    ]
+  }
+}
