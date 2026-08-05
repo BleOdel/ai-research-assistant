@@ -124,6 +124,10 @@ presenting it.
   scores bridge a rough list and a real decision.
 - **`/synthesize <topic>`** runs the full drafter-reviewer workflow: score sources,
   draft a report, fact-check every citation, compile and verify the PDF.
+- **`/reset [profile|documents|research|reports|all]`** wipes profile data,
+  `documents/` content, discovery state, or compiled reports back to a blank slate.
+  Shows exactly what will be deleted and requires typing `RESET` to confirm - nothing
+  is deleted until you do.
 
 ## File structure
 
@@ -135,7 +139,8 @@ ai-research-assistant/
 │   │   ├── setup.md                       # /setup onboarding
 │   │   ├── research.md                    # /research source discovery
 │   │   ├── rank.md                        # /rank batch-triage into a shortlist
-│   │   └── synthesize.md                  # /synthesize drafter-reviewer workflow
+│   │   ├── synthesize.md                  # /synthesize drafter-reviewer workflow
+│   │   └── reset.md                       # /reset wipe profile/documents/research/reports
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
