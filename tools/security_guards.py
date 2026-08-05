@@ -37,6 +37,9 @@ ALLOWED_PERMISSIONS = {
     "Bash(bun run:*)",
     "Bash(pdflatex:*)",
     "Bash(bibtex:*)",
+    "Bash(xelatex:*)",
+    "Bash(lualatex:*)",
+    "Bash(biber:*)",
 }
 
 # Personal-data ignore rules that must never disappear from .gitignore.

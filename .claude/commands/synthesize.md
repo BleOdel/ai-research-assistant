@@ -51,20 +51,36 @@ You already have the profile and scored sources in context. **Do not re-read the
 Read only what you don't yet have:
 - `.claude/skills/research-assistant/03-report-templates.md`
 - `.claude/skills/research-assistant/04-citation-rules.md`
-- `report/report_example.tex` as a structural starting point
+
+**Check `03-report-templates.md` for an `ACTIVE-TEMPLATE` managed block** (added by
+`/add-template`) before deciding where to draft from:
+
+- **If present:** draft from `templates/<name>/template.tex` (per the block's
+  `Template skeleton` path) instead of the stock structure, follow the required
+  section structure in that template's `TEMPLATE.md` manifest, and use the
+  compile/bibliography engine the block specifies in Step 5 instead of the stock
+  4-pass pdflatex+bibtex sequence. The block tells you exactly what overrides what -
+  don't guess.
+- **If absent:** draft from `report/report_example.tex` as the structural starting
+  point (the stock behavior, unchanged).
 
 Create `reports/<topic_slug>/report.tex` and `reports/<topic_slug>/references.bib`
-following the structure in `03-report-templates.md` and the citation rules in
-`04-citation-rules.md`:
+following the structure in `03-report-templates.md` (or the active template's
+manifest, if one is active) and the citation rules in `04-citation-rules.md`:
 
 - Title, metadata block stating search scope (connectors queried, date this was run)
 - Abstract
 - Background (length per the profile's expertise level for this topic)
 - Thematic body sections organized by approach/theme, not a flat per-paper list
+- Technical Findings (Plain Language) - standard section per `03-report-templates.md`,
+  unless the active template's manifest says it doesn't map onto that template's
+  required structure
 - Comparison table if the topic has genuinely comparable approaches
 - Open Questions / Gaps - stated explicitly, disagreements not smoothed over
-- Bibliography via `\bibliography{references}`, style set from the profile's citation
-  style preference (see `04-citation-rules.md`'s style table)
+- Bibliography via `\bibliography{references}` (or the active template's declared
+  bibliography engine), style set from the profile's citation style preference
+  unless the active template's manifest forces a specific style (see
+  `04-citation-rules.md`'s style table)
 
 **Every claim must trace to a source's actually-fetched content from Step 1.** If a
 claim can't be pinned to a specific source, mark it as synthesis/inference in the prose,
@@ -160,6 +176,11 @@ compile, mis-render the bibliography, or leave `??` where a citation should be.
 
 ### 5a. Compile (4-pass sequence)
 
+**If an `ACTIVE-TEMPLATE` block is present** (see Step 2), use the compile command
+from that template's `TEMPLATE.md` manifest instead of the sequence below - it may
+use `xelatex`/`lualatex` and/or `biber` instead of `pdflatex`/`bibtex`. Otherwise, use
+the stock sequence:
+
 ```bash
 cd reports/<topic_slug>
 pdflatex -interaction=nonstopmode report.tex
@@ -190,6 +211,9 @@ Fix `.tex` issues and recompile (full 4-pass sequence) until 5b passes fully.
 ```bash
 rm -f *.aux *.log *.bbl *.blg *.out
 ```
+
+If the active template uses `biber` (per its manifest), also remove its artifact
+types: `rm -f *.bcf *.run.xml`.
 
 Keep `report.tex`, `references.bib`, and `report.pdf`.
 

@@ -4,7 +4,10 @@
       "Skill(research-assistant)",
       "Bash(bun run:*)",
       "Bash(pdflatex:*)",
-      "Bash(bibtex:*)"
+      "Bash(bibtex:*)",
+      "Bash(xelatex:*)",
+      "Bash(lualatex:*)",
+      "Bash(biber:*)"
     ]
   }
 }

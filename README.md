@@ -132,6 +132,12 @@ presenting it.
   `author:` search for your own publications, and (optionally) GitHub for
   research-adjacent tooling - proposes new landmark works and sub-areas, labeled by
   source, additive only, confirmed before anything is written.
+- **`/add-template`** registers a custom LaTeX report format (a thesis chapter, an
+  ACM/IEEE conference layout) in place of the stock `article`-class structure. Runs a
+  mandatory test compile that exercises the bibliography specifically (supports
+  classic `bibtex` or `biblatex`+`biber`), then wires it into `/synthesize` via a
+  managed block in `03-report-templates.md`. `--list` / `--use <name>` / `--use
+  default` to manage registered templates.
 
 ## File structure
 
@@ -145,7 +151,8 @@ ai-research-assistant/
 │   │   ├── rank.md                        # /rank batch-triage into a shortlist
 │   │   ├── synthesize.md                  # /synthesize drafter-reviewer workflow
 │   │   ├── reset.md                       # /reset wipe profile/documents/research/reports
-│   │   └── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
+│   │   ├── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
+│   │   └── add-template.md                # /add-template register custom LaTeX report formats
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
@@ -162,6 +169,8 @@ ai-research-assistant/
 ├── report/
 │   ├── report_example.tex                 # LaTeX report template (article + BibTeX)
 │   └── references.bib                     # Example bibliography
+├── templates/                              # Custom report formats registered via /add-template
+│   └── README.md
 ├── documents/                              # Your CV, LinkedIn export, publications - /setup Path A
 │   ├── README.md
 │   ├── cv/
