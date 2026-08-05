@@ -73,6 +73,7 @@ When the user gives a topic, follow this workflow:
 | `05-subject-index.md` | Subject-organized paper index (`research/papers_by_subject.md`) format and classification rules |
 | `06-defense-prep.md` | Question-derivation and honest-answer framework used by `/defend` |
 | `07-fulltext.md` | When and how to read full-text PDFs (via the `paper-fetch` utility skill) instead of abstracts |
+| `08-living-updates.md` | Merge rules for `/update`: revise in place, dated Revision History, impact categories |
 
 ---
 
@@ -90,3 +91,5 @@ The user may also ask for individual steps without the full workflow:
   `06-defense-prep.md`
 - "Record what happened to this report" (presented, cited, needs revision,
   superseded) - equivalent to `/outcome`
+- "Bring this report up to date" / "what's new on this topic since the report" -
+  equivalent to `/update`, see `08-living-updates.md`

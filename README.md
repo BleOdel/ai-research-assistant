@@ -158,6 +158,13 @@ presenting it.
   `outcome.md` log. Surfaces patterns worth acting on (e.g. one subject area's
   reports repeatedly going stale) but never edits your profile or scoring rubric
   itself; that stays a `/setup` decision.
+- **`/update <topic>`** refreshes an existing report as a living document:
+  re-discovers the topic, scores what's genuinely new since the report was written,
+  merges it into the body **in place** (extending themes, revising contradicted
+  claims, retiring answered Open Questions), and appends a dated Revision History
+  entry recording what changed and which sources drove it. Fact-checks only the
+  new and changed claims - materially cheaper than a fresh `/synthesize`. "Nothing
+  new since <date>" is a valid, honest outcome.
 
 ## File structure
 
@@ -175,7 +182,8 @@ ai-research-assistant/
 │   │   ├── add-template.md                # /add-template register custom LaTeX report formats
 │   │   ├── add-source.md                  # /add-source generate a new connector skill
 │   │   ├── defend.md                      # /defend presentation/defense-prep pack
-│   │   └── outcome.md                     # /outcome record what happened to a report
+│   │   ├── outcome.md                     # /outcome record what happened to a report
+│   │   └── update.md                      # /update living-document refresh of a report
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
@@ -185,7 +193,8 @@ ai-research-assistant/
 │   │       ├── 04-citation-rules.md       # Citation style, verify-before-cite rule
 │   │       ├── 05-subject-index.md        # Subject-organized paper index format/rules
 │   │       ├── 06-defense-prep.md         # Question-derivation/honest-answer framework for /defend
-│   │       └── 07-fulltext.md             # Full-text reading rules (when to fetch PDFs vs. abstracts)
+│   │       ├── 07-fulltext.md             # Full-text reading rules (when to fetch PDFs vs. abstracts)
+│   │       └── 08-living-updates.md       # /update merge rules: revise in place + dated Revision History
 │   └── settings.json                      # Claude Code permissions (scoped)
 ├── .agents/skills/                        # Source connector + utility CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
@@ -302,12 +311,13 @@ isn't fetched.
 Full command parity with the ai-job-search pattern this framework is adapted from:
 `/setup`, `/research`, `/rank`, `/synthesize`, `/reset`, `/expand`, `/add-template`,
 `/add-source`, `/defend`, `/outcome` are all built, four academic connectors are
-live, and everything above is committed and CI-verified. Deliberately not built (open
-ideas for a future extension, not planned work):
+live, and everything above is committed and CI-verified. Beyond parity, the
+framework adds full-text PDF reading (`paper-fetch` + `07-fulltext.md`) and
+living-document mode (`/update`). Deliberately not built (open ideas for a future
+extension, not planned work):
 
-- Living-document mode (re-synthesizing a tracked topic to append only what's new
-  since the last run, with a changelog, instead of a fresh report each time)
-- Contradiction/consensus flagging across sources
+- Contradiction/consensus flagging across sources at discovery time (`/update` does
+  flag contradictions, but only against an existing report's claims)
 - Scheduled monitoring of tracked topics
 
 ## Acknowledgements

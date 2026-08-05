@@ -139,8 +139,9 @@ Summarize what was recorded:
 
 If the recorded status is `needs_revision` or `superseded`, also suggest:
 
-> "Want to re-run `/research <topic>` to pull in what's changed, then `/synthesize`
-> to refresh the report?"
+> "Want to run `/update <topic>`? It re-discovers what's new since the report was
+> written and merges it in with a dated Revision History entry - cheaper than a
+> fresh `/synthesize`, and the report comes back to `active`."
 
 If the recorded status is `presented` and no `/defend` prep pack exists for this
 topic yet, note that `/defend <topic>` builds one for next time.

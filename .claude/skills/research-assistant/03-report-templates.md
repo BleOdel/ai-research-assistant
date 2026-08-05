@@ -21,6 +21,11 @@ For a topic, create:
    it tells the reader what the review does and doesn't cover.
 2. **Abstract** - 4-6 sentences: what topic, what was found, the headline
    state-of-the-art conclusion, and the most important open question.
+2b. **Revision History** (only present once a report has been through `/update`) -
+   an unnumbered section immediately after the Abstract, one dated paragraph per
+   update run recording what changed and which sources drove it. Format and rules
+   in `08-living-updates.md`. Fresh `/synthesize` reports don't include it - it
+   appears on first update.
 3. **Background** (skip or keep to 1 paragraph if the profile's expertise level for
    this topic is "expert" - see `01-researcher-profile.md`) - define the problem and
    any terms a working-knowledge reader would need.
