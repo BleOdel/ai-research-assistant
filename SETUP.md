@@ -30,7 +30,8 @@ lint tool also needs PyYAML: `pip install pyyaml`.
 ### Bun (for the connector CLIs)
 
 The source-connector CLIs (`arxiv-search`, `semantic-scholar-search`,
-`google-scholar-search`) are written in TypeScript and run with Bun.
+`google-scholar-search`, `openalex-search`) and the `paper-fetch` full-text
+downloader are written in TypeScript and run with Bun.
 
 - macOS/Linux:
 
@@ -46,7 +47,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://bun.sh/install.ps1 | iex"
 
 If you prefer a package manager, `winget install Oven-sh.Bun` also works on Windows.
 
-All three connectors have **zero runtime dependencies** — `bun install` only pulls
+All five CLIs have **zero runtime dependencies** — `bun install` only pulls
 TypeScript dev types for the typechecker, so you can also just run them directly with
 `bun run src/cli.ts` without installing anything.
 
@@ -138,7 +139,7 @@ cd ai-research-assistant
 ## 3. Install connector CLIs
 
 ```bash
-for tool in arxiv-search semantic-scholar-search; do
+for tool in arxiv-search semantic-scholar-search google-scholar-search openalex-search paper-fetch; do
   cd .agents/skills/$tool/cli && bun install && cd ../../../..
 done
 ```
@@ -154,8 +155,9 @@ python -m unittest discover -s tests -t .
 All three should pass on a fresh clone. Then check the connectors:
 
 ```bash
-cd .agents/skills/arxiv-search/cli && bun run typecheck && bun test && cd -
-cd .agents/skills/semantic-scholar-search/cli && bun run typecheck && bun test && cd -
+for tool in arxiv-search semantic-scholar-search google-scholar-search openalex-search paper-fetch; do
+  (cd .agents/skills/$tool/cli && bun run typecheck && bun test)
+done
 ```
 
 And confirm the LaTeX toolchain works:

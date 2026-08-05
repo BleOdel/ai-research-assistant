@@ -36,6 +36,14 @@ candidates in this batch came from `semantic-scholar-search`, space consecutive
 per-call allowance, and this step is exactly the kind of "several sources, one
 connector" loop that can burn through it quickly if called back-to-back.
 
+If a source's Relevance or Rigor score genuinely turns on something its abstract
+doesn't state (evaluation setup, sample size, whether the method applies to this
+topic's setting), fetch its full text with `paper-fetch` and read the deciding
+sections rather than guessing - see
+`.claude/skills/research-assistant/07-fulltext.md` for when this is and isn't
+warranted. A paywalled source (`NO_OA_PDF`) is scored from its abstract with that
+weaker evidence basis noted explicitly in the scoring notes.
+
 Present the scoring table (see `02-source-evaluation.md`'s Output Format) and ask:
 > "Proceed to draft the synthesis with these sources? Reply yes, or tell me which to
 > drop."
@@ -120,11 +128,21 @@ For EVERY \cite{} in the report:
 1. Confirm a matching entry exists in the .bib file, and that its `url` field points at
    a real, fetchable source (an arXiv abstract page, a Semantic Scholar paper page, or a
    DOI link - not a fabricated URL).
-2. Fetch that URL with WebFetch and read the actual abstract/content.
+2. Get the source's actual content, strongest evidence first:
+   a. Try the full text: run
+      `bun run .agents/skills/paper-fetch/cli/src/cli.ts fetch <arxiv-id-or-doi>`
+      (it caches under research/fulltext/ and returns instantly if already fetched),
+      then Read the PDF - the sections relevant to the claims, not necessarily the
+      whole paper. If it exits with NO_OA_PDF or RATE_LIMITED, do NOT retry it -
+      fall through to (b).
+   b. Fall back to WebFetch on the .bib entry's URL and read the abstract/landing
+      page content.
 3. Find the specific sentence(s) in report.tex that cite this source, and check whether
    the claim made actually appears in (or is a fair restatement of) what you just
-   fetched. A citation supporting a claim the source doesn't make is a FAIL, even if the
-   source is real and relevant to the general topic.
+   read. A citation supporting a claim the source doesn't make is a FAIL, even if the
+   source is real and relevant to the general topic. A claim the abstract doesn't
+   mention but that you could only check against full text you couldn't get is not a
+   FAIL - report it as unverifiable at your evidence level, not as false.
 
 Also check the reverse direction: any .bib entry that is never \cite{}'d anywhere in
 report.tex (unused).
@@ -138,8 +156,9 @@ Return a JSON array, one object per citation key in the .bib file:
   {
     "key": "<bibtex key>",
     "url_resolves": true | false,
-    "claim_verified": true | false | "not_applicable_unused",
-    "issue": "<one-line description if either check failed, else null>"
+    "evidence_basis": "fulltext" | "abstract",
+    "claim_verified": true | false | "unverifiable_at_evidence_level" | "not_applicable_unused",
+    "issue": "<one-line description if a check failed or a claim was only checkable against full text you couldn't get, else null>"
   }
 ]
 ```
@@ -153,14 +172,20 @@ accuracy. That is the drafter's job in Step 4.
 ## Step 4: DRAFTER - Resolve Every Flagged Citation
 
 For every entry the reviewer returned with `url_resolves: false` or
-`claim_verified: false`:
+`claim_verified: false` (and weigh `unverifiable_at_evidence_level` honestly - see
+rule 3 below):
 
 1. Re-check the source yourself. If the claim is simply mis-stated, correct the prose
    in `report.tex` to match what the source actually says.
 2. If the source genuinely doesn't support the claim, either find a different source
    from the scored candidates that does, or remove the claim/citation and mark the point
    as unsupported if it can't be dropped without losing a needed transition.
-3. Remove any `unused` `.bib` entry, or add a citation for it if it should have been
+3. For `unverifiable_at_evidence_level` (the claim needs full text, and no
+   open-access copy exists): either soften the claim to what the abstract actually
+   supports, or keep it with the weaker evidence basis stated in the prose (e.g.
+   "per the authors' abstract") - never leave a full-text-strength claim standing
+   on abstract-level evidence.
+4. Remove any `unused` `.bib` entry, or add a citation for it if it should have been
    cited and was simply missed.
 
 Do not proceed to Step 5 until every flagged citation is resolved. This is not

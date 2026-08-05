@@ -48,6 +48,9 @@ When the user gives a topic, follow this workflow:
 ### Step 4: Fact-Check
 - Spawn a reviewer agent with fresh context (via the Agent tool) to run the Fact-Check
   Pass described in `04-citation-rules.md`
+- The reviewer verifies against full text where an open-access PDF exists (via
+  `paper-fetch`, per `07-fulltext.md`), falling back to the abstract - and records
+  which evidence basis backed each source
 - Resolve every flagged citation before proceeding
 
 ### Step 5: Compile and Verify
@@ -69,6 +72,7 @@ When the user gives a topic, follow this workflow:
 | `04-citation-rules.md` | Citation style, BibTeX rules, verify-before-cite honesty rule |
 | `05-subject-index.md` | Subject-organized paper index (`research/papers_by_subject.md`) format and classification rules |
 | `06-defense-prep.md` | Question-derivation and honest-answer framework used by `/defend` |
+| `07-fulltext.md` | When and how to read full-text PDFs (via the `paper-fetch` utility skill) instead of abstracts |
 
 ---
 

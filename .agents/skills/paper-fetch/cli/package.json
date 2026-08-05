@@ -1,0 +1,20 @@
+{
+  "name": "paper-fetch-cli",
+  "version": "1.0.0",
+  "description": "CLI that resolves arXiv ids/DOIs/OpenAlex ids to open-access PDFs and downloads them into the repo's full-text cache. Utility skill, not a search connector. Zero runtime dependencies.",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "paper-fetch": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test --timeout 30000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/bun": "latest"
+  }
+}

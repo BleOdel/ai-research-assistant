@@ -42,6 +42,11 @@ Discover all installed connector skills by reading every `SKILL.md` under
 each connector's own documented interface - do not guess flags.** This automatically
 includes any connector added later without requiring changes to this file.
 
+Skip any skill whose `SKILL.md` does not document a `search` command - those are
+utility skills, not source connectors (e.g. `paper-fetch`, which downloads full-text
+PDFs for `/synthesize` and has nothing to search). Do not count a skipped utility
+skill as a coverage gap in Step 5.
+
 For each installed connector skill:
 
 1. Read its `SKILL.md` for the correct `bun run …` invocation and supported flags.

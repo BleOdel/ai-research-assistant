@@ -68,14 +68,14 @@ cd ai-research-assistant
 ### 2. Install connector tools
 
 ```bash
-for tool in arxiv-search semantic-scholar-search google-scholar-search openalex-search; do
+for tool in arxiv-search semantic-scholar-search google-scholar-search openalex-search paper-fetch; do
   cd .agents/skills/$tool/cli && bun install && cd ../../../..
 done
 ```
 
-All four connectors have **zero runtime dependencies** — `bun install` only pulls
-TypeScript dev types, so this step is optional if you just want to run them with
-plain `bun`. `arxiv-search` and `openalex-search` need no account at all;
+All five CLIs (four search connectors plus the `paper-fetch` full-text downloader)
+have **zero runtime dependencies** — `bun install` only pulls TypeScript dev types,
+so this step is optional if you just want to run them with plain `bun`. `arxiv-search` and `openalex-search` need no account at all;
 `semantic-scholar-search` works without one too but benefits from an optional free
 key; `google-scholar-search` needs a `SERPAPI_API_KEY` (a free SerpApi account, 250
 searches/month) before it'll actually run - see [Source
@@ -184,13 +184,15 @@ ai-research-assistant/
 │   │       ├── 03-report-templates.md     # LaTeX report structure
 │   │       ├── 04-citation-rules.md       # Citation style, verify-before-cite rule
 │   │       ├── 05-subject-index.md        # Subject-organized paper index format/rules
-│   │       └── 06-defense-prep.md         # Question-derivation/honest-answer framework for /defend
+│   │       ├── 06-defense-prep.md         # Question-derivation/honest-answer framework for /defend
+│   │       └── 07-fulltext.md             # Full-text reading rules (when to fetch PDFs vs. abstracts)
 │   └── settings.json                      # Claude Code permissions (scoped)
-├── .agents/skills/                        # Source connector CLIs
+├── .agents/skills/                        # Source connector + utility CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
 │   ├── semantic-scholar-search/           # Semantic Scholar Graph API (cross-field, citations)
 │   ├── google-scholar-search/             # Google Scholar via SerpApi (broadest coverage, needs API key)
-│   └── openalex-search/                   # OpenAlex REST API (no account to start, independent citation counts)
+│   ├── openalex-search/                   # OpenAlex REST API (no account to start, independent citation counts)
+│   └── paper-fetch/                       # Full-text PDF downloader (open-access only, feeds fact-checking)
 ├── report/
 │   ├── report_example.tex                 # LaTeX report template (article + BibTeX)
 │   └── references.bib                     # Example bibliography
@@ -223,7 +225,11 @@ ai-research-assistant/
 3. **Fact-check.** A second agent, spawned with fresh context, re-fetches every
    cited source and verifies the claim attributed to it actually appears there. This
    is the drafter-reviewer split, applied to citation accuracy instead of prose
-   critique.
+   critique. Where an open-access PDF exists, the reviewer verifies against the
+   **full text** (downloaded via the `paper-fetch` utility skill into a local,
+   gitignored cache), not just the abstract - and every source's evidence basis
+   (full text vs. abstract-only) is recorded, so a claim is never presented as more
+   verified than it actually is.
 4. **Revise** based on the reviewer's findings — every flagged citation must be
    resolved before compiling.
 5. **Compile and inspect.** The 4-pass `pdflatex → bibtex → pdflatex → pdflatex`
@@ -281,6 +287,15 @@ installed at all) doesn't break discovery - it's just skipped in favor of the ot
 with the gap noted in the output. Adding a new source database (PubMed, a
 domain-specific archive) means running `/add-source`, which investigates the target
 API and scaffolds a new connector skill in this same shape.
+
+A fifth CLI, **`paper-fetch`**, is a utility rather than a search connector: it
+resolves an arXiv id, DOI, or OpenAlex work id to an **open-access** PDF (via arXiv's
+stable PDF URLs and OpenAlex's open-access locations) and downloads it into a local,
+gitignored full-text cache (`research/fulltext/`) so scoring and fact-checking can
+read the actual paper instead of its abstract. It never scrapes paywalled publisher
+sites - a paywalled source is scored from its abstract with that weaker evidence
+basis stated explicitly. See `07-fulltext.md` for the rules on when full text is and
+isn't fetched.
 
 ## Scope
 
