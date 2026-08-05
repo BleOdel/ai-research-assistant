@@ -2,9 +2,10 @@
 
 <!-- SETUP: Research interests are personalized by running /setup -->
 
-This framework is used by `/research` (quick triage only, see below) and `/synthesize`
-(full scoring). It exists so relevance judgments are consistent across a run and across
-runs - not a fresh vibe check on every source.
+This framework is used by `/research` (quick triage only, see below), `/rank` (full
+scoring for triage - see below), and `/synthesize` (full scoring, authoritative). It
+exists so relevance judgments are consistent across a run and across runs - not a
+fresh vibe check on every source.
 
 ## Scoring Dimensions
 
@@ -110,13 +111,25 @@ how well-cited or rigorous it is.
 
 ## Quick Triage (used by `/research` only)
 
-`/research` does not run the full four-dimension scoring above - that's `/synthesize`'s
-job, and running it on every raw search result would be wasteful. Instead, `/research`
-does a cheap 3-tier signal from title + abstract only:
+`/research` does not run the full four-dimension scoring above - that's `/rank` and
+`/synthesize`'s job, and running it on every raw search result would be wasteful.
+Instead, `/research` does a cheap 3-tier signal from title + abstract only:
 
 - **High**: Topic is clearly the paper's primary subject
 - **Medium**: Topic is a plausible component, needs a closer read
 - **Low**: Title matched the query but the abstract suggests a different focus
 
-This triage exists to help the user pick what to carry into `/synthesize`, which then
-re-scores properly. Triage scores are never presented as final relevance judgments.
+This triage exists to help the user pick what to carry into `/rank` or `/synthesize`,
+both of which re-score properly. Triage scores are never presented as final relevance
+judgments.
+
+## Full Scoring as Triage vs. as Final (`/rank` vs. `/synthesize`)
+
+`/rank` and `/synthesize` both run the full four-dimension rubric above, but at
+different depths: `/rank` scores from the abstract and profile only, cheaply, across
+many sources at once, to produce a shortlist - it never fact-checks or drafts.
+`/synthesize` re-runs the same rubric per source (never trusting a `/rank` score as
+final) as part of a deeper pass that also fact-checks every citation against
+actually-fetched content before anything is written. A `/rank` verdict is a strong
+signal for where to spend `/synthesize` effort, not a substitute for `/synthesize`'s
+own scoring pass.

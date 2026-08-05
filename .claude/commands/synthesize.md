@@ -223,6 +223,9 @@ any issue with it]
 ```
 
 Update `research/seen_sources.json`: set `status: "synthesized"` for every source used
-in this report.
+in this report. Then regenerate `research/papers_by_subject.md` from the full, current
+contents of `seen_sources.json` per
+`.claude/skills/research-assistant/05-subject-index.md`'s file format - a full
+rebuild, not an incremental patch.
 
 Tell the user the PDF is ready for review at the path above.

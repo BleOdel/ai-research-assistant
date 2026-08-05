@@ -42,10 +42,17 @@ ALLOWED_PERMISSIONS = {
 # Personal-data ignore rules that must never disappear from .gitignore.
 REQUIRED_IGNORE_RULES = [
     "research/seen_sources.json",
+    "research/papers_by_subject.md",
     "reports/**/*.pdf",
     "reports/**/*.tex",
     "reports/**/*.bib",
     "!reports/.gitkeep",
+    "documents/cv/**",
+    "documents/linkedin/**",
+    "documents/publications/**",
+    "!documents/cv/.gitkeep",
+    "!documents/linkedin/.gitkeep",
+    "!documents/publications/.gitkeep",
 ]
 
 FORBIDDEN_SCRIPTS = {"preinstall", "install", "postinstall", "prepare", "prepack"}

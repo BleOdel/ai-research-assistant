@@ -12,6 +12,7 @@ bun.lock
 # these must be recursive (reports/**/*) - a flat reports/*.pdf pattern silently
 # fails to ignore anything /synthesize actually produces.
 research/seen_sources.json
+research/papers_by_subject.md
 reports/**/*.pdf
 reports/**/*.tex
 reports/**/*.bib
@@ -21,6 +22,15 @@ reports/**/*.bbl
 reports/**/*.blg
 reports/**/*.out
 !reports/.gitkeep
+
+# Personal identity/background documents — the folder structure and README stay
+# tracked, but real CV/LinkedIn/publication files never should.
+documents/cv/**
+documents/linkedin/**
+documents/publications/**
+!documents/cv/.gitkeep
+!documents/linkedin/.gitkeep
+!documents/publications/.gitkeep
 
 # LaTeX compile artifacts (report/ example stays tracked, its build junk doesn't)
 report/*.aux

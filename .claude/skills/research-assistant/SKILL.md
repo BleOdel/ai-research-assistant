@@ -1,10 +1,10 @@
 ---
 name: research-assistant
 description: >
-  Assists with topic research: discovering academic sources, scoring their relevance,
-  and synthesizing a cited state-of-the-art report. Triggers on keywords like: research
-  topic, literature review, state of the art, find papers, synthesize research, source
-  discovery, citation check, /research, /synthesize
+  Assists with topic research: discovering academic sources, ranking and scoring their
+  relevance, and synthesizing a cited state-of-the-art report. Triggers on keywords
+  like: research topic, literature review, state of the art, find papers, rank sources,
+  synthesize research, source discovery, citation check, /research, /rank, /synthesize
 allowed-tools: Read, Glob, Grep, WebFetch, WebSearch, Edit, Write, Agent, AskUserQuestion
 ---
 
@@ -18,12 +18,19 @@ When the user gives a topic, follow this workflow:
 
 ### Step 1: Discover Sources
 - Run the installed connector CLIs (`.agents/skills/arxiv-search`,
-  `.agents/skills/semantic-scholar-search`) for the topic - see `/research`'s own
-  command file for the exact procedure
+  `.agents/skills/semantic-scholar-search`, `.agents/skills/google-scholar-search`) for
+  the topic - see `/research`'s own command file for the exact procedure
 - Deduplicate against `research/seen_sources.json`
 - Quick-triage each new source (high/medium/low) per `02-source-evaluation.md`'s
   Quick Triage section - not the full rubric yet
 - Present results, ask which sources (or "all") to carry into synthesis
+
+### Step 1.5: Rank a Large Batch (optional, `/rank`)
+- When a discovery batch is large (roughly 8+ new sources), run `/rank` to batch-score
+  every new source against the full four-dimension rubric via parallel agent dispatch
+  and return a shortlist - cheaper than scoring everything inline in `/synthesize`
+- `/rank` never fact-checks or drafts; it exists purely to help decide what's worth a
+  full `/synthesize` pass
 
 ### Step 2: Score Sources
 - For sources selected for synthesis, run the full four-dimension scoring in
@@ -60,6 +67,7 @@ When the user gives a topic, follow this workflow:
 | `02-source-evaluation.md` | Scoring framework for source relevance/rigor/impact/recency |
 | `03-report-templates.md` | LaTeX report structure and section rules |
 | `04-citation-rules.md` | Citation style, BibTeX rules, verify-before-cite honesty rule |
+| `05-subject-index.md` | Subject-organized paper index (`research/papers_by_subject.md`) format and classification rules |
 
 ---
 
@@ -67,6 +75,7 @@ When the user gives a topic, follow this workflow:
 
 The user may also ask for individual steps without the full workflow:
 - "Find sources on [topic]" - Step 1 only (equivalent to `/research`)
+- "Rank/triage what we found" - Step 1.5 only (equivalent to `/rank`)
 - "Score these sources against my interests" - Step 2 only
 - "Write up what we found" - Steps 3-5 (equivalent to `/synthesize`, assuming Step 1-2
   already ran)

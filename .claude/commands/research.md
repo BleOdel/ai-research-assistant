@@ -133,15 +133,26 @@ Add ALL fetched sources (new and skipped) to `research/seen_sources.json`:
       "source_connector": "arxiv-search | semantic-scholar-search | google-scholar-search",
       "first_seen": "YYYY-MM-DD",
       "relevance": "high/medium/low",
-      "status": "new/skipped/scored/synthesized"
+      "status": "new/skipped/ranked/unfetchable/synthesized",
+      "subject": "<matched Research Interest name, or 'Uncategorized'>"
     }
   }
 }
 ```
 
-`/synthesize` extends this schema additively: scored entries also carry `scores`
-(the four-dimension breakdown), `overall_score`, and `verdict`. Do not drop these
-fields when re-writing entries.
+Set `subject` once per entry, per `05-subject-index.md`'s classification rules
+(match the current topic against `01-researcher-profile.md`'s Research Interests).
+Do not re-classify an existing entry on a later run.
+
+### Step 4b: Regenerate the Subject Index
+
+Regenerate `research/papers_by_subject.md` from the full, current contents of
+`research/seen_sources.json` per `05-subject-index.md`'s file format - a full
+rebuild, not an incremental patch.
+
+`/rank` and `/synthesize` extend this schema additively: scored entries also carry
+`scores` (the four-dimension breakdown), `overall_score`, and `verdict` (`/rank` also
+adds `rank_date`, `impact_basis`). Do not drop these fields when re-writing entries.
 
 ---
 
@@ -169,6 +180,12 @@ silently absorbed.
 After presenting, ask:
 > "Want me to synthesize a report from any of these? Give me the numbers (or 'all') and
 > I'll run `/synthesize`."
+
+If this run found many new sources (roughly 8+), also suggest `/rank` - it
+batch-scores all new sources against the full evaluation rubric and returns a ranked
+shortlist, which beats eyeballing a long table. (`/rank` sets the `ranked` and
+`unfetchable` status values in `seen_sources.json`; treat both as already-seen for
+dedup purposes.)
 
 ---
 

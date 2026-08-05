@@ -88,8 +88,9 @@ claude
 /setup
 ```
 
-`/setup` offers three paths: paste an existing reading list or notes, describe your
-interests in a paragraph, or walk through an interview.
+`/setup` offers four paths: point it at your `documents/` folder (CV, LinkedIn
+export, your own publications - see `documents/README.md`), paste an existing reading
+list or notes, describe your interests in a paragraph, or walk through an interview.
 
 ### 4. Discover sources
 
@@ -117,6 +118,10 @@ presenting it.
   style, output preferences).
 - **`/research <topic>`** discovers sources via the connector CLIs, deduplicates
   against previous runs, and triages by relevance.
+- **`/rank`** batch-scores a large `/research` haul against the full evaluation
+  rubric via parallel agent dispatch, returning a ranked shortlist before you commit
+  to a full `/synthesize` pass. Bridges `/research` and `/synthesize` the way triage
+  scores bridge a rough list and a real decision.
 - **`/synthesize <topic>`** runs the full drafter-reviewer workflow: score sources,
   draft a report, fact-check every citation, compile and verify the PDF.
 
@@ -129,6 +134,7 @@ ai-research-assistant/
 │   ├── commands/
 │   │   ├── setup.md                       # /setup onboarding
 │   │   ├── research.md                    # /research source discovery
+│   │   ├── rank.md                        # /rank batch-triage into a shortlist
 │   │   └── synthesize.md                  # /synthesize drafter-reviewer workflow
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
@@ -136,7 +142,8 @@ ai-research-assistant/
 │   │       ├── 01-researcher-profile.md   # Interests, expertise, preferences
 │   │       ├── 02-source-evaluation.md    # Relevance/rigor/recency/impact scoring
 │   │       ├── 03-report-templates.md     # LaTeX report structure
-│   │       └── 04-citation-rules.md       # Citation style, verify-before-cite rule
+│   │       ├── 04-citation-rules.md       # Citation style, verify-before-cite rule
+│   │       └── 05-subject-index.md        # Subject-organized paper index format/rules
 │   └── settings.json                      # Claude Code permissions (scoped)
 ├── .agents/skills/                        # Source connector CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
@@ -145,7 +152,12 @@ ai-research-assistant/
 ├── report/
 │   ├── report_example.tex                 # LaTeX report template (article + BibTeX)
 │   └── references.bib                     # Example bibliography
-├── research/                              # Discovery state (seen_sources.json)
+├── documents/                              # Your CV, LinkedIn export, publications - /setup Path A
+│   ├── README.md
+│   ├── cv/
+│   ├── linkedin/
+│   └── publications/
+├── research/                              # Discovery state (seen_sources.json, papers_by_subject.md)
 ├── reports/                               # Compiled synthesis reports (per topic)
 ├── tools/
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json

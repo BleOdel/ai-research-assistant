@@ -76,6 +76,30 @@ scales more gracefully to a larger number of retrieved passages than RAG's appro
 marginalizing over passages, at the cost of encoder compute proportional to the number
 of passages retrieved.
 
+\section{Technical Findings (Plain Language)}
+\textbf{Dense retrieval, in plain terms:} instead of matching a search query against
+documents by shared keywords (the old way), dense retrieval turns both the query and
+every candidate document into a list of numbers (a vector) using a neural network, and
+finds documents whose numbers are ``close'' to the query's numbers. This is why it
+beats keyword matching: it can find a relevant passage even when it doesn't share any
+exact words with the query, because it's matching on meaning, not vocabulary.
+
+\textbf{RAG and REALM, in plain terms:} a normal language model only knows what it
+memorized during training. RAG and REALM bolt on a second step - before answering,
+first fetch a handful of relevant text passages from an external database, then hand
+those passages \emph{along with} the question to the language model. The model's job
+becomes ``answer using these specific passages,'' not ``recall everything from
+training.'' REALM builds this fetch-then-answer habit in from the start of training;
+RAG adds it on top of an already-trained model. The practical upshot: you can update
+what the model ``knows'' by updating the external database, no retraining required.
+
+\textbf{Fusion-in-Decoder, in plain terms:} RAG has to average across every fetched
+passage in a single pass, which gets harder to do well as you fetch more passages.
+Fusion-in-Decoder instead reads each passage separately first, then combines
+everything only at the very last step of generating the answer. This lets it use more
+passages without the averaging problem getting worse - the tradeoff is that reading
+more passages separately costs more compute.
+
 \section{Comparison of Approaches}
 
 \begin{table}[h]
