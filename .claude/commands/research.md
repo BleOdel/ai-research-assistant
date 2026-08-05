@@ -1,8 +1,8 @@
 # /research - Source Discovery
 
 Discovers sources on a topic via installed connector CLIs (arXiv, Semantic Scholar,
-Google Scholar, and any connectors added later). Deduplicates across runs and
-quick-triages by relevance.
+Google Scholar, OpenAlex, and any connectors added later via `/add-source`).
+Deduplicates across runs and quick-triages by relevance.
 
 `$ARGUMENTS` is the topic (free text), e.g. `/research retrieval-augmented generation
 for code search`. If empty, use the first Research Interest topic from
@@ -130,7 +130,7 @@ Add ALL fetched sources (new and skipped) to `research/seen_sources.json`:
       "year": 2024,
       "venue": "...",
       "url": "...",
-      "source_connector": "arxiv-search | semantic-scholar-search | google-scholar-search",
+      "source_connector": "arxiv-search | semantic-scholar-search | google-scholar-search | openalex-search",
       "first_seen": "YYYY-MM-DD",
       "relevance": "high/medium/low",
       "status": "new/skipped/ranked/unfetchable/synthesized",

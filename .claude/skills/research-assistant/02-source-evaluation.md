@@ -71,12 +71,19 @@ impactful than a 2015 paper with 20 citations).
 Semantic Scholar's `citationCount` and `influentialCitationCount` fields are the
 primary signal when available. Semantic Scholar's unauthenticated API is frequently
 rate-limited (see `04-citation-rules.md`'s connector notes), so when it's unavailable
-for a run, `google-scholar-search`'s `citedByCount` (if that connector is configured)
-is an acceptable substitute - Google Scholar's citation counts tend to run higher
-than Semantic Scholar's since it indexes more broadly, so note which source a citation
-count came from rather than treating the two as interchangeable across a comparison
-table. If neither is available, score this dimension "insufficient data" rather than
-defaulted to 0 - say so explicitly rather than silently zeroing a real paper.
+for a run, `google-scholar-search`'s `citedByCount` or `openalex-search`'s
+`citedByCount` (whichever connector is configured and available) is an acceptable
+substitute.
+
+**These three counts will not agree, sometimes by a lot** - each source indexes
+independently, and citation counts are not a fungible number across them. Directly
+observed for the same paper at the same point in time during this framework's
+development: Semantic Scholar 36, Google Scholar 47, OpenAlex 20 - roughly a 2x
+spread on the same underlying fact. Always note which connector a citation count
+came from, and never mix counts from different connectors within one comparison
+table without labeling each. If none is available, score this dimension
+"insufficient data" rather than defaulted to 0 - say so explicitly rather than
+silently zeroing a real paper.
 
 ## Weighting
 

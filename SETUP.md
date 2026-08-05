@@ -50,21 +50,44 @@ All three connectors have **zero runtime dependencies** — `bun install` only p
 TypeScript dev types for the typechecker, so you can also just run them directly with
 `bun run src/cli.ts` without installing anything.
 
-### SerpApi account (optional, for `google-scholar-search` only)
+### Optional API keys
 
-`arxiv-search` and `semantic-scholar-search` work with no account at all.
-`google-scholar-search` is different: **every request requires an API key**, with no
-unauthenticated tier. If you want Google Scholar's broader cross-publisher coverage
-and its more reliable citation counts, sign up for a free key (250 searches/month) at
+`arxiv-search` and `openalex-search` work with no account at all.
+`semantic-scholar-search` also works with no account, but benefits from one (see
+below). `google-scholar-search` is different: **every request requires an API key**,
+with no unauthenticated tier at all.
+
+**SerpApi account (for `google-scholar-search`).** If you want Google Scholar's
+broader cross-publisher coverage and its citation counts, sign up for a free key
+(250 searches/month) at
 [serpapi.com/users/sign_up](https://serpapi.com/users/sign_up), then:
 
 ```bash
 export SERPAPI_API_KEY="your-key-here"
 ```
 
-Skipping this is fine - `/research` and `/synthesize` work with just the other two
-connectors, and will note in their output when `google-scholar-search` was skipped
-for lacking a key.
+**Semantic Scholar key (optional, raises the rate limit).** Its unauthenticated pool
+is shared globally across every caller and gets rate-limited often; a free key from
+[semanticscholar.org/product/api](https://www.semanticscholar.org/product/api) moves
+you to a dedicated 1 request/second quota:
+
+```bash
+export SEMANTIC_SCHOLAR_API_KEY="your-key-here"
+```
+
+**OpenAlex key (optional, raises the daily allowance).** Works with zero setup, but
+unauthenticated requests get a small daily allowance (~10 searches/day; single-item
+lookups are free regardless). A free key from
+[openalex.org/settings/api](https://openalex.org/settings/api) raises this roughly
+100x:
+
+```bash
+export OPENALEX_API_KEY="your-key-here"
+```
+
+Skipping all of these is fine - `/research` and `/synthesize` work with whatever
+connectors are configured, and note in their output when one was skipped for lacking
+a key or hitting a rate limit.
 
 ### LaTeX (for compiling synthesis reports)
 
