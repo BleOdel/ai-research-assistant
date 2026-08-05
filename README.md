@@ -116,6 +116,10 @@ presenting it.
 
 ## Commands
 
+**New here? [USAGE.md](USAGE.md) is the step-by-step guide** — the core loop, the
+report lifecycle, and the operational rules that actually bite (rate limits,
+evidence basis, citation-count divergence). The list below is the summary.
+
 - **`/setup`** builds your researcher profile (interests, expertise level, citation
   style, output preferences).
 - **`/research <topic>`** discovers sources via the connector CLIs, deduplicates
