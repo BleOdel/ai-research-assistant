@@ -138,6 +138,12 @@ presenting it.
   classic `bibtex` or `biblatex`+`biber`), then wires it into `/synthesize` via a
   managed block in `03-report-templates.md`. `--list` / `--use <name>` / `--use
   default` to manage registered templates.
+- **`/add-source`** generates a new connector skill for a source database not
+  already covered (OpenAlex and PubMed/NCBI are suggested starting points).
+  Investigates the target API's actual docs, scaffolds it to match the existing
+  connector contract (same commands/flags/error codes as arXiv/Semantic Scholar/
+  Google Scholar), and requires a live test-run before registering. No query-list
+  file to edit - `/research`/`/rank` discover connectors dynamically.
 
 ## File structure
 
@@ -152,7 +158,8 @@ ai-research-assistant/
 │   │   ├── synthesize.md                  # /synthesize drafter-reviewer workflow
 │   │   ├── reset.md                       # /reset wipe profile/documents/research/reports
 │   │   ├── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
-│   │   └── add-template.md                # /add-template register custom LaTeX report formats
+│   │   ├── add-template.md                # /add-template register custom LaTeX report formats
+│   │   └── add-source.md                  # /add-source generate a new connector skill
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
