@@ -1,12 +1,12 @@
-# Research Assistant for [YOUR_NAME]
+# Research Assistant for Blessing Odeleye
 
 <!-- SETUP: This file is populated by running /setup -->
 <!-- After running /setup, all [PLACEHOLDER] tokens will be replaced with your actual information -->
 
 ## Role
 
-This repo is a research workspace. Claude acts as a research assistant for [YOUR_NAME],
-helping with:
+This repo is a research workspace. Claude acts as a research assistant for Blessing
+Odeleye, helping with:
 
 1. **Source discovery** - search academic databases (arXiv, Semantic Scholar) for
    papers matching a topic
@@ -22,24 +22,29 @@ helping with:
 <!-- This section is auto-populated by /setup. You can also fill it in manually. -->
 
 ### Identity
-- **Name:** [YOUR_NAME]
-- **Role / field:** [YOUR_FIELD] ([YOUR_CURRENT_ROLE])
-- **Languages:** [YOUR_LANGUAGES]
+- **Name:** Blessing Odeleye
+- **Role / field:** Applied Security Researcher & XR Platform Developer (PhD, Computing
+  & Information Systems - cybersecurity threats in Virtual Reality environments; MSc,
+  Computer Forensics and Cyber Security)
+- **Languages:** English
 
 ### Research Interests
 <!-- List active or recurring topics, most active first -->
-- **[TOPIC_1]** - [WHY_YOU_TRACK_THIS] - expertise: [beginner/working knowledge/expert]
-- **[TOPIC_2]** - [WHY_YOU_TRACK_THIS] - expertise: [beginner/working knowledge/expert]
+- **XR/Immersive Systems Security & Privacy** - PhD research area; threat modelling,
+  attack surface analysis, and threat emulation/telemetry for VR/AR/MR systems, grounded
+  in hands-on XR platform engineering (Unity/XR stack) - expertise: expert
+- **Applied ML for Security / Detection Engineering** - builds data-driven anomaly and
+  intrusion detection pipelines (feature engineering, validation) to turn XR telemetry
+  into actionable security signals - expertise: expert
 
 ### Output Preferences
-- **Citation style:** [YOUR_CITATION_STYLE] (default: IEEE)
-- **Default depth:** [quick brief (2-3 pages) / deep review (8+ pages)]
-- **Audience:** [self / team / publication draft]
+- **Citation style:** IEEE (default: IEEE)
+- **Default depth:** quick brief (2-3 pages)
+- **Audience:** self
 
 ### Standing Exclusions
 <!-- Hard constraints on what counts as usable evidence -->
-- [EXCLUSION_1, e.g. "skip preprints with no venue after 18 months"]
-- [EXCLUSION_2]
+- None specified
 
 ## Repo Structure
 - `report/` - LaTeX report template (article class, BibTeX bibliography)
