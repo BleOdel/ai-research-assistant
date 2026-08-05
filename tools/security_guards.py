@@ -46,6 +46,7 @@ ALLOWED_PERMISSIONS = {
 REQUIRED_IGNORE_RULES = [
     "research/seen_sources.json",
     "research/papers_by_subject.md",
+    "research_tracker.csv",
     "reports/**/*.pdf",
     "reports/**/*.tex",
     "reports/**/*.bib",

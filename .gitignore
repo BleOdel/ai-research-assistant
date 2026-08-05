@@ -13,6 +13,7 @@ bun.lock
 # fails to ignore anything /synthesize actually produces.
 research/seen_sources.json
 research/papers_by_subject.md
+research_tracker.csv
 reports/**/*.pdf
 reports/**/*.tex
 reports/**/*.bib

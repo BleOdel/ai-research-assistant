@@ -152,6 +152,12 @@ presenting it.
   section and any excluded/peripheral sources, drafts honest answers grounded only
   in what the report actually supports, optionally researches a named audience
   member's own work, and offers a mock Q&A roleplay.
+- **`/outcome [topic]`** records what happened to a report after the fact -
+  presented, cited in your own subsequent work, flagged for revision, or superseded
+  by a later `/research` update - into `research_tracker.csv` and a per-report
+  `outcome.md` log. Surfaces patterns worth acting on (e.g. one subject area's
+  reports repeatedly going stale) but never edits your profile or scoring rubric
+  itself; that stays a `/setup` decision.
 
 ## File structure
 
@@ -168,7 +174,8 @@ ai-research-assistant/
 │   │   ├── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
 │   │   ├── add-template.md                # /add-template register custom LaTeX report formats
 │   │   ├── add-source.md                  # /add-source generate a new connector skill
-│   │   └── defend.md                      # /defend presentation/defense-prep pack
+│   │   ├── defend.md                      # /defend presentation/defense-prep pack
+│   │   └── outcome.md                     # /outcome record what happened to a report
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
@@ -195,7 +202,8 @@ ai-research-assistant/
 │   ├── linkedin/
 │   └── publications/
 ├── research/                              # Discovery state (seen_sources.json, papers_by_subject.md)
-├── reports/                               # Compiled synthesis reports (per topic)
+├── reports/                               # Compiled synthesis reports (per topic), incl. outcome.md logs
+├── research_tracker.csv                   # /outcome status overview across all reports (gitignored)
 ├── tools/
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json
 │   └── security_guards.py                 # CI guards: permission allowlist, gitignore rules, manifests
@@ -278,12 +286,10 @@ API and scaffolds a new connector skill in this same shape.
 
 Full command parity with the ai-job-search pattern this framework is adapted from:
 `/setup`, `/research`, `/rank`, `/synthesize`, `/reset`, `/expand`, `/add-template`,
-`/add-source`, `/defend` are all built, four academic connectors are live, and
-everything above is committed and CI-verified. Deliberately not (yet) built:
+`/add-source`, `/defend`, `/outcome` are all built, four academic connectors are
+live, and everything above is committed and CI-verified. Deliberately not built (open
+ideas for a future extension, not planned work):
 
-- **`/outcome`** - tracking what happened to a synthesis report after the fact
-  (cited in your own paper, presented, superseded) and feeding that back into
-  calibration (analog of the original's `/outcome`)
 - Living-document mode (re-synthesizing a tracked topic to append only what's new
   since the last run, with a changelog, instead of a fresh report each time)
 - Contradiction/consensus flagging across sources

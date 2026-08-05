@@ -84,3 +84,5 @@ The user may also ask for individual steps without the full workflow:
   existing `.tex`/`.bib` pair
 - "Help me prep to present/defend this report" - equivalent to `/defend`, see
   `06-defense-prep.md`
+- "Record what happened to this report" (presented, cited, needs revision,
+  superseded) - equivalent to `/outcome`
