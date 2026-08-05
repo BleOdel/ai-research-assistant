@@ -146,6 +146,12 @@ presenting it.
   connector contract (same commands/flags/error codes as arXiv/Semantic Scholar/
   Google Scholar), and requires a live test-run before registering. No query-list
   file to edit - `/research`/`/rank` discover connectors dynamically.
+- **`/defend <topic>`** builds a prep pack for presenting or defending a
+  `/synthesize` report - to a supervisor, in a lab meeting, at a conference, or in a
+  thesis viva. Seeds likely tough questions from the report's own Open Questions
+  section and any excluded/peripheral sources, drafts honest answers grounded only
+  in what the report actually supports, optionally researches a named audience
+  member's own work, and offers a mock Q&A roleplay.
 
 ## File structure
 
@@ -161,7 +167,8 @@ ai-research-assistant/
 │   │   ├── reset.md                       # /reset wipe profile/documents/research/reports
 │   │   ├── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
 │   │   ├── add-template.md                # /add-template register custom LaTeX report formats
-│   │   └── add-source.md                  # /add-source generate a new connector skill
+│   │   ├── add-source.md                  # /add-source generate a new connector skill
+│   │   └── defend.md                      # /defend presentation/defense-prep pack
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
@@ -169,7 +176,8 @@ ai-research-assistant/
 │   │       ├── 02-source-evaluation.md    # Relevance/rigor/recency/impact scoring
 │   │       ├── 03-report-templates.md     # LaTeX report structure
 │   │       ├── 04-citation-rules.md       # Citation style, verify-before-cite rule
-│   │       └── 05-subject-index.md        # Subject-organized paper index format/rules
+│   │       ├── 05-subject-index.md        # Subject-organized paper index format/rules
+│   │       └── 06-defense-prep.md         # Question-derivation/honest-answer framework for /defend
 │   └── settings.json                      # Claude Code permissions (scoped)
 ├── .agents/skills/                        # Source connector CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
@@ -270,11 +278,9 @@ API and scaffolds a new connector skill in this same shape.
 
 Full command parity with the ai-job-search pattern this framework is adapted from:
 `/setup`, `/research`, `/rank`, `/synthesize`, `/reset`, `/expand`, `/add-template`,
-`/add-source` are all built, four academic connectors are live, and everything above
-is committed and CI-verified. Deliberately not (yet) built:
+`/add-source`, `/defend` are all built, four academic connectors are live, and
+everything above is committed and CI-verified. Deliberately not (yet) built:
 
-- **`/defend`** - presentation/defense-prep pack seeded from a report's Open
-  Questions section (analog of the original's `/interview`)
 - **`/outcome`** - tracking what happened to a synthesis report after the fact
   (cited in your own paper, presented, superseded) and feeding that back into
   calibration (analog of the original's `/outcome`)

@@ -49,6 +49,7 @@ REQUIRED_IGNORE_RULES = [
     "reports/**/*.pdf",
     "reports/**/*.tex",
     "reports/**/*.bib",
+    "reports/**/*.md",
     "!reports/.gitkeep",
     "documents/cv/**",
     "documents/linkedin/**",

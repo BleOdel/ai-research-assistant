@@ -68,6 +68,7 @@ When the user gives a topic, follow this workflow:
 | `03-report-templates.md` | LaTeX report structure and section rules |
 | `04-citation-rules.md` | Citation style, BibTeX rules, verify-before-cite honesty rule |
 | `05-subject-index.md` | Subject-organized paper index (`research/papers_by_subject.md`) format and classification rules |
+| `06-defense-prep.md` | Question-derivation and honest-answer framework used by `/defend` |
 
 ---
 
@@ -81,3 +82,5 @@ The user may also ask for individual steps without the full workflow:
   already ran)
 - "Check the citations in this report" - Step 4 only, run standalone against an
   existing `.tex`/`.bib` pair
+- "Help me prep to present/defend this report" - equivalent to `/defend`, see
+  `06-defense-prep.md`

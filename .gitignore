@@ -21,6 +21,7 @@ reports/**/*.log
 reports/**/*.bbl
 reports/**/*.blg
 reports/**/*.out
+reports/**/*.md
 !reports/.gitkeep
 
 # Personal identity/background documents — the folder structure and README stay
