@@ -197,6 +197,10 @@
   - Crime in Virtual Reality: Discussion
 
   *Surveys / SoK / empirical studies*
+  - Odeleye, Loukas, Heartfield, Sakellari, Panaousis, Spyridonis. 2023. Virtually
+    Secure: A taxonomic assessment of cybersecurity challenges in virtual reality
+    environments. Computers & Security. *(Own work - confirmed by researcher via
+    /expand, Google Scholar author search, 2026-08-05)*
   - Alberto Giaretta. 2022. Security and Privacy in Virtual Reality - A Literature
     Survey
   - Immersed in Reality Secured by Design - A Comprehensive Analysis of Security
@@ -215,6 +219,15 @@
   feature engineering for XR sensor data, validation pipelines, threat emulation and
   instrumented test environments, translating detection output into
   actionable/explainable decisions for engineers and stakeholders
+- **Known landmark works (if any):**
+  - Odeleye, Loukas, Heartfield, Spyridonis. 2021. Detecting framerate-oriented cyber
+    attacks on user experience in virtual reality. VR4Sec Workshop (SOUPS 2021).
+    Demonstrates frame-rate-manipulation attacks causing VR sickness and an
+    unsupervised Isolation Forest model for early-warning detection - direct match
+    for this interest's anomaly-detection-on-telemetry sub-area. Also relevant to
+    XR/Immersive Systems Security & Privacy's "Immersive attacks, hijacking &
+    perceptual manipulation" sub-area. *(Own work - confirmed by researcher via
+    /expand, Google Scholar author search, 2026-08-05)*
 
 ## Depth Calibration
 
