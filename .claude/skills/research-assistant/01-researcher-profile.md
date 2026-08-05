@@ -232,7 +232,7 @@ expert calibration: no background/definitions, lead with what's contestable
 
 ## Output Preferences
 - **Citation style:** IEEE (default IEEE if unset)
-- **Default report depth:** quick brief (2-3 pages)
+- **Default report depth:** deep review (10+ pages)
 - **Audience:** self - light on hedging and methodology exposition; prioritize the
   finding and its implication over process narration
 

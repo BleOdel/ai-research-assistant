@@ -39,7 +39,7 @@ Odeleye, helping with:
 
 ### Output Preferences
 - **Citation style:** IEEE (default: IEEE)
-- **Default depth:** quick brief (2-3 pages)
+- **Default depth:** deep review (10+ pages)
 - **Audience:** self
 
 ### Standing Exclusions
