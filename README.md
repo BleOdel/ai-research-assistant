@@ -128,6 +128,10 @@ presenting it.
   `documents/` content, discovery state, or compiled reports back to a blank slate.
   Shows exactly what will be deleted and requires typing `RESET` to confirm - nothing
   is deleted until you do.
+- **`/expand`** enriches your profile by scanning `documents/`, a Google Scholar
+  `author:` search for your own publications, and (optionally) GitHub for
+  research-adjacent tooling - proposes new landmark works and sub-areas, labeled by
+  source, additive only, confirmed before anything is written.
 
 ## File structure
 
@@ -140,7 +144,8 @@ ai-research-assistant/
 │   │   ├── research.md                    # /research source discovery
 │   │   ├── rank.md                        # /rank batch-triage into a shortlist
 │   │   ├── synthesize.md                  # /synthesize drafter-reviewer workflow
-│   │   └── reset.md                       # /reset wipe profile/documents/research/reports
+│   │   ├── reset.md                       # /reset wipe profile/documents/research/reports
+│   │   └── expand.md                      # /expand enrich profile from documents/Scholar/GitHub
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
