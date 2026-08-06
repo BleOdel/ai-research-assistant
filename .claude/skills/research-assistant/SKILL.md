@@ -74,6 +74,8 @@ When the user gives a topic, follow this workflow:
 | `06-defense-prep.md` | Question-derivation and honest-answer framework used by `/defend` |
 | `07-fulltext.md` | When and how to read full-text PDFs (via the `paper-fetch` utility skill) instead of abstracts |
 | `08-living-updates.md` | Merge rules for `/update`: revise in place, dated Revision History, impact categories |
+| `09-web-source-evaluation.md` | Credibility rubric for blogs/websites (`/websearch`) - separate from the academic rubric |
+| `10-html-reports.md` | Interactive HTML output format and build rules for `/websearch` |
 
 ---
 
@@ -93,3 +95,7 @@ The user may also ask for individual steps without the full workflow:
   superseded) - equivalent to `/outcome`
 - "Bring this report up to date" / "what's new on this topic since the report" -
   equivalent to `/update`, see `08-living-updates.md`
+- "What are practitioners writing about X" / "find blogs and websites on X" -
+  equivalent to `/websearch`, see `09-web-source-evaluation.md`. This is the
+  grey-literature track: separate state, separate rubric, HTML output. Never blend
+  its sources into an academic `/synthesize` report

@@ -26,6 +26,12 @@ reports/**/*.out
 reports/**/*.md
 !reports/.gitkeep
 
+# /websearch output: per-topic subdirectories are personal working data. The
+# tracked template and README live directly in blog/, so only subdirectories
+# and the discovery state file are ignored.
+blog/*/
+blog/seen_web_sources.json
+
 # Personal identity/background documents — the folder structure and README stay
 # tracked, but real CV/LinkedIn/publication files never should.
 documents/cv/**

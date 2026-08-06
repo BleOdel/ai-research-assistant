@@ -16,6 +16,7 @@ Type these **inside Claude Code**, not in your shell.
 |---------|---------|
 | `/setup` | Build your researcher profile (run once) |
 | `/research <topic>` | Discover sources across all connectors, dedup, quick triage |
+| `/websearch <topic>` | Grey-literature track: blogs, docs, specs → interactive HTML |
 | `/rank` | Batch-score a large haul against the full rubric, return a shortlist |
 | `/synthesize <topic> [nums\|all]` | Score → draft → fact-check → compile → verify |
 | `/update <topic>` | Refresh an existing report in place, with a dated Revision History |
@@ -118,6 +119,68 @@ Output: `reports/<topic-slug>/report.tex`, `references.bib`, `report.pdf`.
 > scope, and two cases where a figure was wrongly described as unavailable. That is
 > the system working. Findings from the reviewer should themselves be verified
 > before you act on them — it is another agent, not an oracle.
+
+---
+
+## 2b. The grey-literature track
+
+Peer-reviewed papers are not the only useful evidence. Practitioner blogs,
+engineering writeups, official documentation, and specs are faster, more concrete,
+and often the only written record of how something behaves in production. They are
+also unreviewed, and frequently written by someone with a commercial interest.
+
+```
+/websearch WebXR permission model in production
+```
+
+One command does discovery, credibility scoring, and the build. Output is a
+**self-contained interactive HTML page** at `blog/<topic-slug>/index.html` — open it
+directly in a browser, no server needed. Filter by text, tier, or content type; sort
+by score, date, authority, or evidence; click any source to expand its detail.
+
+### Why it's a separate track
+
+|  | Academic | Web |
+|---|---|---|
+| Rubric | Relevance 40 / **Rigor** 25 / **Impact** 20 / Recency 15 | Relevance 30 / **Authority** 25 / **Evidence** 25 / Recency 20 |
+| Core threshold | 75+ | 70+ |
+| State | `research/seen_sources.json` | `blog/seen_web_sources.json` |
+| Output | LaTeX → PDF | Interactive HTML |
+
+*Rigor* needs a venue and *Impact* needs citations — a blog has neither. They're
+replaced by **Authority** (who wrote this, do they have standing here) and
+**Evidence Quality** (are claims shown with code, benchmarks, and versions, or
+merely asserted). Recency is weighted higher because grey literature decays faster.
+
+**A Core web source is not equivalent to a Core paper.** The thresholds are lower
+because the ceiling is lower. The page's footer says so.
+
+### The three rules that matter here
+
+**Independence is labeled on every source** — `independent`, `first-party`,
+`vendor-competitive`, `sponsored`, or `unclear`. This is a *label, not a penalty*: a
+vendor's own engineering blog is often the single best source on their system.
+You just get told which you're reading, and comparative claims from interested
+parties are attributed in the prose rather than stated as fact.
+
+**Single-source claims are attributed opinion, not fact.** And the command checks
+whether apparent corroboration actually traces back to one origin — the specific
+failure mode where one confident post gets quoted by three others until an unsourced
+assertion looks like consensus.
+
+**Nothing is evaluated from a search snippet.** Snippets are optimized for your
+query, not for accuracy; every source is fetched and read, or recorded as
+unfetchable.
+
+### Keep the tracks separate
+
+Don't cite a blog post in a `/synthesize` report as though it were peer-reviewed. If
+a web source genuinely belongs in an academic report — a standard, a spec, a dataset
+release page — cite it as a `@misc` entry with an access date and say in the prose
+that it isn't peer-reviewed.
+
+`/websearch` uses the built-in `WebSearch`, not a connector CLI — deliberately, so
+it costs nothing against your 250-per-month SerpApi quota.
 
 ---
 
@@ -323,6 +386,10 @@ research/
 documents/
     cv/ linkedin/ publications/   your own materials (for /setup and /expand)
 research_tracker.csv      report status overview (created by /outcome)
+blog/
+    template.html         interactive report shell (tracked, editable)
+    seen_web_sources.json web discovery state
+    <topic-slug>/         index.html + sources.json from /websearch
 templates/                custom formats from /add-template
 ```
 
@@ -357,6 +424,8 @@ want to change its judgment:
 | `06-defense-prep.md` | Where `/defend`'s questions come from |
 | `07-fulltext.md` | When full text is fetched instead of abstracts |
 | `08-living-updates.md` | How `/update` merges new work |
+| `09-web-source-evaluation.md` | The web credibility rubric and independence labels |
+| `10-html-reports.md` | The interactive HTML output format |
 
 Changing the scoring weights in `02-source-evaluation.md`, for example, changes how
 every future `/rank` and `/synthesize` judges sources.

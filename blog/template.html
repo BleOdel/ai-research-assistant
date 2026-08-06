@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<!--
+  Interactive web/grey-literature report template.
+  Filled in by /websearch - see .claude/skills/research-assistant/10-html-reports.md
+
+  Replace these tokens:
+    [TOPIC]        - human-readable topic
+    [RUN_DATE]     - YYYY-MM-DD
+    [SCOPE_NOTE]   - one paragraph: what was searched, what was excluded, coverage gaps
+    [SYNTHESIS]    - the actual findings prose (HTML: <p>, <h3>, <ul> allowed)
+    [SOURCES_JSON] - JSON array, schema documented in 10-html-reports.md
+
+  Self-contained by design: no CDN, no external fonts, no network calls.
+  Opens from file:// and works offline.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[TOPIC] — Web Sources</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --panel: #fff; --ink: #1a1a18; --muted: #6b6b66;
+    --line: #e3e3df; --accent: #7c4a2d; --accent-soft: #f2e9e3;
+    --core: #2f6b4f; --supporting: #8a6d1f; --peripheral: #6b6b66;
+    --warn-bg: #fdf6e7; --warn-line: #e8d5a3;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --panel: #1e1e23; --ink: #eceae6; --muted: #9d9a94;
+      --line: #32323a; --accent: #d99b6c; --accent-soft: #2b2320;
+      --core: #6cc094; --supporting: #d4b45c; --peripheral: #9d9a94;
+      --warn-bg: #2a2418; --warn-line: #5c4c26;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfbfa; --panel: #fff; --ink: #1a1a18; --muted: #6b6b66;
+    --line: #e3e3df; --accent: #7c4a2d; --accent-soft: #f2e9e3;
+    --core: #2f6b4f; --supporting: #8a6d1f; --peripheral: #6b6b66;
+    --warn-bg: #fdf6e7; --warn-line: #e8d5a3;
+  }
+  :root[data-theme="dark"] {
+    --bg: #16161a; --panel: #1e1e23; --ink: #eceae6; --muted: #9d9a94;
+    --line: #32323a; --accent: #d99b6c; --accent-soft: #2b2320;
+    --core: #6cc094; --supporting: #d4b45c; --peripheral: #9d9a94;
+    --warn-bg: #2a2418; --warn-line: #5c4c26;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  h1 { font-size: clamp(1.5rem, 4vw, 2.1rem); line-height: 1.25; margin: 0 0 .5rem; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: .9rem; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; letter-spacing: -.01em; }
+  h3 { font-size: 1.02rem; margin: 1.5rem 0 .5rem; }
+  a { color: var(--accent); }
+
+  .scope {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: var(--radius); padding: .9rem 1.1rem; font-size: .88rem;
+    color: var(--ink); margin-bottom: 1.5rem;
+  }
+  .scope strong { display: block; margin-bottom: .25rem; font-size: .8rem;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+
+  .synthesis p { margin: 0 0 1rem; }
+  .synthesis ul { margin: 0 0 1rem; padding-left: 1.2rem; }
+  .synthesis li { margin-bottom: .4rem; }
+
+  /* controls */
+  .controls {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 1rem 0 .85rem; border-bottom: 1px solid var(--line); margin-bottom: 1.25rem;
+  }
+  .searchrow { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  input[type="search"], select {
+    font: inherit; font-size: .9rem; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem;
+  }
+  input[type="search"] { flex: 1 1 16rem; min-width: 0; }
+  input[type="search"]:focus-visible, select:focus-visible, .chip:focus-visible, .card h3 button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .chips { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
+  .chip {
+    font: inherit; font-size: .78rem; cursor: pointer; user-select: none;
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: .25rem .7rem;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .count { color: var(--muted); font-size: .82rem; margin-top: .7rem; }
+
+  /* cards */
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: .8rem;
+  }
+  .card h3 { margin: 0 0 .35rem; font-size: 1rem; line-height: 1.35; }
+  .card h3 button {
+    all: unset; cursor: pointer; display: block; width: 100%;
+    font-weight: 650; color: var(--ink);
+  }
+  .card h3 button:hover { color: var(--accent); }
+  .meta { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center;
+    font-size: .78rem; color: var(--muted); margin-bottom: .5rem; }
+  .tier { font-weight: 700; }
+  .tier.Core { color: var(--core); }
+  .tier.Supporting { color: var(--supporting); }
+  .tier.Peripheral { color: var(--peripheral); }
+  .badge {
+    font-size: .72rem; padding: .1rem .5rem; border-radius: 999px;
+    border: 1px solid var(--line); white-space: nowrap;
+  }
+  .badge.flag { border-color: var(--warn-line); background: var(--warn-bg); }
+  .dot { opacity: .4; }
+  .summary { font-size: .92rem; margin: 0; }
+  .detail { margin-top: .8rem; padding-top: .8rem; border-top: 1px dashed var(--line); font-size: .88rem; }
+  .detail[hidden] { display: none; }
+  .detail ul { margin: .3rem 0 .8rem; padding-left: 1.1rem; }
+  .detail li { margin-bottom: .3rem; }
+  .caveat { background: var(--warn-bg); border-left: 3px solid var(--warn-line);
+    padding: .5rem .7rem; border-radius: 4px; margin: .5rem 0 .8rem; }
+  .scores { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .78rem; color: var(--muted); }
+  .scores b { color: var(--ink); font-weight: 650; }
+  .visit { display: inline-block; margin-top: .3rem; font-size: .85rem; }
+
+  .empty { color: var(--muted); text-align: center; padding: 2.5rem 1rem; font-size: .9rem; }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: .8rem; }
+  @media print {
+    .controls { position: static; } .detail[hidden] { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>[TOPIC]</h1>
+  <div class="sub">Web &amp; grey-literature scan · [RUN_DATE]</div>
+</header>
+
+<div class="scope">
+  <strong>Search scope &amp; limitations</strong>
+  [SCOPE_NOTE]
+</div>
+
+<section class="synthesis">
+  [SYNTHESIS]
+</section>
+
+<h2>Sources</h2>
+
+<div class="controls">
+  <div class="searchrow">
+    <input type="search" id="q" placeholder="Filter by title, author, site, or summary…" aria-label="Filter sources">
+    <select id="sort" aria-label="Sort sources">
+      <option value="score">Sort: score</option>
+      <option value="date">Sort: newest</option>
+      <option value="authority">Sort: authority</option>
+      <option value="evidence">Sort: evidence</option>
+    </select>
+  </div>
+  <div class="chips" id="tierChips" role="group" aria-label="Filter by tier"></div>
+  <div class="chips" id="typeChips" role="group" aria-label="Filter by content type"></div>
+  <div class="count" id="count" role="status" aria-live="polite"></div>
+</div>
+
+<div id="list"></div>
+
+<footer>
+  Generated by <strong>/websearch</strong> · scored per <code>09-web-source-evaluation.md</code>.
+  Grey literature is not peer reviewed: tiers here are not equivalent to those in a
+  <code>/synthesize</code> report. Independence labels are shown on every card —
+  <em>first-party</em> and <em>vendor-competitive</em> sources may still be the best
+  available, but their comparative claims are attributed, not asserted.
+</footer>
+
+</div>
+
+<script id="data" type="application/json">
+[SOURCES_JSON]
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var raw = document.getElementById("data").textContent;
+  var SOURCES = [];
+  try { SOURCES = JSON.parse(raw) || []; }
+  catch (e) {
+    document.getElementById("list").innerHTML =
+      '<div class="empty">Source data failed to parse — the JSON block is malformed.</div>';
+    return;
+  }
+
+  var TIERS = ["Core", "Supporting", "Peripheral"];
+  var state = { q: "", tiers: new Set(), types: new Set(), sort: "score" };
+
+  var listEl  = document.getElementById("list");
+  var countEl = document.getElementById("count");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function chip(parent, label, set, value) {
+    var b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.textContent = label;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", function () {
+      if (set.has(value)) { set.delete(value); b.setAttribute("aria-pressed", "false"); }
+      else { set.add(value); b.setAttribute("aria-pressed", "true"); }
+      render();
+    });
+    parent.appendChild(b);
+  }
+
+  var tierWrap = document.getElementById("tierChips");
+  TIERS.forEach(function (t) {
+    if (SOURCES.some(function (s) { return s.tier === t; })) chip(tierWrap, t, state.tiers, t);
+  });
+
+  var typeWrap = document.getElementById("typeChips");
+  var types = [];
+  SOURCES.forEach(function (s) { if (s.type && types.indexOf(s.type) < 0) types.push(s.type); });
+  types.sort().forEach(function (t) { chip(typeWrap, t, state.types, t); });
+
+  document.getElementById("q").addEventListener("input", function (e) {
+    state.q = e.target.value.toLowerCase().trim(); render();
+  });
+  document.getElementById("sort").addEventListener("change", function (e) {
+    state.sort = e.target.value; render();
+  });
+
+  function matches(s) {
+    if (state.tiers.size && !state.tiers.has(s.tier)) return false;
+    if (state.types.size && !state.types.has(s.type)) return false;
+    if (!state.q) return true;
+    var hay = [s.title, s.author, s.site, s.summary, s.type].join(" ").toLowerCase();
+    return hay.indexOf(state.q) >= 0;
+  }
+
+  function sorter(a, b) {
+    if (state.sort === "date") return String(b.date || "").localeCompare(String(a.date || ""));
+    if (state.sort === "authority") return (b.scores && b.scores.authority || 0) - (a.scores && a.scores.authority || 0);
+    if (state.sort === "evidence") return (b.scores && b.scores.evidence || 0) - (a.scores && a.scores.evidence || 0);
+    return (b.score || 0) - (a.score || 0);
+  }
+
+  function card(s, i) {
+    var el = document.createElement("article");
+    el.className = "card";
+    var sc = s.scores || {};
+    var flagged = s.independence === "vendor-competitive" || s.independence === "sponsored" || s.independence === "unclear";
+    var dateTxt = s.date ? esc(s.date) : "undated";
+
+    var pts = (s.keyPoints || []).map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("");
+
+    el.innerHTML =
+      '<h3><button type="button" aria-expanded="false" aria-controls="d' + i + '">' + esc(s.title) + "</button></h3>" +
+      '<div class="meta">' +
+        '<span class="tier ' + esc(s.tier) + '">' + esc(s.tier) + " · " + (s.score || 0) + "</span>" +
+        '<span class="dot">·</span><span>' + esc(s.site || "unknown site") + "</span>" +
+        '<span class="dot">·</span><span>' + esc(s.author || "no named author") + "</span>" +
+        '<span class="dot">·</span><span>' + dateTxt + "</span>" +
+        '<span class="badge">' + esc(s.type || "unclassified") + "</span>" +
+        '<span class="badge' + (flagged ? " flag" : "") + '">' + esc(s.independence || "unclear") + "</span>" +
+      "</div>" +
+      '<p class="summary">' + esc(s.summary) + "</p>" +
+      '<div class="detail" id="d' + i + '" hidden>' +
+        (s.caveat ? '<div class="caveat">' + esc(s.caveat) + "</div>" : "") +
+        (pts ? "<ul>" + pts + "</ul>" : "") +
+        '<div class="scores">' +
+          "<span>Relevance <b>" + (sc.relevance || 0) + "</b></span>" +
+          "<span>Authority <b>" + (sc.authority || 0) + "</b></span>" +
+          "<span>Evidence <b>" + (sc.evidence || 0) + "</b></span>" +
+          "<span>Recency <b>" + (sc.recency || 0) + "</b></span>" +
+        "</div>" +
+        '<a class="visit" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">Open source ↗</a>' +
+      "</div>";
+
+    var btn = el.querySelector("h3 button");
+    var det = el.querySelector(".detail");
+    btn.addEventListener("click", function () {
+      var open = det.hasAttribute("hidden");
+      if (open) { det.removeAttribute("hidden"); } else { det.setAttribute("hidden", ""); }
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    return el;
+  }
+
+  function render() {
+    var rows = SOURCES.filter(matches).sort(sorter);
+    listEl.innerHTML = "";
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="empty">No sources match these filters.</div>';
+    } else {
+      rows.forEach(function (s, i) { listEl.appendChild(card(s, i)); });
+    }
+    var n = SOURCES.length;
+    countEl.textContent = rows.length === n
+      ? n + " source" + (n === 1 ? "" : "s")
+      : "Showing " + rows.length + " of " + n + " sources";
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

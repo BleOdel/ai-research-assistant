@@ -156,6 +156,14 @@ evidence basis, citation-count divergence). The list below is the summary.
   section and any excluded/peripheral sources, drafts honest answers grounded only
   in what the report actually supports, optionally researches a named audience
   member's own work, and offers a mock Q&A roleplay.
+- **`/websearch <topic>`** is the grey-literature track: searches practitioner
+  blogs, engineering writeups, official docs, specs, and technical discussion,
+  scores each source on a **separate credibility rubric** (Authority and Evidence
+  Quality in place of the academic Rigor and Impact), labels every source's
+  independence (`independent` / `first-party` / `vendor-competitive` / `sponsored`),
+  and builds a self-contained **interactive HTML page** under `blog/<topic>/` with
+  live filtering and sorting. Kept deliberately separate from the academic track so
+  an unreviewed assertion never sits beside a replicated result unmarked.
 - **`/outcome [topic]`** records what happened to a report after the fact -
   presented, cited in your own subsequent work, flagged for revision, or superseded
   by a later `/research` update - into `research_tracker.csv` and a per-report
@@ -187,7 +195,8 @@ ai-research-assistant/
 │   │   ├── add-source.md                  # /add-source generate a new connector skill
 │   │   ├── defend.md                      # /defend presentation/defense-prep pack
 │   │   ├── outcome.md                     # /outcome record what happened to a report
-│   │   └── update.md                      # /update living-document refresh of a report
+│   │   ├── update.md                      # /update living-document refresh of a report
+│   │   └── websearch.md                   # /websearch blog & website scan -> interactive HTML
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
 │   │       ├── SKILL.md
@@ -198,7 +207,9 @@ ai-research-assistant/
 │   │       ├── 05-subject-index.md        # Subject-organized paper index format/rules
 │   │       ├── 06-defense-prep.md         # Question-derivation/honest-answer framework for /defend
 │   │       ├── 07-fulltext.md             # Full-text reading rules (when to fetch PDFs vs. abstracts)
-│   │       └── 08-living-updates.md       # /update merge rules: revise in place + dated Revision History
+│   │       ├── 08-living-updates.md       # /update merge rules: revise in place + dated Revision History
+│   │       ├── 09-web-source-evaluation.md # Credibility rubric for blogs/websites
+│   │       └── 10-html-reports.md         # Interactive HTML output format
 │   └── settings.json                      # Claude Code permissions (scoped)
 ├── .agents/skills/                        # Source connector + utility CLIs
 │   ├── arxiv-search/                      # arXiv Export API (preprints, CS/physics/math/stats)
@@ -216,6 +227,9 @@ ai-research-assistant/
 │   ├── cv/
 │   ├── linkedin/
 │   └── publications/
+├── blog/                                  # /websearch output — interactive HTML scans
+│   ├── README.md
+│   └── template.html                      # Self-contained report shell (tracked)
 ├── research/                              # Discovery state (seen_sources.json, papers_by_subject.md)
 ├── reports/                               # Compiled synthesis reports (per topic), incl. outcome.md logs
 ├── research_tracker.csv                   # /outcome status overview across all reports (gitignored)

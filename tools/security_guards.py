@@ -53,6 +53,8 @@ REQUIRED_IGNORE_RULES = [
     "reports/**/*.bib",
     "reports/**/*.md",
     "!reports/.gitkeep",
+    "blog/*/",
+    "blog/seen_web_sources.json",
     "documents/cv/**",
     "documents/linkedin/**",
     "documents/publications/**",
