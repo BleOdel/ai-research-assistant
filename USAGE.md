@@ -25,7 +25,7 @@ Type these **inside Claude Code**, not in your shell.
 | `/expand` | Enrich your profile from `documents/`, Google Scholar, GitHub |
 | `/add-source` | Generate a new source-database connector |
 | `/add-template` | Register a custom LaTeX report format |
-| `/reset [scope]` | Wipe profile / documents / research / reports |
+| `/reset [scope]` | Wipe profile / documents / research / reports / blog |
 
 ---
 
@@ -303,8 +303,15 @@ or `biblatex`+`biber`. Once active, `/synthesize` drafts into it instead of the 
 /reset research
 ```
 
-Scopes: `profile`, `documents`, `research`, `reports`, `all`. Shows exactly what will
-be deleted and requires you to type `RESET` — nothing is removed until you do.
+Scopes: `profile`, `documents`, `research`, `reports`, `blog`, `all`. Shows exactly
+what will be deleted and requires you to type `RESET` — nothing is removed until you
+do.
+
+`blog` clears `/websearch` scans and their discovery state while preserving
+`blog/template.html` and `blog/README.md` — those are framework files, not your data,
+and deleting them would break the next scan. The academic and web tracks are separate
+scopes, so `/reset research` never touches your web scans and vice versa; only `all`
+clears both.
 
 ---
 

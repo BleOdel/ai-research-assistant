@@ -90,6 +90,13 @@ Skipping all of these is fine - `/research` and `/synthesize` work with whatever
 connectors are configured, and note in their output when one was skipped for lacking
 a key or hitting a rate limit.
 
+### Nothing extra for the web track
+
+`/websearch` (blogs, engineering writeups, docs and specs → interactive HTML) needs
+**no installation, no API key, and no LaTeX**. It runs on Claude Code's built-in web
+search and writes a self-contained HTML page you open in any browser. If you only
+want that track, you can skip Bun and LaTeX entirely and go straight to `/setup`.
+
 ### LaTeX (for compiling synthesis reports)
 
 Install a LaTeX distribution to compile the generated `.tex` reports to PDF:
@@ -183,7 +190,9 @@ claude
 
 This builds your researcher profile in `CLAUDE.md` and
 `.claude/skills/research-assistant/01-researcher-profile.md`. From there, try
-`/research <topic>` and `/synthesize <topic>`.
+`/research <topic>` then `/synthesize <topic>` for the academic track, or
+`/websearch <topic>` for the grey-literature one. Day-to-day usage, including the
+rate limits that actually bite, is in [USAGE.md](USAGE.md).
 
 ## Troubleshooting
 

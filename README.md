@@ -3,37 +3,63 @@
 *The research assistant that runs on your machine.*
 
 An AI-powered research framework built on [Claude Code](https://claude.com/claude-code).
-Fork it, describe what you research, and let Claude discover academic sources, score
-their relevance, and synthesize a cited, compiled state-of-the-art report.
+Fork it, describe what you research, and let Claude find the sources, score them, and
+write up the state of the art — as a cited LaTeX/PDF report from the peer-reviewed
+literature, or as an interactive HTML scan of what practitioners are writing.
 
 ## What this is
 
-A structured workflow that turns Claude Code into a literature-discovery and
-synthesis assistant. The core loop — discover sources, score them, draft a cited
-report, fact-check every citation with a second agent, compile to PDF — is
-field-agnostic. The three shipped connector skills (arXiv, Semantic Scholar, Google
-Scholar) cover academic search broadly; the pattern is designed to extend to other
-source databases.
+A structured workflow that turns Claude Code into a research assistant, across **two
+deliberately separate tracks**.
+
+**The academic track** — discover sources, score them against a fixed rubric, draft a
+cited report, fact-check every citation with a second agent, compile to PDF. Four
+connector skills (arXiv, Semantic Scholar, Google Scholar, OpenAlex) cover academic
+search broadly, plus `paper-fetch` for reading open-access full text; the pattern
+extends to other databases via `/add-source`.
 
 ```
 /setup          /research <topic>        /synthesize <topic>
   |                    |                        |
   v                    v                        v
-Fill in          Search arXiv +           Score sources,
-your profile     Semantic Scholar         draft LaTeX report
+Fill in          Search 4 academic        Score sources,
+your profile     databases in parallel    draft LaTeX report
   |                    |                        |
   v                    v                        v
 Profile           Present matches          Reviewer agent
 ready              with relevance          fact-checks every
-                   triage                  citation
-                       |                        |
-                       v                        v
-                  Pick sources             Compile + verify
-                  -> /synthesize           -> cited PDF report
+                   triage                  citation (full text
+                       |                    where open access)
+                       v                        |
+                  Pick sources                  v
+                  -> /synthesize           Compile + verify
+                                           -> cited PDF report
 ```
 
-The framework's central rule: **every claim in a synthesis report traces to a source
-that was actually fetched during the run.** A citation that can't be verified against
+**The grey-literature track** — `/websearch <topic>` searches practitioner blogs,
+engineering writeups, official docs and specs, scores each source on a *separate*
+credibility rubric, labels every source's independence, and builds a self-contained
+interactive HTML page.
+
+```
+/websearch <topic>
+  |
+  v
+Search + fetch every page      Score: Relevance / Authority /
+(never scored from snippets)   Evidence / Recency, label independence
+  |                                     |
+  v                                     v
+Synthesize by theme,            -> blog/<topic>/index.html
+attributing contested claims       (filter, sort, expand — offline)
+```
+
+They stay separate because a blog post and a peer-reviewed paper are different kinds
+of evidence: separate state, separate rubrics, separate output. Merging them would
+let an unsourced assertion sit beside a replicated result with nothing marking the
+difference.
+
+The framework's central rule, in both tracks: **every claim traces to a source that
+was actually fetched during the run.** A citation that can't be verified against
 fetched content is a defect, not a stylistic nitpick.
 
 ## Prerequisites
@@ -130,10 +156,11 @@ evidence basis, citation-count divergence). The list below is the summary.
   scores bridge a rough list and a real decision.
 - **`/synthesize <topic>`** runs the full drafter-reviewer workflow: score sources,
   draft a report, fact-check every citation, compile and verify the PDF.
-- **`/reset [profile|documents|research|reports|all]`** wipes profile data,
-  `documents/` content, discovery state, or compiled reports back to a blank slate.
-  Shows exactly what will be deleted and requires typing `RESET` to confirm - nothing
-  is deleted until you do.
+- **`/reset [profile|documents|research|reports|blog|all]`** wipes profile data,
+  `documents/` content, discovery state, compiled reports, or `/websearch` scans back
+  to a blank slate. Shows exactly what will be deleted and requires typing `RESET` to
+  confirm - nothing is deleted until you do. The `blog` scope preserves the tracked
+  `blog/template.html`, since that is framework code rather than your data.
 - **`/expand`** enriches your profile by scanning `documents/`, a Google Scholar
   `author:` search for your own publications, and (optionally) GitHub for
   research-adjacent tooling - proposes new landmark works and sub-areas, labeled by
