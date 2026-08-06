@@ -229,6 +229,28 @@
     perceptual manipulation" sub-area. *(Own work - confirmed by researcher via
     /expand, Google Scholar author search, 2026-08-05)*
 
+### AI Security and Privacy
+- **Why tracked:** Broadening security research beyond XR into general AI/LLM system
+  security and privacy, tracking UK AI Security Institute (AISI) research priorities.
+- **Expertise level:** working knowledge
+- **Sub-areas of interest:**
+  - Red teaming / adversarial evaluation of AI systems
+  - Cyber & autonomous systems (AI agents' capabilities in multi-step attacks, sandbox
+    escape)
+  - Control / monitoring (constraining and monitoring AI system behavior, incl.
+    interpretability)
+  - Science of evaluations (rigorous statistical/methodological frameworks for AI
+    assessment)
+  - Societal resilience (AI misuse - fraud, manipulation - and privacy impact)
+  - Model transparency (auditing/monitoring AI systems at scale)
+- **Known landmark works (if any):** none yet. Sub-areas above are seeded from UK AI
+  Security Institute's research page (https://www.aisi.gov.uk/research, fetched
+  2026-08-05) as a field-scoping reference, not from the researcher's own published
+  work or a scored/fetched paper - *(inferred from AISI's public research page -
+  review before relying on this, especially the sub-area list, which reflects AISI's
+  priorities filtered by inferred relevance to the researcher's existing profile, not
+  the researcher's own stated interests within this new area)*.
+
 ## Depth Calibration
 
 Expertise level changes how a synthesis report should read:
@@ -239,9 +261,13 @@ Expertise level changes how a synthesis report should read:
 - **Expert:** skip background entirely, focus on disagreements, open problems, and
   methodological critique - the value is in what's contestable, not a survey
 
-Both tracked interests are at expert level - default every synthesis report to the
-expert calibration: no background/definitions, lead with what's contestable
-(methodological gaps, disagreement between sources, open problems).
+XR/Immersive Systems Security & Privacy and Applied ML for Security / Detection
+Engineering are both at expert level - default synthesis reports on those topics to
+the expert calibration: no background/definitions, lead with what's contestable
+(methodological gaps, disagreement between sources, open problems). AI Security and
+Privacy is at working-knowledge level - reports on that topic should assume field
+vocabulary but keep a brief background section and focus on what's changed recently,
+per the working-knowledge calibration above.
 
 ## Output Preferences
 - **Citation style:** IEEE (default IEEE if unset)

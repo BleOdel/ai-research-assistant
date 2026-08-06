@@ -36,6 +36,9 @@ Odeleye, helping with:
 - **Applied ML for Security / Detection Engineering** - builds data-driven anomaly and
   intrusion detection pipelines (feature engineering, validation) to turn XR telemetry
   into actionable security signals - expertise: expert
+- **AI Security and Privacy** - broadening security research beyond XR into general
+  AI/LLM system security and privacy, tracking UK AI Security Institute (AISI)
+  research priorities - expertise: working knowledge
 
 ### Output Preferences
 - **Citation style:** IEEE (default: IEEE)
