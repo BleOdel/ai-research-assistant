@@ -18,7 +18,8 @@ Check `$ARGUMENTS` for a scope keyword:
 - `research` - clears discovery state (`research/seen_sources.json`,
   `research/papers_by_subject.md`) only
 - `reports` - deletes all compiled synthesis reports under `reports/` only
-- `all` - all four of the above
+- `blog` - deletes web-scan output and discovery state under `blog/` only
+- `all` - all five of the above
 
 If `$ARGUMENTS` is empty or does not contain a recognized scope keyword, ask:
 
@@ -41,9 +42,14 @@ If `$ARGUMENTS` is empty or does not contain a recognized scope keyword, ask:
 > - **`reports`** - Deletes all compiled synthesis reports under `reports/` (`.tex`,
 >   `.bib`, `.pdf` per topic). Discovery state under `research/` is NOT affected.
 >
-> - **`all`** - All four of the above.
+> - **`blog`** - Deletes all `/websearch` output (`blog/<topic>/index.html` and
+>   `sources.json`) and the web discovery state `blog/seen_web_sources.json`. The
+>   tracked `blog/template.html` and `blog/README.md` are NOT deleted. The academic
+>   track under `research/` and `reports/` is NOT affected.
 >
-> Reply with `profile`, `documents`, `research`, `reports`, or `all`.
+> - **`all`** - All five of the above.
+>
+> Reply with `profile`, `documents`, `research`, `reports`, `blog`, or `all`.
 
 Wait for the user's response before continuing.
 
@@ -111,7 +117,25 @@ status (new/ranked/unfetchable/synthesized). Report whether
 
 Note: this does NOT delete compiled reports under reports/ - a report already
 written stays on disk even after its source's discovery-state entry is cleared. Use
-the `reports` scope (or `all`) to also clear those.
+the `reports` scope (or `all`) to also clear those. The web track under blog/ is a
+separate scope and is also unaffected.
+```
+
+### If scope includes `blog`:
+
+Read `blog/seen_web_sources.json` if it exists and report the count of web sources by
+tier. List the topic folders under `blog/` (excluding the tracked `template.html` and
+`README.md`).
+
+```
+## Blog reset will clear:
+
+- blog/seen_web_sources.json - N web sources (X Core, Y Supporting, Z Peripheral) /
+  "(missing or empty)"
+- blog/<topic-slug>/ - K scan folder(s): [list them]
+
+Preserved: blog/template.html and blog/README.md (tracked framework files, not your
+data).
 ```
 
 If the state file is missing or empty, state "Nothing to clear - no discovery state
@@ -258,6 +282,17 @@ find documents/publications -type f ! -name '.gitkeep' -delete
 rm -f research/seen_sources.json research/papers_by_subject.md
 ```
 
+### Blog reset
+
+Deletes per-topic scan folders and the web discovery state, but never the tracked
+template or README - `find` with `-mindepth 1 -type d` targets only subdirectories,
+leaving files directly under `blog/` alone.
+
+```bash
+find blog -mindepth 1 -type d -exec rm -rf {} +
+rm -f blog/seen_web_sources.json
+```
+
 ### Reports reset
 
 ```bash
@@ -302,6 +337,11 @@ Then tell the user what to do next based on what was reset:
 > `/synthesize` can re-draft from previously-scored sources without re-running
 > `/research`.
 
+**If blog was reset:**
+> Web scans and their discovery state are cleared. `blog/template.html` and
+> `blog/README.md` are preserved. Run `/websearch <topic>` to start a new scan - the
+> academic track under `research/` and `reports/` is untouched.
+
 **If all was reset:**
-> Profile, documents, discovery state, and reports are all cleared - a fully blank
+> Profile, documents, discovery state, reports, and web scans are all cleared - a fully blank
 > slate. Run `/setup` to start over.
