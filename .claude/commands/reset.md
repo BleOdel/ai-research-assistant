@@ -16,7 +16,8 @@ Check `$ARGUMENTS` for a scope keyword:
   `01-researcher-profile.md` only
 - `documents` - deletes user-provided files from the `documents/` folder only
 - `research` - clears discovery state (`research/seen_sources.json`,
-  `research/papers_by_subject.md`) only
+  `research/papers_by_subject.md`) and the downloaded full-text PDF cache
+  (`research/fulltext/`)
 - `reports` - deletes all compiled synthesis reports under `reports/` only
 - `blog` - deletes web-scan output and discovery state under `blog/` only
 - `all` - all five of the above
@@ -35,8 +36,11 @@ If `$ARGUMENTS` is empty or does not contain a recognized scope keyword, ask:
 >   preserved.
 >
 > - **`research`** - Clears discovery state: `research/seen_sources.json` (every
->   source `/research` and `/rank` have found and scored) and
->   `research/papers_by_subject.md` (the derived subject index). Compiled reports
+>   source `/research` and `/rank` have found and scored),
+>   `research/papers_by_subject.md` (the derived subject index), and
+>   `research/fulltext/` (open-access PDFs cached by `paper-fetch`). The PDF cache is
+>   re-downloadable - clearing it costs time on the next fact-check pass, not data.
+>   Compiled reports
 >   under `reports/` are NOT affected.
 >
 > - **`reports`** - Deletes all compiled synthesis reports under `reports/` (`.tex`,
@@ -114,6 +118,12 @@ status (new/ranked/unfetchable/synthesized). Report whether
 - research/seen_sources.json - N sources (X new, Y ranked, Z synthesized) / "(missing
   or empty)"
 - research/papers_by_subject.md - [exists / missing]
+- research/fulltext/ - K cached PDF(s), S total / "(missing or empty)"
+
+Report the PDF cache's file count and total size (`du -sh research/fulltext`) so the
+user can see what they are discarding before typing RESET. It is a cache, not unique
+data - every file in it can be re-downloaded by `paper-fetch` - but it can be large,
+and re-fetching costs time on the next `/synthesize` fact-check pass.
 
 Note: this does NOT delete compiled reports under reports/ - a report already
 written stays on disk even after its source's discovery-state entry is cleared. Use
@@ -280,6 +290,7 @@ find documents/publications -type f ! -name '.gitkeep' -delete
 
 ```bash
 rm -f research/seen_sources.json research/papers_by_subject.md
+rm -rf research/fulltext
 ```
 
 ### Blog reset
@@ -329,8 +340,10 @@ Then tell the user what to do next based on what was reset:
 > run `/setup` (Path A) to populate your profile from them. See `documents/README.md`.
 
 **If research was reset:**
-> Discovery state is cleared. Run `/research <topic>` to start finding sources again -
-> any previously compiled reports under `reports/` are untouched.
+> Discovery state and the cached full-text PDFs are cleared. Run `/research <topic>`
+> to start finding sources again - any previously compiled reports under `reports/`
+> are untouched. `paper-fetch` will re-download PDFs on demand the next time a
+> `/synthesize` or `/update` fact-check pass needs them.
 
 **If reports was reset:**
 > All compiled reports are deleted. Discovery state under `research/` is untouched, so
