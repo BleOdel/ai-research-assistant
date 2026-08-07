@@ -1,19 +1,24 @@
 // Data source: OpenAlex (https://api.openalex.org). No account required to start -
 // confirmed empirically (this repo does not have and did not create an OpenAlex
 // account): a bare, keyless request against /works returns real, complete results.
-// OpenAlex uses a credit-metered rate limit rather than a simple requests/second
-// cap: roughly 10 searches/day unauthenticated, roughly 1000/day with a free API
-// key (sign up at https://openalex.org/settings/api - no payment required for the
-// free allowance). Fetching a single work by id/DOI ("detail" in this CLI) is free
-// regardless of key, per OpenAlex's own documented per-operation costs, so prefer
-// `detail` over repeated `search` calls where possible.
+// OpenAlex uses a credit-metered daily budget rather than a requests/second cap.
+// Measured directly from its own x-ratelimit-* response headers on 2026-08-07:
 //
-// IMPORTANT caveat: the WITH-key path (api_key query param) is this repo's best
-// inference from OpenAlex's query-param-heavy API style (search=, filter=,
-// mailto= are all query params) and could not be empirically verified - doing so
-// would require creating an OpenAlex account, which this build deliberately did
-// not do. If OPENALEX_API_KEY is set and requests still behave like the
-// unauthenticated tier, that's the first thing to check.
+//   unauthenticated   1,000 credits/day  (x-ratelimit-limit-usd 0.10)
+//   with a free key  10,000 credits/day  (x-ratelimit-limit-usd 1.00)
+//   search           10 credits per call
+//   detail (1 work)   1 credit per call
+//
+// So the practical budgets are ~100 searches/day unauthenticated and ~1,000/day
+// with a key - a 10x lift, not the 100x this file previously claimed. A single-work
+// lookup is NOT free, but it is 10x cheaper than a search, so preferring `detail`
+// over repeated `search` calls still stretches the budget considerably.
+// Free key (no payment): https://openalex.org/settings/api
+//
+// The api_key query-param auth format was originally inferred from OpenAlex's
+// query-param-heavy API style and shipped unverified. It is now CONFIRMED
+// (2026-08-07): with a real key the limit header rises from 1,000 to 10,000, and a
+// deliberately invalid key returns HTTP 401 rather than being ignored.
 // https://developers.openalex.org/
 
 export const BASE_URL = "https://api.openalex.org"
@@ -27,7 +32,7 @@ export class RateLimitError extends Error {}
 
 /** Builds the shared api_key / mailto query params from env vars, if set. Both are
  * optional - OpenAlex works with neither, but a free key raises the daily
- * allowance roughly 100x (see module header). */
+ * daily credit budget 10x, from 1,000 to 10,000 (see module header). */
 export function authParams(): Record<string, string> {
   const params: Record<string, string> = {}
   const apiKey = process.env.OPENALEX_API_KEY
@@ -46,10 +51,11 @@ export async function jsonFetch(url: string): Promise<unknown> {
     if (response.status === 429) {
       if (attempt === maxRetries) {
         throw new RateLimitError(
-          "OpenAlex's rate limit is exhausted for today. Unauthenticated requests get a small " +
-            "daily allowance (~10 searches); an OPENALEX_API_KEY (free, no payment required - " +
-            "sign up at https://openalex.org/settings/api) raises this roughly 100x. Do not " +
-            "retry further today - fall back to another connector for this query.",
+          "OpenAlex's daily credit budget is exhausted. Unauthenticated callers get 1,000 " +
+            "credits/day (~100 searches at 10 credits each); an OPENALEX_API_KEY (free, no " +
+            "payment required - sign up at https://openalex.org/settings/api) raises this 10x " +
+            "to 10,000. Note single-work `detail` lookups cost only 1 credit, so prefer those " +
+            "where possible. Do not retry further today - fall back to another connector.",
         )
       }
       const jitter = Math.floor(Math.random() * 750)

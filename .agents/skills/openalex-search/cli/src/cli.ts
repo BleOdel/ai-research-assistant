@@ -35,10 +35,10 @@ function parseFlags(argv: string[]): Flags {
 
 const HELP = `openalex-cli — search OpenAlex (api.openalex.org)
 
-No account required to start: unauthenticated requests get a small free daily
-allowance (~10 searches/day; single-item "detail" lookups are free regardless).
-An optional OPENALEX_API_KEY (free, no payment required - sign up at
-https://openalex.org/settings/api) raises the allowance roughly 100x.
+No account required to start. OpenAlex meters a daily credit budget: 1,000
+credits/day unauthenticated (a search costs 10, a single-work "detail" lookup
+costs 1 - so ~100 searches/day). An optional OPENALEX_API_KEY (free, no payment
+required - sign up at https://openalex.org/settings/api) raises it 10x to 10,000.
 
 USAGE
   bun run src/cli.ts search --query "<text>" [flags]

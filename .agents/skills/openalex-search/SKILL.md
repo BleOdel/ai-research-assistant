@@ -26,7 +26,8 @@ allowance is per-caller, not a single global pool everyone fights over.
 
 ## ⚠️ Rate limits: a small free daily allowance, no account required
 
-Unauthenticated requests get roughly **10 searches/day** (OpenAlex uses a
+Unauthenticated callers get **1,000 credits/day**, and a search costs 10 credits -
+so roughly **100 searches/day** (OpenAlex uses a
 credit-metered system, not a simple requests/second cap - confirmed empirically
 against the live API during this connector's development, not just from
 documentation, which turned out to be necessary: an early doc fetch during
@@ -35,7 +36,7 @@ immediately contradicted). **Fetching a single work by id/DOI (`detail`) is free
 regardless of key** per OpenAlex's documented per-operation costs - prefer `detail`
 over repeated `search` calls where possible.
 
-**To raise the daily allowance ~100x:** set `OPENALEX_API_KEY` to a free key from
+**To raise the daily budget 10x (1,000 -> 10,000 credits):** set `OPENALEX_API_KEY` to a free key from
 [openalex.org/settings/api](https://openalex.org/settings/api) - no payment required
 for the free allowance. **Caveat:** this connector sends the key as an `api_key`
 query parameter, inferred from OpenAlex's query-param-heavy API style (`search=`,

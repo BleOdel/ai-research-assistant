@@ -324,10 +324,12 @@ clears both.
 | **arXiv** | No key, generous | Your workhorse for CS/physics/math/stats |
 | **Semantic Scholar** | 1 req/sec with a key | Unauthenticated pool is shared **globally** and often limited |
 | **Google Scholar** | 250 searches/month (SerpApi) | Your scarcest resource — do not burn it on exploration |
-| **OpenAlex** | ~10 searches/day unauthenticated | Single-paper lookups are **free and unlimited** regardless |
+| **OpenAlex** | ~100 searches/day unauthenticated | Credit-metered: 1,000/day, search costs 10, single-paper lookup costs 1 |
 
-A free `OPENALEX_API_KEY` raises its allowance roughly 100×. If you use this
-framework more than occasionally, get one.
+A free `OPENALEX_API_KEY` raises OpenAlex's budget 10× (1,000 → 10,000 credits/day,
+so ~1,000 searches). If you use this framework more than occasionally, get one.
+Because a single-paper lookup costs 1 credit against a search's 10, resolving a known
+DOI is roughly ten times cheaper than searching for it.
 
 **Never hand-retry a `RATE_LIMITED` or `NO_API_KEY` error.** The CLI already
 exhausted its own exponential backoff; a manual retry burns time against a limit

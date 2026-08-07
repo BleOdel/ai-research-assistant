@@ -77,10 +77,11 @@ export SEMANTIC_SCHOLAR_API_KEY="your-key-here"
 ```
 
 **OpenAlex key (optional, raises the daily allowance).** Works with zero setup, but
-unauthenticated requests get a small daily allowance (~10 searches/day; single-item
-lookups are free regardless). A free key from
-[openalex.org/settings/api](https://openalex.org/settings/api) raises this roughly
-100x:
+unauthenticated requests get a daily credit budget of 1,000 - and since a search
+costs 10 credits and a single-work lookup costs 1, that is roughly 100 searches a
+day. A free key from
+[openalex.org/settings/api](https://openalex.org/settings/api) raises the budget 10x
+to 10,000:
 
 ```bash
 export OPENALEX_API_KEY="your-key-here"
