@@ -125,8 +125,9 @@ Report the results as a pass/fail checklist.
 The report MUST be compiled and visually inspected via the Read tool on the PDF output.
 "Looks fine in the .tex" is not acceptable - LaTeX page-break and bibliography
 rendering are unpredictable. Iterate until these all pass:
-- [ ] Compiled with **pdflatex** (two passes) + **bibtex** + **pdflatex** (two more
-      passes) - the standard four-pass sequence bibliography resolution requires. If
+- [ ] Compiled with the four-command sequence bibliography resolution requires:
+      **pdflatex -> bibtex -> pdflatex -> pdflatex** (one pdflatex pass before bibtex,
+      two after). This must match what `synthesize.md` Step 5a actually runs. If
       a custom report template is active (see `/add-template`), use its manifest's
       declared engine/bibliography sequence instead (may be xelatex/lualatex +
       biber) - the same "compile, don't assume" discipline applies either way

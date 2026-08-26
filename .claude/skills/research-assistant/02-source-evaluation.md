@@ -52,10 +52,10 @@ Signal from where and how the work was published.
 | 40-59 | Preprint (e.g. arXiv) with no venue yet, but methodologically sound |
 | 0-39 | No venue, no clear methodology, or self-published with red flags |
 
-Preprints are not penalized for being preprints per se (arXiv is one of the two MVP
-connectors) - score the methodology and reasoning quality visible in the abstract/
-content, and note venue status explicitly in the output so the reader can weigh it
-themselves.
+Preprints are not penalized for being preprints per se (arXiv is one of the four
+shipped connectors) - score the methodology and reasoning quality visible in the
+abstract/content, and note venue status explicitly in the output so the reader can
+weigh it themselves.
 
 ### 4. Impact (0-100)
 Citation signal, normalized by paper age (a 2024 paper with 20 citations is not less
@@ -71,9 +71,20 @@ impactful than a 2015 paper with 20 citations).
 Semantic Scholar's `citationCount` and `influentialCitationCount` fields are the
 primary signal when available. Semantic Scholar's unauthenticated API is frequently
 rate-limited (see `04-citation-rules.md`'s connector notes), so when it's unavailable
-for a run, `google-scholar-search`'s `citedByCount` or `openalex-search`'s
-`citedByCount` (whichever connector is configured and available) is an acceptable
-substitute.
+for a run, fall back **in this order**, taking the first that is configured and
+responding:
+
+1. `semantic-scholar-search` - `citationCount` + `influentialCitationCount`
+2. `openalex-search` - `citedByCount`. Prefer this over Google Scholar: it needs no
+   paid account, and a single-work lookup by DOI costs 1 credit against a search's
+   10, so it is cheap even when its daily budget is tight.
+3. `google-scholar-search` - `citedByCount`. Requires a SerpApi key with a
+   250-searches/month free tier, so treat it as the scarcest of the three.
+4. None available - score Impact `"insufficient data"` and renormalize per
+   *Computing the Overall Score* below.
+
+Every command that scores a source uses this same chain. Do not silently drop a
+connector from it.
 
 **These three counts will not agree, sometimes by a lot** - each source indexes
 independently, and citation counts are not a fungible number across them. Directly
@@ -97,10 +108,40 @@ how well-cited or rigorous it is.
 
 ## Thresholds
 
-- **Core Source** (75+): Central to the synthesis, cite substantively
-- **Supporting Source** (55-74): Cite for context or a specific claim
+Four verdict tiers. **Write the verdict exactly as `Core`, `Supporting`,
+`Peripheral`, or `Excluded`** - one word, no suffix - everywhere a verdict is
+recorded: the Output Format table below, `research/seen_sources.json`, and
+`research/papers_by_subject.md`. Anything else ("Core Source", "core", "Supporting
+Source") is a defect, not a stylistic variant: verdicts are counted and filtered
+downstream, and two spellings of one tier silently split every total.
+
+- **Core** (75+): Central to the synthesis, cite substantively
+- **Supporting** (55-74): Cite for context or a specific claim
 - **Peripheral** (35-54): Mention only if it fills a genuine gap, otherwise omit
 - **Excluded** (<35): Do not cite
+
+## Computing the Overall Score
+
+Multiply each dimension by its weight and sum. When Impact is `"insufficient data"`
+(see the Impact section above), **do not treat it as zero** - a recent paper with no
+citation history yet is not a low-impact paper. Renormalize the remaining three
+weights proportionally:
+
+| Dimension | Normal weight | Weight when Impact is unavailable |
+|-----------|---------------|-----------------------------------|
+| Relevance | 40% | **50%** |
+| Rigor | 25% | **31.25%** |
+| Recency | 15% | **18.75%** |
+| Impact | 20% | (excluded) |
+
+Record `"impact": "insufficient data"` in the source's `scores` object so the
+renormalization is visible rather than implied.
+
+This rule is authoritative for **every** command that scores a source - `/research`,
+`/rank`, `/synthesize` and `/update` alike - so the same source scores the same
+regardless of which command reached it first. Zeroing a missing Impact instead of
+renormalizing drags sources across the 75/55/35 verdict boundaries, which is exactly
+the kind of silent inconsistency this file exists to prevent.
 
 ## Output Format (used by `/synthesize`)
 

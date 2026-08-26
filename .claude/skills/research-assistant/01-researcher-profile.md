@@ -258,7 +258,8 @@ Expertise level changes how a synthesis report should read:
   newest preprints, more background section
 - **Working knowledge:** assume field vocabulary, focus on what's changed recently,
   brief background
-- **Expert:** skip background entirely, focus on disagreements, open problems, and
+- **Expert:** skip background, or keep it to a single paragraph that only fixes
+  scope and terminology; focus on disagreements, open problems, and
   methodological critique - the value is in what's contestable, not a survey
 
 XR/Immersive Systems Security & Privacy and Applied ML for Security / Detection

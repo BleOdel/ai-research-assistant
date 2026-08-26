@@ -17,9 +17,9 @@ allowed-tools: Read, Glob, Grep, WebFetch, WebSearch, Edit, Write, Agent, AskUse
 When the user gives a topic, follow this workflow:
 
 ### Step 1: Discover Sources
-- Run the installed connector CLIs (`.agents/skills/arxiv-search`,
-  `.agents/skills/semantic-scholar-search`, `.agents/skills/google-scholar-search`) for
-  the topic - see `/research`'s own command file for the exact procedure
+- Run every installed connector CLI under `.agents/skills/*/` that documents a
+  `search` command - `/research` discovers them dynamically, so do not rely on a
+  hardcoded list here. See `/research`'s own command file for the exact procedure
 - Deduplicate against `research/seen_sources.json`
 - Quick-triage each new source (high/medium/low) per `02-source-evaluation.md`'s
   Quick Triage section - not the full rubric yet

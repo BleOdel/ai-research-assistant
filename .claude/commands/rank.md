@@ -65,10 +65,9 @@ agent (a single agent is fine for ≤5 sources). Token-efficiency rules, consist
   in the prompt to space consecutive `detail` calls to that connector by at least one
   second (see that connector's `SKILL.md` - the authenticated quota is 1 request/second
   cumulative).
-- Impact scoring follows `02-source-evaluation.md`'s guidance: use
-  `semantic-scholar-search` citation data if available, fall back to
-  `google-scholar-search`'s `citedByCount` if that connector is configured and S2
-  isn't, otherwise mark Impact "insufficient data" - never default to 0.
+- Impact scoring follows `02-source-evaluation.md`'s connector fallback chain exactly
+  (Semantic Scholar, then OpenAlex, then Google Scholar, then "insufficient data") -
+  never default to 0, and do not drop a connector from the chain.
 
 Each agent returns a JSON array, one object per source:
 
@@ -92,13 +91,12 @@ Relevance gets a low score.
 
 Back in the main context, for each scored source:
 
-1. Compute the overall score using `02-source-evaluation.md`'s weighting (Relevance
-   40%, Rigor 25%, Impact 20%, Recency 15%). If Impact is "insufficient data" for a
-   source, renormalize the other three weights proportionally (Relevance 50%, Rigor
-   31.25%, Recency 18.75%) rather than treating a missing dimension as a zero - the
-   same approach used in the keystroke-inference report's first synthesis pass.
-2. Map to the framework's verdict bands (Core Source 75+, Supporting 55-74, Peripheral
-   35-54, Excluded <35).
+1. Compute the overall score per `02-source-evaluation.md`'s *Computing the Overall
+   Score* section, including its renormalization rule for sources whose Impact is
+   "insufficient data". Do not restate the weights here - that file is authoritative,
+   and a second copy would drift from it.
+2. Map to the verdict bands in that file's *Thresholds* section, writing the verdict
+   as one bare word: `Core`, `Supporting`, `Peripheral` or `Excluded`.
 
 Sort by overall score (descending). `unfetchable` sources go into a separate list, not
 the ranking.

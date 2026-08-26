@@ -36,8 +36,8 @@ to look more legitimate.
 ## Citation Style
 
 Use the style set in `01-researcher-profile.md`'s `Citation style` field. Default:
-**IEEE** (numbered, `\bibliographystyle{ieeetr}`) since the MVP connectors (arXiv,
-Semantic Scholar) skew CS/ML. Other supported values map to standard BibTeX styles:
+**IEEE** (numbered, `\bibliographystyle{ieeetr}`) since the shipped connectors skew
+CS/ML (arXiv especially; OpenAlex is the one with broad non-CS coverage). Other supported values map to standard BibTeX styles:
 
 | Profile value | `\bibliographystyle{}` |
 |----------------|------------------------|
