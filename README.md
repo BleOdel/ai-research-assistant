@@ -191,6 +191,12 @@ evidence basis, citation-count divergence). The list below is the summary.
   and builds a self-contained **interactive HTML page** under `blog/<topic>/` with
   live filtering and sorting. Kept deliberately separate from the academic track so
   an unreviewed assertion never sits beside a replicated result unmarked.
+- **`/gaps`** reasons across **all** your reports at once, which no other command
+  does: it surfaces open questions that recur independently in two or more reports (a
+  research-direction signal a single report cannot produce), flags sources already in
+  your corpus that may address a report's stated gap, and reports where two reports
+  score or characterize the same paper differently. Reads and suggests only - never
+  edits a report.
 - **`/outcome [topic]`** records what happened to a report after the fact -
   presented, cited in your own subsequent work, flagged for revision, or superseded
   by a later `/research` update - into `research_tracker.csv` and a per-report
@@ -221,6 +227,7 @@ ai-research-assistant/
 │   │   ├── add-template.md                # /add-template register custom LaTeX report formats
 │   │   ├── add-source.md                  # /add-source generate a new connector skill
 │   │   ├── defend.md                      # /defend presentation/defense-prep pack
+│   │   ├── gaps.md                        # /gaps cross-report analysis
 │   │   ├── outcome.md                     # /outcome record what happened to a report
 │   │   ├── update.md                      # /update living-document refresh of a report
 │   │   └── websearch.md                   # /websearch blog & website scan -> interactive HTML

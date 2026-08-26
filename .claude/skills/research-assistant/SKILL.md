@@ -96,6 +96,8 @@ The user may also ask for individual steps without the full workflow:
   `06-defense-prep.md`
 - "Record what happened to this report" (presented, cited, needs revision,
   superseded) - equivalent to `/outcome`
+- "What gaps keep coming up across my reports" / "what should I work on next" -
+  equivalent to `/gaps`, which reasons across all reports at once rather than one
 - "Bring this report up to date" / "what's new on this topic since the report" -
   equivalent to `/update`, see `08-living-updates.md`
 - "What are practitioners writing about X" / "find blogs and websites on X" -

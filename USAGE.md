@@ -22,6 +22,7 @@ Type these **inside Claude Code**, not in your shell.
 | `/update <topic>` | Refresh an existing report in place, with a dated Revision History |
 | `/defend <topic> [context]` | Presentation/viva prep pack + mock Q&A |
 | `/outcome [topic]` | Record what happened to a report after the fact |
+| `/gaps` | Cross-report: recurring gaps, divergent sources, portfolio health |
 | `/expand` | Enrich your profile from `documents/`, Google Scholar, GitHub |
 | `/add-source` | Generate a new source-database connector |
 | `/add-template` | Register a custom LaTeX report format |
@@ -248,6 +249,37 @@ Records what happened: `presented`, `cited` (in your own later work),
 If several reports in one subject area keep going stale, it will say so and suggest
 recalibrating — but it never edits your profile or scoring rubric itself. That stays
 your decision.
+
+---
+
+## 3b. Looking across all your reports
+
+Every other command works on one report. `/gaps` is the exception:
+
+```
+/gaps
+```
+
+It reads all your reports together and reports four things:
+
+- **Open questions that recur independently** across two or more reports. A gap you
+  found once is an observation; the same gap surfacing in two separate literatures is
+  a research direction — and it is invisible to any single-report command.
+- **Open questions your own corpus may already address** — sources you scored but
+  never synthesized whose titles and scores suggest they target a gap a report
+  states. Reported as candidates for `/update` to evaluate, never as answers: it is
+  matching against a title and a score, not fetched content.
+- **Sources treated differently across reports** — the same paper scored Core in one
+  and Peripheral in another, read in full for one and abstract-only for another (the
+  cached PDF means the second can be upgraded free), or characterized in conflicting
+  ways.
+- **Portfolio health** — coverage per research interest, how much of your corpus is
+  scored but unused, and any interest marked "expert" with little behind it.
+
+It never edits a report. Acting on what it finds is `/update`'s job, or yours.
+
+Worth running when you have three or more reports, or after a stretch of `/research`
+runs that never turned into synthesis.
 
 ---
 

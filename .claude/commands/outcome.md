@@ -119,6 +119,11 @@ say so and suggest, in words, what it might mean:
 > fast enough to warrant a shorter `Default report depth` or more frequent
 > `/research` reruns for it. Want to update the profile?"
 
+For patterns in the *content* of reports rather than their status - the same gap
+flagged in two reports, a source cited differently across them - point the user at
+`/gaps`, which reads the reports themselves. This command deliberately sees only
+tracker metadata.
+
 **Do not edit `01-researcher-profile.md`, `02-source-evaluation.md`, or any other
 skill file yourself, even if the user says yes** - point them to `/setup` (rerun) or
 make the specific edit only after they confirm exactly what to change. This command's
