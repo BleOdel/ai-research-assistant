@@ -44,17 +44,17 @@ ALLOWED_PERMISSIONS = {
 
 # Personal-data ignore rules that must never disappear from .gitignore.
 REQUIRED_IGNORE_RULES = [
-    "research/seen_sources.json",
-    "research/papers_by_subject.md",
-    "research/fulltext/",
+    # Deny-by-default for the three directories that hold research output. Listing
+    # extensions here was tried and failed twice (see .gitignore's comment); these
+    # rules must stay broad, with tracked framework files re-included explicitly.
+    "research/*",
+    "!research/.gitkeep",
     "research_tracker.csv",
-    "reports/**/*.pdf",
-    "reports/**/*.tex",
-    "reports/**/*.bib",
-    "reports/**/*.md",
+    "reports/*",
     "!reports/.gitkeep",
-    "blog/*/",
-    "blog/seen_web_sources.json",
+    "blog/*",
+    "!blog/README.md",
+    "!blog/template.html",
     "documents/cv/**",
     "documents/linkedin/**",
     "documents/publications/**",
