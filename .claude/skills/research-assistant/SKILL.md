@@ -51,6 +51,9 @@ When the user gives a topic, follow this workflow:
 - The reviewer verifies against full text where an open-access PDF exists (via
   `paper-fetch`, per `07-fulltext.md`), falling back to the abstract - and records
   which evidence basis backed each source
+- It also runs four report-level checks across all sources at once: single-source
+  load-bearing claims, contradictions between cited sources, causal language on
+  correlational findings, and figures quoted without their conditions
 - Resolve every flagged citation before proceeding
 
 ### Step 5: Compile and Verify

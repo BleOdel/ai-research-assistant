@@ -112,7 +112,13 @@ Report the results as a pass/fail checklist.
 - [ ] The report states its search scope (databases queried, date range, query terms)
       so the reader knows what was and wasn't covered
 - [ ] Genuine disagreement or gaps between sources are stated, not smoothed into a
-      false consensus
+      false consensus - the reviewer agent's `report_level` array checks this
+      directly (`source_contradiction`), so this item is verified, not self-assessed
+- [ ] No load-bearing claim rests on a single source with no released artifact
+      without being attributed in the prose (reviewer: `single_source_claim`)
+- [ ] No correlational finding is stated causally, and no figure is quoted without
+      the conditions that make it meaningful (reviewer: `causal_overreach`,
+      `unconditioned_figure`)
 - [ ] Low-relevance or low-rigor sources that were excluded are not silently dropped -
       note the exclusion criterion if it materially shaped the review
 

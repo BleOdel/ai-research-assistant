@@ -157,33 +157,69 @@ For EVERY \cite{} in the report:
 Also check the reverse direction: any .bib entry that is never \cite{}'d anywhere in
 report.tex (unused).
 
+Then, ACROSS the sources you have just read - you already have them all in context, so
+this needs no further fetching - check the report as a whole for four failures that no
+per-citation check can catch:
+
+- **Single-source load-bearing claims.** A claim carrying real weight in the report's
+  argument, cited to exactly one source, where that source released no artifact
+  (no code, dataset, or benchmark). Per `02-source-evaluation.md`'s Corroboration
+  section such a claim must be *attributed* in the prose ("Luo et al. report 96.51%"),
+  not stated flatly ("the attack achieves 96.51%"). Flag the flat ones.
+- **Contradictions between cited sources.** Two sources in this report that disagree
+  on a fact, a figure, or a conclusion, where the report presents only one side or
+  smooths the disagreement away. Report both positions.
+- **Causal language on correlational findings.** The report says X causes/enables/
+  prevents Y where the cited source reports only an association, or reports a result
+  under conditions the report's sentence drops.
+- **Figures quoted without their conditions.** A number carried into the report
+  without the sample size, threat model, task, or interval that makes it meaningful -
+  especially where the report compares two such numbers as if they were commensurable.
+
 ## Output
 
-Return a JSON array, one object per citation key in the .bib file:
+Return a JSON object with two keys:
 
 ```json
-[
-  {
-    "key": "<bibtex key>",
-    "url_resolves": true | false,
-    "evidence_basis": "fulltext" | "abstract",
-    "claim_verified": true | false | "unverifiable_at_evidence_level" | "not_applicable_unused",
-    "issue": "<one-line description if a check failed or a claim was only checkable against full text you couldn't get, else null>"
-  }
-]
+{
+  "citations": [
+    {
+      "key": "<bibtex key>",
+      "url_resolves": true | false,
+      "evidence_basis": "fulltext" | "abstract",
+      "claim_verified": true | false | "unverifiable_at_evidence_level" | "not_applicable_unused",
+      "issue": "<one-line description if a check failed or a claim was only checkable against full text you couldn't get, else null>"
+    }
+  ],
+  "report_level": [
+    {
+      "type": "single_source_claim" | "source_contradiction" | "causal_overreach" | "unconditioned_figure",
+      "claim": "<the sentence or clause from report.tex, quoted>",
+      "keys": ["<bibtex key(s) involved>"],
+      "issue": "<what is wrong and what the sources actually support>"
+    }
+  ]
+}
 ```
 
-Do not critique prose style, structure, or completeness - only citation-to-source
-accuracy. That is the drafter's job in Step 4.
+`report_level` is an empty array if you find nothing - that is a valid and expected
+result for a well-drafted report. Do not manufacture findings to fill it.
+
+Do not critique prose style, structure, or length. The four report-level checks above
+are the only judgments beyond citation-to-source accuracy that are yours to make;
+everything else is the drafter's job in Step 4.
 ```
 
 ---
 
-## Step 4: DRAFTER - Resolve Every Flagged Citation
+## Step 4: DRAFTER - Resolve Every Flagged Finding
 
-For every entry the reviewer returned with `url_resolves: false` or
-`claim_verified: false` (and weigh `unverifiable_at_evidence_level` honestly - see
-rule 3 below):
+The reviewer returns two arrays. Both must be resolved before Step 5.
+
+### 4a. Per-citation findings (`citations`)
+
+For every entry with `url_resolves: false` or `claim_verified: false` (and weigh
+`unverifiable_at_evidence_level` honestly - see rule 3 below):
 
 1. Re-check the source yourself. If the claim is simply mis-stated, correct the prose
    in `report.tex` to match what the source actually says.
@@ -198,9 +234,31 @@ rule 3 below):
 4. Remove any `unused` `.bib` entry, or add a citation for it if it should have been
    cited and was simply missed.
 
-Do not proceed to Step 5 until every flagged citation is resolved. This is not
-optional - a report with an unresolved citation flag is not "mostly done," it's a
-report with a known false claim in it.
+### 4b. Report-level findings (`report_level`)
+
+These are not citation errors - each one is a real claim cited to a real source that
+says it. They are failures of *how much weight the evidence bears*, which is why the
+per-citation pass cannot see them. Resolve each by type:
+
+- **`single_source_claim`** - attribute it in the prose ("Luo et al. report…"), or
+  find a second independent source and say the two agree. Do not simply delete the
+  claim: the finding is that it is under-attributed, not that it is wrong.
+- **`source_contradiction`** - present both positions with their evidence and say the
+  disagreement is unresolved, per `03-report-templates.md`'s Open Questions rules.
+  Never silently pick a winner; if one side is better supported, say so in terms of
+  the evidence (released artifact, larger N, independent replication).
+- **`causal_overreach`** - rewrite to the associational claim the source actually
+  supports, or state the conditions under which causation was demonstrated.
+- **`unconditioned_figure`** - restore the sample size, threat model, task or
+  interval, or stop comparing the figure to another that was measured differently.
+
+A `report_level` finding is resolved by **changing the prose**, not by adding a
+caveat sentence elsewhere and leaving the original claim standing.
+
+Do not proceed to Step 5 until both arrays are resolved. This is not optional - a
+report with an unresolved citation flag is not "mostly done," it's a report with a
+known false claim in it, and an unresolved report-level flag is a claim the evidence
+does not carry.
 
 ---
 
