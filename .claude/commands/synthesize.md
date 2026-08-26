@@ -86,8 +86,14 @@ Create `reports/<topic_slug>/report.tex` and `reports/<topic_slug>/references.bi
 following the structure in `03-report-templates.md` (or the active template's
 manifest, if one is active) and the citation rules in `04-citation-rules.md`:
 
-- Title, metadata block stating search scope (connectors queried, date this was run)
+- Title, and a metadata block carrying all four fields
+  `03-report-templates.md` marks required: connectors queried (naming any that failed
+  or lacked a key, with the reason), date/query terms, source count **with its
+  Core/Supporting/Peripheral distribution**, and exclusions including any unfetchable
+  candidates by name
 - Abstract
+- **Revision History**, seeded now with the initial dated entry (date, source count,
+  connectors) - not deferred to first `/update`
 - Background (length per the profile's expertise level for this topic)
 - Thematic body sections organized by approach/theme, not a flat per-paper list
 - Technical Findings (Plain Language) - standard section per `03-report-templates.md`,
@@ -98,7 +104,10 @@ manifest, if one is active) and the citation rules in `04-citation-rules.md`:
 - Bibliography via `\bibliography{references}` (or the active template's declared
   bibliography engine), style set from the profile's citation style preference
   unless the active template's manifest forces a specific style (see
-  `04-citation-rules.md`'s style table)
+  `04-citation-rules.md`'s style table). **Every `.bib` entry carries a `note` field
+  recording its evidence basis** - full text read, or abstract-only with the reason -
+  per `04-citation-rules.md`'s BibTeX Entry Format. This is required on every entry,
+  not just the ones that seem doubtful
 
 **Every claim must trace to a source's actually-fetched content from Step 1.** If a
 claim can't be pinned to a specific source, mark it as synthesis/inference in the prose,

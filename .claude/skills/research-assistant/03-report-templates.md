@@ -16,16 +16,32 @@ For a topic, create:
 
 ## Section Structure
 
-1. **Title + metadata block** - topic, date, search scope (databases queried, date
-   range or query terms used) as a footnote or preamble note. This is not decorative:
-   it tells the reader what the review does and doesn't cover.
+1. **Title + metadata block** - topic, date, and search scope as a footnote or
+   preamble note. This is not decorative: it tells the reader what the review does and
+   doesn't cover. Four things are **required**, not optional:
+   - **Databases queried**, and any that failed or were skipped, with the reason
+     (rate-limited, no API key configured). A coverage gap caused by a missing key is
+     not the same as a coverage gap in the field, and the reader cannot tell which
+     unless you say.
+   - **Date range or query terms** used.
+   - **Source count and tier composition** - not just "N sources", but how they
+     distribute across Core/Supporting/Peripheral. "No source reached Core" is
+     technically true and reads far better than "two of three are Peripheral, at 54
+     and 38". State the distribution.
+   - **Exclusions**: sources that were found and deliberately not used, with the
+     criterion. Unfetchable sources count here and must be named - a reader who knows
+     two candidates could not be retrieved reads the coverage claim differently.
 2. **Abstract** - 4-6 sentences: what topic, what was found, the headline
    state-of-the-art conclusion, and the most important open question.
-2b. **Revision History** (only present once a report has been through `/update`) -
-   an unnumbered section immediately after the Abstract, one dated paragraph per
-   update run recording what changed and which sources drove it. Format and rules
-   in `08-living-updates.md`. Fresh `/synthesize` reports don't include it - it
-   appears on first update.
+2b. **Revision History** - an unnumbered section immediately after the Abstract, one
+   dated paragraph per run. **Seed it at first synthesis** with an initial entry
+   naming the date and source count; `/update` appends to it thereafter. Format and
+   rules in `08-living-updates.md`.
+
+   It is present from the start deliberately. Without it a reader cannot distinguish
+   a report written last week from one written months ago and never revisited since -
+   and a report whose source pool has been superseded looks identical to one that is
+   current.
 3. **Background** (skip or keep to 1 paragraph if the profile's expertise level for
    this topic is "expert" - see `01-researcher-profile.md`) - define the problem and
    any terms a working-knowledge reader would need.

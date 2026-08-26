@@ -28,6 +28,23 @@ Every entry in `references.bib` must include, at minimum:
   for preprints
 - `url` pointing at the actual fetched source (DOI link, arXiv abstract page, or
   Semantic Scholar paper page)
+- **`note` recording the evidence basis** - how this source's content was obtained,
+  and anything the reader needs in order to weigh the citation. This is required, not
+  optional. Two forms:
+  - Full text read: `note = {Primary PDF read directly via paper-fetch on YYYY-MM-DD
+    - full text, not abstract-only}`
+  - Abstract only: `note = {Abstract-only evidence basis: <why no full text - e.g.
+    IEEE paywall, no preprint found>; abstract verified via <route>}`
+
+  Add to the same field anything unresolved about the source: a venue confirmed
+  against the publisher rather than a database tag, a preprint whose published version
+  could not be located, a disclosure label worth surfacing (`self-evaluating`,
+  `vendor-report`). These notes render in the bibliography, so a reader sees per source
+  how strong the evidence behind it is without having to ask.
+
+  This exists because it was previously done only when a human was in the loop asking
+  for it: of four reports produced by this framework, one carries evidence-basis notes
+  on 11 of 14 entries and the other three carry none at all.
 
 Never fabricate a field. If a preprint has no venue, the entry is a `@misc` or
 `@article` with `eprint`/`archivePrefix` set - it does not get a fake `journal` field

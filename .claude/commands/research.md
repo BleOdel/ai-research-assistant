@@ -56,6 +56,18 @@ For each installed connector skill:
    query variants within a short window is the single most common way to trip that.
    If the first query's results genuinely look too narrow, try one broader
    reformulation - not three or four.
+
+   **Query precision matters more than breadth.** The rubric filters sources *after*
+   discovery, but a query that is too broad wastes the whole pipeline scoring noise.
+   Aim at the *intersection* that defines the topic, not a single field-level term:
+   "adversarial attacks on VR telemetry anomaly detection" is a topic, "AI security"
+   is a field. A bare field name will match anything that mentions it in passing -
+   a run on "AI security" in this repo returned CAPTCHA design from 2003, 6G network
+   slicing, UAV backscatter localization, Kubernetes multi-tenancy and chess-agent
+   alignment, none of which belong to any tracked research interest.
+
+   Where a topic genuinely is a field-level scan, say so to the user and expect a
+   lower hit rate - do not silently treat keyword matches as coverage.
 3. Cap results to ~20 per call using the connector's limit flag.
 4. Use `--format json` for machine-readable output.
 
@@ -119,6 +131,10 @@ the full four-dimension rubric):
 - **High**: Topic is clearly the paper's primary subject
 - **Medium**: Topic is a plausible component, needs a closer read
 - **Low**: Title matched but the abstract suggests a different focus
+
+**If most results come back Low, the query is wrong, not the field.** Say so and
+reformulate rather than storing a batch of keyword matches - every one of them will
+otherwise be re-scored on later runs and clutter the subject index permanently.
 
 ---
 
