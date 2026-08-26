@@ -46,8 +46,15 @@ more than one category:
    to the relevant body section. Open Questions that get *partially* answered stay
    listed, reworded to what genuinely remains open.
 5. **Strengthens an existing claim** - new independent evidence for something
-   already stated. Merge: add the citation; only expand prose if the strengthening
-   is itself notable (e.g. first replication).
+   already stated. Merge: add the citation, and **say in the prose that the sources
+   independently agree** - per `02-source-evaluation.md`'s Corroboration section,
+   convergence is a finding, not redundancy. If the claim was previously attributed
+   because it rested on one source ("Luo et al. report…"), a second independent
+   source is grounds to state it directly; make that change and note it in the
+   Revision History, since it is a real strengthening of the report's evidential
+   footing. First replications in particular deserve their own sentence.
+   Before treating the new source as corroboration, check it does not simply cite
+   the original - three papers repeating one result is one source, not three.
 
 If a category-3 contradiction would invert the report's headline conclusion (the
 abstract's own claim), say so to the user before drafting - that's no longer an

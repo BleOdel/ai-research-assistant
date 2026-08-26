@@ -52,6 +52,13 @@ For a topic, create:
    current literature not resolve? Where do sources actively disagree? This section is
    often what the reader is most looking for - a synthesis that pretends the field is
    settled when it isn't has failed at its job.
+
+   Where sources conflict, present both positions with their evidence and say the
+   conflict is unresolved. **Never silently pick a winner** - if one side is better
+   supported, say why in terms of the evidence (released artifact, larger N,
+   independent replication), which is what the Rigor method-quality signals in
+   `02-source-evaluation.md` are for. "The literature disagrees" is a finding; a
+   smoothed-over consensus that does not exist is a defect.
 8. **References** - BibTeX-driven, rendered via `\bibliography{references}` with the
    style set by `04-citation-rules.md`'s profile-driven citation style.
 
@@ -86,3 +93,32 @@ given `/synthesize` run. A report that undershoots its target depth because too 
 sources were carried in from `/research`/`/rank` should say so explicitly (state the
 number of sources used) rather than padding prose to hit a page count - length comes
 from genuine coverage, never from restating the same finding in more words.
+
+## Evidential Sufficiency
+
+Length is a presentation question. This is a different and more important one: **is
+there enough evidence to draw the conclusion at all?**
+
+A report may legitimately conclude that the literature does not support a conclusion.
+Say so plainly and stop - an honest negative result is a real contribution, and often
+a more useful one than a confident synthesis built on two Peripheral sources. Signs
+the answer is "not enough":
+
+- The topic's core question has **no source addressing it directly** - only sources
+  addressing each half of an intersection separately.
+- Every source supporting the headline claim is `self-evaluating` (per
+  `02-source-evaluation.md`'s disclosure labels), so nothing is independently
+  corroborated.
+- The load-bearing sources are Peripheral-tier, or the conclusion rests on a single
+  source with no released artifact.
+- The only agreement between sources traces back to one original result.
+
+When this happens: state the absence as the finding, name what was searched and what
+would need to exist to answer the question, and keep the report short. Do **not**
+promote a Peripheral source to carry an argument it cannot bear.
+
+**Disclose the tier composition either way.** A scope note saying "no source reached
+Core" is technically true but reads far more favourably than "two of three sources
+are Peripheral, at 54 and 38, and the 38 carries half the argument". State the actual
+distribution - a reader cannot calibrate trust in a conclusion without knowing what
+it rests on.

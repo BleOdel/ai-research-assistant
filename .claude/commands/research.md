@@ -156,8 +156,10 @@ Regenerate `research/papers_by_subject.md` from the full, current contents of
 rebuild, not an incremental patch.
 
 `/rank` and `/synthesize` extend this schema additively: scored entries also carry
-`scores` (the four-dimension breakdown), `overall_score`, and `verdict` (`/rank` also
-adds `rank_date`, `impact_basis`). Do not drop these fields when re-writing entries.
+`scores` (the four-dimension breakdown), `overall_score`, `verdict` (one bare word:
+`Core`/`Supporting`/`Peripheral`/`Excluded`), `rigor_basis` and `disclosure` (see
+`02-source-evaluation.md`). `/rank` also adds `rank_date` and `impact_basis`. Do not
+drop these fields when re-writing entries.
 
 ---
 

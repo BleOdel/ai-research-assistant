@@ -29,7 +29,10 @@ Read the scoring framework and profile **once**:
 
 For each candidate source, fetch its full content if not already fetched (use each
 connector's `detail` command per its `SKILL.md`, or `WebFetch` on its URL), then score
-all four dimensions (Relevance, Recency, Rigor, Impact) per the framework. If several
+all four dimensions (Relevance, Recency, Rigor, Impact) per the framework, and assign
+each source a `disclosure` label. Rigor is now two-part - score venue, then apply the
+method-quality adjustments and record the breakdown in `rigor_basis` so the reader can
+see which half of the score is venue prestige and which is demonstrated method. If several
 candidates in this batch came from `semantic-scholar-search`, space consecutive
 `detail` calls to it at least one second apart - its authenticated quota is a firm
 1 request/second cumulative across all its endpoints (see its `SKILL.md`), not a
@@ -43,6 +46,13 @@ sections rather than guessing - see
 `.claude/skills/research-assistant/07-fulltext.md` for when this is and isn't
 warranted. A paywalled source (`NO_OA_PDF`) is scored from its abstract with that
 weaker evidence basis noted explicitly in the scoring notes.
+
+Before presenting, check the batch as a whole against
+`03-report-templates.md`'s **Evidential Sufficiency** section: if the load-bearing
+sources are Peripheral-tier, or every source supporting the headline claim is
+`self-evaluating`, or nothing addresses the topic's core question directly, say so now
+rather than after drafting. A short honest report that reports an absence is a valid
+outcome, and it is much cheaper to decide that here than at Step 5.
 
 Present the scoring table (see `02-source-evaluation.md`'s Output Format) and ask:
 > "Proceed to draft the synthesis with these sources? Reply yes, or tell me which to

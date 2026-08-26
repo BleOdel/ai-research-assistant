@@ -76,6 +76,8 @@ Each agent returns a JSON array, one object per source:
   "key": "<the source's key in seen_sources.json>",
   "status": "scored" | "unfetchable",
   "scores": { "relevance": 0-100, "recency": 0-100, "rigor": 0-100, "impact": 0-100 or "insufficient data" },
+  "rigor_basis": "<venue score, then each method adjustment applied and why, e.g. 'venue 68, +10 released artifact'>",
+  "disclosure": "academic | industry | self-evaluating | vendor-report | unclear",
   "impact_basis": "<which connector's citation data was used, or null>",
   "notes": "1-2 bullets on any non-obvious score, grounded in the fetched abstract"
 }
@@ -108,8 +110,9 @@ the ranking.
 Update `research/seen_sources.json` in place - these fields are additive to
 `/research`'s schema:
 
-- Scored sources: set `"status": "ranked"` and add `"scores"`, `"impact_basis"`,
-  `"overall_score"`, `"verdict"`, `"rank_date"` (ISO date)
+- Scored sources: set `"status": "ranked"` and add `"scores"`, `"rigor_basis"`,
+  `"disclosure"`, `"impact_basis"`, `"overall_score"`, `"verdict"` (one bare word),
+  `"rank_date"` (ISO date)
 - Unfetchable sources: set `"status": "unfetchable"` with a `"note"` explaining why
 
 Re-running `/rank` is idempotent: already-`ranked` sources are skipped unless `--all`

@@ -42,20 +42,56 @@ A landmark 2017 paper can legitimately score 80+ here if it's still the standard
 reference; a 2019 paper in a fast-moving area can score low if the field has moved on.
 Use judgment, and say so in the notes - don't apply a fixed cutoff blindly.
 
-### 3. Rigor / Venue Signal (0-100)
-Signal from where and how the work was published.
+### 3. Rigor (0-100)
+
+Two inputs, scored separately and then combined: **where** the work was published,
+and **how** it was done. Venue alone is not rigor. A methodologically weak paper in a
+strong venue and a careful one in a workshop are not equivalent, and a rubric that
+scores only venue cannot tell them apart - which makes the methodological critique
+that expert-level reports are supposed to deliver (see `01-researcher-profile.md`'s
+Depth Calibration) impossible to ground.
+
+**3a. Venue signal** - start here:
 
 | Score | Meaning |
 |-------|---------|
 | 80-100 | Peer-reviewed venue with strong reputation in the field |
 | 60-79 | Peer-reviewed venue, workshop, or well-established conference |
-| 40-59 | Preprint (e.g. arXiv) with no venue yet, but methodologically sound |
-| 0-39 | No venue, no clear methodology, or self-published with red flags |
+| 40-59 | Preprint (e.g. arXiv) with no venue yet |
+| 0-39 | No venue, self-published, or predatory-venue red flags |
+
+**3b. Method quality** - then adjust up or down by up to 20 points, based on what the
+fetched abstract or full text actually shows:
+
+| Signal | Adjustment |
+|--------|-----------|
+| Released artifact - code, dataset, or benchmark a reader could re-run | **+10** |
+| Findings independently replicated, or the work is itself a replication | **+10** |
+| Empirical evaluation with a stated sample size and protocol | **+5** |
+| Systematic review or meta-analysis with stated inclusion criteria | **+5** |
+| Position paper, vision paper, or survey presented as new evidence | **-5** |
+| Simulation-only, or evaluated solely on data the authors also generated | **-5** |
+| Central claim rests on a single case study or anecdote | **-10** |
+| Evaluation described in the abstract but no method, N, or baseline stated | **-10** |
+
+Cap the combined result at 0-100. **State the adjustment in the scoring notes** -
+"78 (venue 68, +10 released artifact)" - so the reader can see which half of the score
+is venue prestige and which is demonstrated method. Where the abstract does not say
+enough to judge method, apply no adjustment and note that the method basis is
+unknown rather than assuming it is sound; if the claim is load-bearing, that is
+exactly when to fetch full text (see `07-fulltext.md`).
 
 Preprints are not penalized for being preprints per se (arXiv is one of the four
-shipped connectors) - score the methodology and reasoning quality visible in the
-abstract/content, and note venue status explicitly in the output so the reader can
-weigh it themselves.
+shipped connectors) - a preprint with a released artifact and a stated protocol can
+out-score an unreproducible conference paper, and should.
+
+**Check for preprint drift.** An arXiv entry may since have been published,
+superseded by a later version, or withdrawn. Where a preprint is load-bearing, check
+whether a DOI now resolves for it before scoring venue - the framework has already
+been caught twice here: two bibliography entries carry a 2025 year against a 2026
+DOI, and one source's venue took two manual passes to confirm. Never upgrade venue on
+a secondary database's tag alone; confirm against the publisher or the venue's own
+proceedings.
 
 ### 4. Impact (0-100)
 Citation signal, normalized by paper age (a 2024 paper with 20 citations is not less
@@ -96,10 +132,52 @@ table without labeling each. If none is available, score this dimension
 "insufficient data" rather than defaulted to 0 - say so explicitly rather than
 silently zeroing a real paper.
 
+## Disclosure: A Label, Not a Score
+
+Every scored source carries a `disclosure` label, recorded alongside its scores in
+`research/seen_sources.json`. Like the web track's independence label
+(`09-web-source-evaluation.md`), this is deliberately **not** scored - industry
+research is often the only work with access to production systems at scale, and
+penalizing it numerically would be wrong. The reader has to know which they are
+reading.
+
+| Label | Meaning |
+|-------|---------|
+| `academic` | University or public-institute authorship, no product being evaluated |
+| `industry` | Company-authored, but not evaluating the company's own product |
+| `self-evaluating` | Authors evaluate their own system, tool, or benchmark. The overwhelmingly common case for systems papers - not a criticism, but their headline numbers are unreplicated by construction |
+| `vendor-report` | Company technical report or whitepaper with no peer review, evaluating something the company sells |
+| `unclear` | Affiliation or interest could not be determined from what was fetched |
+
+A `self-evaluating` or `vendor-report` source may absolutely be cited - but its
+performance claims are **attributed in the prose** ("the authors report 87%…"), never
+restated as established fact. The `ai-security` report already does this by hand for
+a vendor report claiming an 85% attack success rate with no independent review; this
+label exists so the discipline is systematic rather than dependent on a drafter
+noticing.
+
+## Corroboration
+
+Scores rate a source. This rates a **claim** - and it is checked at drafting time, not
+scoring time.
+
+**A load-bearing claim resting on a single source, with no released artifact behind
+it, is attributed in the prose - never stated flatly as fact.** Write "Luo et al.
+report 96.51% accuracy", not "the attack achieves 96.51% accuracy". A claim carrying
+two or more genuinely independent sources may be stated directly, and the report
+should say that they agree - convergence is a finding, not a redundancy to be
+compressed away.
+
+Before treating agreement as corroboration, **check that it does not trace back to a
+single origin.** Three papers citing one earlier result is one source, not three. This
+is the same rule `09-web-source-evaluation.md` applies to grey literature, and there
+is no principled reason a peer-reviewed claim should face a weaker standard than a
+blog post - which, until this section existed, is exactly what happened.
+
 ## Weighting
 
 - Relevance: 40%
-- Rigor / Venue Signal: 25%
+- Rigor: 25%
 - Impact: 20%
 - Recency: 15%
 
@@ -148,9 +226,9 @@ the kind of silent inconsistency this file exists to prevent.
 ```
 ## Source Evaluation
 
-| Source | Relevance | Recency | Rigor | Impact | Overall | Verdict |
-|--------|-----------|---------|-------|--------|---------|---------|
-| [Author, Year] | XX/100 | XX/100 | XX/100 | XX/100 or n/a | XX/100 | Core/Supporting/Peripheral/Excluded |
+| Source | Relevance | Recency | Rigor | Impact | Overall | Verdict | Disclosure |
+|--------|-----------|---------|-------|--------|---------|---------|------------|
+| [Author, Year] | XX/100 | XX/100 | XX/100 (venue XX, +/-X reason) | XX/100 or n/a | XX/100 | Core/Supporting/Peripheral/Excluded | academic/industry/self-evaluating/vendor-report/unclear |
 
 ### Notes
 - [1 line per source explaining any non-obvious score, e.g. "high Recency despite 2019
