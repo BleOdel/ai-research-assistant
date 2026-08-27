@@ -101,13 +101,20 @@ manifest, if one is active) and the citation rules in `04-citation-rules.md`:
   required structure
 - Comparison table if the topic has genuinely comparable approaches
 - Open Questions / Gaps - stated explicitly, disagreements not smoothed over
+- **Evidence Basis** - a required table, one row per source, per
+  `03-report-templates.md`'s Section 8. Every `.bib` entry carries an
+  `evidencebasis` field recording how its content was obtained - full text read, or
+  abstract-only with the reason - per `04-citation-rules.md`'s BibTeX Entry Format;
+  this section transcribes that field (plus each source's disclosure label and any
+  attribution caveat) into one table rather than leaving it to render inline after
+  each reference. Required on every entry, not just the ones that seem doubtful.
+  **Use the `evidencebasis` field name, not `note`** - `note` renders inline in the
+  bibliography under every stock citation style, which is exactly what this section
+  exists to avoid.
 - Bibliography via `\bibliography{references}` (or the active template's declared
   bibliography engine), style set from the profile's citation style preference
   unless the active template's manifest forces a specific style (see
-  `04-citation-rules.md`'s style table). **Every `.bib` entry carries a `note` field
-  recording its evidence basis** - full text read, or abstract-only with the reason -
-  per `04-citation-rules.md`'s BibTeX Entry Format. This is required on every entry,
-  not just the ones that seem doubtful
+  `04-citation-rules.md`'s style table)
 
 **Every claim must trace to a source's actually-fetched content from Step 1.** If a
 claim can't be pinned to a specific source, mark it as synthesis/inference in the prose,

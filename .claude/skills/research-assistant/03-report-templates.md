@@ -75,8 +75,25 @@ For a topic, create:
    independent replication), which is what the Rigor method-quality signals in
    `02-source-evaluation.md` are for. "The literature disagrees" is a finding; a
    smoothed-over consensus that does not exist is a defect.
-8. **References** - BibTeX-driven, rendered via `\bibliography{references}` with the
-   style set by `04-citation-rules.md`'s profile-driven citation style.
+8. **Evidence Basis** - a required, unnumbered-or-numbered table immediately before
+   References, one row per source, collecting the same three things
+   `04-citation-rules.md` requires every `.bib` entry to record: how the source's
+   content was obtained (full text vs. abstract-only, and the route), its disclosure
+   label (`academic`/`industry`/`self-evaluating`/`vendor-report`/`unclear` per
+   `02-source-evaluation.md`), and any attribution caveat a claim from it carries in
+   the body. Typical columns: Source, Evidence Basis, Disclosure, Caveat.
+
+   This section exists specifically so that data does **not** get rendered inline
+   after every reference entry. Store it in each `.bib` entry's `evidencebasis`
+   field (a custom field no stock `.bst` style prints - see `04-citation-rules.md`),
+   then transcribe it here as one compact table. A bibliography with a paragraph of
+   evidence commentary after every citation is hard to read as a bibliography; a
+   single table serves the same transparency purpose without breaking the reference
+   list's own readability.
+9. **References** - BibTeX-driven, rendered via `\bibliography{references}` with the
+   style set by `04-citation-rules.md`'s profile-driven citation style. Renders
+   cleanly now that evidence-basis commentary lives in Section 8 instead of each
+   entry's `note` field.
 
 ## LaTeX Mechanics
 
@@ -95,9 +112,10 @@ For a topic, create:
 ## Length Calibration
 
 - **Quick brief**: Abstract + 2-3 thematic sections + Technical Findings + Open
-  Questions. No comparison table unless trivial to include. Target ~4-5 pages (the
-  Technical Findings section is standard even at this depth - see Section Structure
-  above).
+  Questions + Evidence Basis. No comparison table unless trivial to include. Target
+  ~4-5 pages (Technical Findings and Evidence Basis are both standard even at this
+  depth, and Evidence Basis's table format costs little length regardless of source
+  count - see Section Structure above).
 - **Deep review**: Full structure above, comparison table included where applicable,
   more sources per thematic section (aim for enough sources that each thematic
   subsection has more than one citation backing it, not a single paper standing in for

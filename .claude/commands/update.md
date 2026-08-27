@@ -83,8 +83,11 @@ decision, not an update.
 Then edit `report.tex` and `references.bib` per the merge rules:
 - Body sections revised in place; never append "Update: actually..." paragraphs
   against stale claims
-- New `.bib` entries for merged sources; Technical Findings and comparison-table
-  updates where the categories call for them
+- New `.bib` entries for merged sources, each carrying an `evidencebasis` field
+  (never `note` - see `04-citation-rules.md`) plus a matching new row in the
+  Evidence Basis table (`03-report-templates.md`, Section 8) - a report updated
+  without this regresses to having some sources documented and others not
+- Technical Findings and comparison-table updates where the categories call for them
 - Open Questions updated (answered ones removed/reworded with the answering
   citation)
 - Revision History entry appended (create the section after the Abstract if this is

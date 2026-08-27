@@ -130,6 +130,28 @@ FiD & Izacard \& Grave~\citep{izacard2021fid} & Scales well to many retrieved pa
     here directly compares the two under matched compute budgets.
 \end{itemize}
 
+\section{Evidence Basis}
+Per source, how its content was obtained and what a reader should weigh when relying
+on it. Stored per entry in \texttt{references.bib}'s \texttt{evidencebasis} field
+(a custom field no stock \texttt{.bst} style prints - see \texttt{04-citation-rules.md})
+and collected here as a table rather than left to render inline after each reference.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{2.0cm}p{5.1cm}p{2.2cm}p{3.2cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Evidence Basis} & \textbf{Disclosure} & \textbf{Caveat} \\
+\midrule
+Lewis et al.~\citep{lewis2020rag} & Illustrative entry (structural demo, not a live fetch) & academic & None \\
+Karpukhin et al.~\citep{karpukhin2020dpr} & Illustrative entry (structural demo, not a live fetch) & academic & None \\
+Guu et al.~\citep{guu2020realm} & Illustrative entry (structural demo, not a live fetch) & academic & None \\
+Izacard \& Grave~\citep{izacard2021fid} & Illustrative entry (structural demo, not a live fetch) & academic & None \\
+\bottomrule
+\end{tabular}
+\caption{Evidence basis per source - a real \texttt{/synthesize} run states an actual
+full-text/abstract-only basis and route per source, per \texttt{03-report-templates.md}.}
+\end{table}
+
 \bibliographystyle{ieeetr}
 \bibliography{references}
 

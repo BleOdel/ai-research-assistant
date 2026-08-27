@@ -28,19 +28,34 @@ Every entry in `references.bib` must include, at minimum:
   for preprints
 - `url` pointing at the actual fetched source (DOI link, arXiv abstract page, or
   Semantic Scholar paper page)
-- **`note` recording the evidence basis** - how this source's content was obtained,
-  and anything the reader needs in order to weigh the citation. This is required, not
-  optional. Two forms:
-  - Full text read: `note = {Primary PDF read directly via paper-fetch on YYYY-MM-DD
-    - full text, not abstract-only}`
-  - Abstract only: `note = {Abstract-only evidence basis: <why no full text - e.g.
-    IEEE paywall, no preprint found>; abstract verified via <route>}`
+- **`evidencebasis` recording the evidence basis** - how this source's content was
+  obtained, and anything the reader needs in order to weigh the citation. This is
+  required, not optional. Two forms:
+  - Full text read: `evidencebasis = {Primary PDF read directly via paper-fetch on
+    YYYY-MM-DD - full text, not abstract-only}`
+  - Abstract only: `evidencebasis = {Abstract-only evidence basis: <why no full text
+    - e.g. IEEE paywall, no preprint found>; abstract verified via <route>}`
 
   Add to the same field anything unresolved about the source: a venue confirmed
   against the publisher rather than a database tag, a preprint whose published version
   could not be located, a disclosure label worth surfacing (`self-evaluating`,
-  `vendor-report`). These notes render in the bibliography, so a reader sees per source
-  how strong the evidence behind it is without having to ask.
+  `vendor-report`).
+
+  **Use `evidencebasis`, not `note`, deliberately.** `note` is a standard BibTeX field
+  that every shipped citation style (`ieeetr`, `plain`, `apalike`, `plainnat`) prints
+  inline in the rendered bibliography - which is exactly what produced a wall of
+  evidence-basis prose after every reference entry before this rule existed.
+  `evidencebasis` is not a field any stock `.bst` style recognizes, so BibTeX silently
+  ignores it when typesetting: the data survives in the `.bib` file, machine-readable
+  and available to `/gaps`, `/update`, and any future connector, but nothing renders
+  next to the citation itself. The reader instead sees this same information collected
+  in the **Evidence Basis** section (`03-report-templates.md`, Section 8) - one table,
+  once, rather than repeated prose after every single reference.
+
+  `note` remains available for genuinely short bibliographic facts that belong next to
+  a citation - a venue clarification like `note = {NDSS Symposium}` when a `.bib`
+  entry type doesn't otherwise carry venue - but never for evidence-basis, disclosure,
+  or attribution commentary.
 
   This exists because it was previously done only when a human was in the loop asking
   for it: of four reports produced by this framework, one carries evidence-basis notes
