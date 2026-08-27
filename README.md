@@ -316,9 +316,11 @@ ai-research-assistant/
 ### Citation style and report depth
 
 Set in your profile (`.claude/skills/research-assistant/01-researcher-profile.md`,
-populated by `/setup`): citation style (IEEE/APA/plain/author-year), default report
-depth (quick brief vs. deep review), and audience. `04-citation-rules.md` documents
-which `\bibliographystyle` and `natbib` package option each citation style maps to.
+populated by `/setup`): citation style (IEEE/APA/Harvard/plain/author-year), default
+report depth (quick brief vs. deep review), and audience. `04-citation-rules.md`
+documents which `\bibliographystyle` and `natbib` package option each citation style
+maps to. Harvard is the one style that needs an extra package beyond a stock TeX
+install - see [SETUP.md](SETUP.md#harvard-citation-style-one-extra-package).
 
 ### Source connectors
 

@@ -50,7 +50,9 @@ This writes `CLAUDE.md` and
 `.claude/skills/research-assistant/01-researcher-profile.md`. Your **Research
 Interests** matter most: they drive relevance scoring, subject classification, and
 how deep reports go. Set `Default report depth` (quick brief ~4-5pp vs. deep review
-10+pp) and `Citation style` (IEEE / APA / plain / author-year) here too.
+10+pp) and `Citation style` (IEEE / APA / Harvard / plain / author-year) here too -
+Harvard needs one extra package beyond a stock TeX install; see
+[SETUP.md](SETUP.md#harvard-citation-style-one-extra-package).
 
 You should not need `/setup` again unless you want to rebuild from scratch.
 

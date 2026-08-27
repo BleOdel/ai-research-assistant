@@ -109,7 +109,9 @@ Install a LaTeX distribution to compile the generated `.tex` reports to PDF:
 Reports compile with `pdflatex` + `bibtex` (the standard 4-pass sequence:
 `pdflatex → bibtex → pdflatex → pdflatex`), which every mainstream TeX distribution
 ships out of the box — no extra packages required beyond what's in the preamble
-(`geometry`, `hyperref`, `natbib`, `booktabs`).
+(`geometry`, `hyperref`, `natbib`, `booktabs`), with one exception: **Harvard**
+citation style needs one additional package, not included in a minimal install. See
+below.
 
 #### Minimal TeX install: TinyTeX/BasicTeX
 
@@ -126,6 +128,23 @@ If a package is reported missing on compile, install it directly:
 ```bash
 tlmgr install geometry hyperref natbib booktabs
 ```
+
+#### Harvard citation style: one extra package
+
+If your profile's `Citation style` is set to **Harvard**, the report's
+`\bibliographystyle{agsm}` needs the `harvard` bundle's `agsm.bst` - not part of a
+minimal TeX install (TinyTeX/BasicTeX), and not always in a full one either. No admin
+rights needed:
+
+```bash
+tlmgr init-usertree   # one-time, only if you've never used tlmgr's user mode before
+tlmgr --usermode install harvard
+```
+
+`natbib` (already required by every other style) provides everything else this needs
+- you do **not** need the separate `harvard.sty` package, only this one `.bst` file.
+If a report fails to compile with "I couldn't open style file agsm.bst," this is the
+fix. IEEE, APA, Plain, and Author-year all work with zero extra installs.
 
 ## 2. Get the code
 

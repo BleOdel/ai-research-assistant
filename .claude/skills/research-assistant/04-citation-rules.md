@@ -42,7 +42,7 @@ Every entry in `references.bib` must include, at minimum:
   `vendor-report`).
 
   **Use `evidencebasis`, not `note`, deliberately.** `note` is a standard BibTeX field
-  that every shipped citation style (`ieeetr`, `plain`, `apalike`, `plainnat`) prints
+  that every shipped citation style (`ieeetr`, `plain`, `apalike`, `agsm`, `plainnat`) prints
   inline in the rendered bibliography - which is exactly what produced a wall of
   evidence-basis prose after every reference entry before this rule existed.
   `evidencebasis` is not a field any stock `.bst` style recognizes, so BibTeX silently
@@ -69,24 +69,26 @@ to look more legitimate.
 
 Use the style set in `01-researcher-profile.md`'s `Citation style` field. Default:
 **IEEE** (numbered, `\bibliographystyle{ieeetr}`) since the shipped connectors skew
-CS/ML (arXiv especially; OpenAlex is the one with broad non-CS coverage). Other supported values map to standard BibTeX styles:
+CS/ML (arXiv especially; OpenAlex is the one with broad non-CS coverage). Other
+supported values map to standard BibTeX styles:
 
-| Profile value | `\bibliographystyle{}` |
-|----------------|------------------------|
-| IEEE | `ieeetr` |
-| APA | `apalike` |
-| Plain/numbered | `plain` |
-| Author-year | `plainnat` (requires `natbib`, already loaded per `03-report-templates.md`) |
+| Profile value | `\bibliographystyle{}` | Extra install needed? |
+|----------------|------------------------|------------------------|
+| IEEE | `ieeetr` | No - stock TeX Live |
+| APA | `apalike` | No - stock TeX Live |
+| Harvard | `agsm` | **Yes** - see below |
+| Plain/numbered | `plain` | No - stock TeX Live |
+| Author-year | `plainnat` (requires `natbib`, already loaded per `03-report-templates.md`) | No - stock TeX Live |
 
 `natbib`'s citation mode must match the style: numbered styles (`ieeetr`, `plain`)
 need `\usepackage[numbers,sort&compress]{natbib}`; author-year styles (`apalike`,
-`plainnat`) need plain `\usepackage{natbib}` with no option. Loading `natbib` in its
-default author-year mode against a numbered `\bibliographystyle` fails to compile
-(`natbib Error: Bibliography not compatible with author-year citations`) - if
+`agsm`, `plainnat`) need plain `\usepackage{natbib}` with no option. Loading `natbib`
+in its default author-year mode against a numbered `\bibliographystyle` fails to
+compile (`natbib Error: Bibliography not compatible with author-year citations`) - if
 `/synthesize` changes the citation style mid-report, update this package option too,
 not just `\bibliographystyle`.
 
-**`\citet{}` requires a natbib-compatible `.bst`** (`plainnat`, `apalike`,
+**`\citet{}` requires a natbib-compatible `.bst`** (`plainnat`, `apalike`, `agsm`,
 `unsrtnat`) that stores author/year data separately in the `.bbl`. Plain numbered
 styles like `ieeetr` and `plain` do **not** provide this, and `\citet{}` against one
 of them silently renders `(author?)` in the compiled PDF instead of erroring - this
@@ -95,6 +97,32 @@ checklist exists to catch, but it's cheaper to just avoid the trap. With `ieeetr
 `plain`, write the author name in prose and cite with `\citep{}` for the number
 (e.g. `Lewis et al.~\citep{lewis2020rag}`) rather than relying on `\citet{}` to
 generate it.
+
+### Harvard style specifically
+
+`agsm.bst` is the standard UK Harvard author-year style (Author, Initial. (Year)
+'Title', Journal.). It is **not** part of a stock/minimal TeX Live install
+(`scheme-basic`, TinyTeX, BasicTeX) - it ships in the separate `harvard` bundle,
+originally written to pair with a `harvard.sty` package this framework does not use.
+Empirically verified (2026-08-27): `natbib` alone, already loaded by every report
+this framework produces, provides compatibility shims for `agsm.bst`'s
+`\harvarditem`/`\harvardand`/`\harvardyearleft` commands, so **`harvard.sty` itself is
+never needed** - only the `.bst` file. `\citet{}` and `\citep{}` both render
+correctly against it; confirmed by a real compile with zero undefined-control-sequence
+errors.
+
+If `\bibliographystyle{agsm}` fails to compile with "I couldn't open style file
+agsm.bst," the bundle isn't installed on that machine. Fix, no admin/sudo required:
+
+```bash
+tlmgr --usermode install harvard
+```
+
+(`tlmgr init-usertree` first, one-time, if user mode hasn't been set up before.) A
+full TeX Live install (`scheme-full`, full MacTeX) may already include it. **Do not
+silently fall back to `apalike` if `agsm` fails to compile** - `apalike` is APA
+formatting, not Harvard, and a user who asked for Harvard would get a different style
+labeled as the one they chose. Tell the user the exact command above instead.
 
 ## The Fact-Check Pass
 
