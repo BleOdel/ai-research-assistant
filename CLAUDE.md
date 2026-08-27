@@ -54,7 +54,8 @@ access date and flagged in the prose as not peer-reviewed. See
   research priorities - expertise: working knowledge
 
 ### Output Preferences
-- **Citation style:** IEEE (default: IEEE)
+- **Citation style:** Harvard (framework default is IEEE; set to Harvard - UK
+  convention - on 2026-08-27)
 - **Default depth:** deep review (10+ pages)
 - **Audience:** self
 

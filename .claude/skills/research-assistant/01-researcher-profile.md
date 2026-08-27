@@ -271,7 +271,10 @@ vocabulary but keep a brief background section and focus on what's changed recen
 per the working-knowledge calibration above.
 
 ## Output Preferences
-- **Citation style:** IEEE (default IEEE if unset)
+- **Citation style:** Harvard (`\bibliographystyle{agsm}` per
+  `04-citation-rules.md` - UK convention; framework default is IEEE if unset.
+  Requires the `harvard` bundle installed via `tlmgr --usermode install harvard` -
+  see `SETUP.md`)
 - **Default report depth:** deep review (10+ pages)
 - **Audience:** self - light on hedging and methodology exposition; prioritize the
   finding and its implication over process narration
