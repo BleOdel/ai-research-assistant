@@ -8,7 +8,9 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{hyperref}
 % natbib's citation mode must match \bibliographystyle: [numbers] for numbered
-% styles (ieeetr, plain); no option (default author-year) for apalike/plainnat.
+% styles (ieeetr, plain); no option (default author-year) for apalike/plainnat/agsm.
+% Harvard (agsm) also needs, right after natbib, so URLs with _ % # compile:
+%   \renewcommand{\harvardurl}{\textbf{URL:} \url}
 % See 04-citation-rules.md's style table.
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{booktabs}

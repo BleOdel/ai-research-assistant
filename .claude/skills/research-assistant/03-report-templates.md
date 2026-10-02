@@ -100,6 +100,27 @@ For a topic, create:
 - Document class: `\documentclass[11pt]{article}`
 - Packages: `hyperref` (clickable citations/links), `natbib` (citation style control),
   `booktabs` (clean comparison tables), `geometry` (reasonable margins)
+- **Harvard preamble:** with `\bibliographystyle{agsm}`, natbib is loaded with no
+  option and immediately followed by the `\harvardurl` override, after `hyperref`:
+
+  ```latex
+  \usepackage{hyperref}
+  \usepackage{natbib}
+  \renewcommand{\harvardurl}{\textbf{URL:} \url}
+  ```
+
+  Without it, any URL containing `_`, `%` or `#` fails the compile - see
+  `04-citation-rules.md`'s "Harvard style specifically" for why it takes no argument.
+- **Long tables use `longtable`, not a `table` float.** A float cannot break across
+  pages, so a comparison or Evidence Basis table taller than the page runs off the
+  bottom of it (an `[H]` float logs `Overfull \vbox ... while \output is active`; any
+  other placement logs `Float too large for page`; `check_report.py --compile` fails
+  both). If a table has more than roughly a page of rows - an Evidence Basis table
+  for a deep review usually does - write it as a `longtable`
+  (`\usepackage{array,longtable}`) with `\setlength{\LTcapwidth}{\textwidth}`,
+  wrapping columns as `>{\raggedright\arraybackslash}p{<width>}` (the `>{}` syntax
+  is `array`'s - `longtable` does not load it), and `\endfirsthead`/`\endhead` so
+  the header repeats on each page.
 - Bibliography: classic BibTeX (`\bibliographystyle{<style>}` + `\bibliography{...}`),
   compiled with the 4-pass sequence in `CLAUDE.md`'s verification checklist
   (pdflatex → bibtex → pdflatex → pdflatex). This is deliberately **not** biblatex/biber

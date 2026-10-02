@@ -125,7 +125,8 @@ Resolve every flagged citation per `/synthesize` Step 4's rules before compiling
    profile's citation style. Bring the report up to current conventions as part of
    this update rather than leaving it failing: move each `note`'s evidence commentary
    into `evidencebasis`, add the Evidence Basis table, and re-render in the profile's
-   style (switching the natbib option with it - see `04-citation-rules.md`). Record
+   style (switching the natbib option with it, and adding the `\harvardurl` override
+   when the new style is Harvard - see `04-citation-rules.md`). Record
    each migration in the Revision History entry, separately from the content changes,
    so a reader can tell "new sources merged" from "formatting brought up to date".
 2. Record merged sources in state with one call -

@@ -41,6 +41,10 @@ BIB = """@article{a,
 """
 
 
+HARVARD_PREAMBLE = ("\\usepackage{hyperref}\n\\usepackage{natbib}\n"
+                    + check_report.HARVARD_URL_FIX)
+
+
 class ReportFixture(unittest.TestCase):
     """A temp repo with check_report.py, a profile, and one clean IEEE report.
 
@@ -76,6 +80,11 @@ class ReportFixture(unittest.TestCase):
              str(self.report), "--json", *extra],
             capture_output=True, text=True)
         return result.returncode, json.loads(result.stdout)
+
+    def make_harvard(self, preamble=HARVARD_PREAMBLE):
+        self.edit_tex(r"\usepackage[numbers]{natbib}", preamble)
+        self.edit_tex(r"\bibliographystyle{ieeetr}", r"\bibliographystyle{agsm}")
+        self.set_profile_style("Harvard (agsm)")
 
     def assertError(self, fragment, *extra):
         code, out = self.check(*extra)
@@ -161,9 +170,41 @@ class StaticTests(ReportFixture):
         self.assertError("must not have [numbers]", "--style", "Harvard")
 
     def test_harvard_report_passes(self):
+        self.make_harvard()
+        code, out = self.check()
+        self.assertEqual((code, out["errors"], out["warnings"]), (0, [], []))
+
+    def test_harvard_without_harvardurl_override(self):
+        self.make_harvard("\\usepackage{hyperref}\n\\usepackage{natbib}")
+        self.assertError("\\harvardurl")
+
+    def test_harvardurl_override_must_use_url(self):
+        self.make_harvard("\\usepackage{natbib}\n"
+                          "\\renewcommand{\\harvardurl}[1]{\\textbf{URL:} \\textit{#1}}")
+        self.assertError("breaks the build on any URL")
+
+    def test_harvardurl_override_before_natbib(self):
+        self.make_harvard("\\usepackage{hyperref}\n" + check_report.HARVARD_URL_FIX
+                          + "\n\\usepackage{natbib}")
+        self.assertError("comes before \\usepackage{natbib}")
+
+    def test_harvardurl_override_needs_hyperref_or_url(self):
+        self.make_harvard("\\usepackage{natbib}\n" + check_report.HARVARD_URL_FIX)
+        self.assertError("neither hyperref nor url")
+        self.edit_tex(r"\usepackage{natbib}", "\\usepackage{url}\n\\usepackage{natbib}")
+        self.assertEqual(self.check()[0], 0)
+
+    def test_harvardurl_one_argument_form_is_a_warning(self):
+        self.make_harvard("\\usepackage{hyperref}\n\\usepackage{natbib}\n"
+                          "\\renewcommand{\\harvardurl}[1]{\\textbf{URL:} \\url{#1}}")
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(any("still fails on % and #" in w for w in out["warnings"]), out)
+
+    def test_harvardurl_check_is_harvard_only(self):
         self.edit_tex(r"\usepackage[numbers]{natbib}", r"\usepackage{natbib}")
-        self.edit_tex(r"\bibliographystyle{ieeetr}", r"\bibliographystyle{agsm}")
-        self.assertEqual(self.check("--style", "Harvard")[0], 0)
+        self.edit_tex(r"\bibliographystyle{ieeetr}", r"\bibliographystyle{apalike}")
+        self.assertEqual(self.check("--style", "APA")[0], 0)
 
     def test_citet_with_numbered_style(self):
         self.edit_tex(r"Body~\citep{b}", r"\citet{b} said")
@@ -199,6 +240,63 @@ class CompileTests(ReportFixture):
         self.edit_tex("Plain.", r"\noindent\texttt{" + "x" * 120 + "}")
         self.assertError("overfull box", "--compile")
 
+    TALL_ROWS = "\n".join(f"Row {i} & value {i}\\\\" for i in range(70))
+
+    def tall_table(self, placement):
+        self.edit_tex(r"\section{Evidence Basis} Table.",
+                      "\\section{Evidence Basis}\n\\begin{table}" + placement + "\\centering\n"
+                      "\\begin{tabular}{ll}\n" + self.TALL_ROWS + "\n\\end{tabular}\\end{table}")
+
+    def test_H_float_taller_than_page_is_an_error(self):
+        # Logged as "Overfull \vbox (...pt too high) has occurred while \output is active"
+        self.edit_tex(r"\usepackage[numbers]{natbib}",
+                      "\\usepackage[numbers]{natbib}\n\\usepackage{float}")
+        self.tall_table("[H]")
+        out = self.assertError("overfull vbox", "--compile")
+        self.assertTrue(any("longtable" in e for e in out["errors"]), out)
+
+    def test_placed_float_taller_than_page_is_an_error(self):
+        # Logged as "Float too large for page by ...pt"
+        self.tall_table("[ht]")
+        out = self.assertError("float too large for page", "--compile")
+        self.assertTrue(any("longtable" in e for e in out["errors"]), out)
+
+    def test_long_table_as_longtable_passes(self):
+        self.edit_tex(r"\usepackage[numbers]{natbib}",
+                      "\\usepackage[numbers]{natbib}\n\\usepackage{longtable}")
+        self.edit_tex(r"\section{Evidence Basis} Table.",
+                      "\\section{Evidence Basis}\n\\begin{longtable}{ll}\n"
+                      + self.TALL_ROWS + "\n\\end{longtable}")
+        code, out = self.check("--compile")
+        self.assertEqual((code, out["errors"]), (0, []))
+
+
+@unittest.skipUnless(shutil.which("pdflatex") and shutil.which("bibtex")
+                     and subprocess.run(["kpsewhich", "agsm.bst"], capture_output=True,
+                                        text=True).stdout.strip(),
+                     "needs a TeX install with the harvard bundle (agsm.bst)")
+class HarvardCompileTests(ReportFixture):
+    """agsm prints URLs via \\harvardurl; these URLs broke a real report's build."""
+
+    URLS = {"a": "https://example.com/attack_surface_v2",
+            "b": "https://example.com/a%20b/page#sec_1"}
+
+    def setUp(self):
+        super().setUp()
+        bib = BIB
+        for key, url in self.URLS.items():
+            bib = bib.replace(f"@article{{{key},\n", f"@article{{{key},\n  url = {{{url}}},\n")
+        self.bib.write_text(bib)
+
+    def test_underscore_url_breaks_without_override(self):
+        self.make_harvard("\\usepackage{hyperref}\n\\usepackage{natbib}")
+        self.assertError("Missing $ inserted", "--compile")
+
+    def test_underscore_percent_and_hash_urls_compile_with_override(self):
+        self.make_harvard()
+        code, out = self.check("--compile")
+        self.assertEqual((code, out["errors"]), (0, []))
+
 
 class StyleTableDriftTests(unittest.TestCase):
     """check_report.STYLES must match 04-citation-rules.md."""
@@ -217,6 +315,15 @@ class StyleTableDriftTests(unittest.TestCase):
         expected_author_year = sorted(b for b, n in check_report.STYLES.values() if not n)
         self.assertEqual(sorted(numbered), expected_numbered)
         self.assertEqual(sorted(author_year), expected_author_year)
+
+
+class HarvardUrlFixDriftTests(unittest.TestCase):
+    """The override check_report.py demands is the one the docs tell /synthesize to write."""
+
+    def test_docs_quote_the_override(self):
+        for doc in (".claude/skills/research-assistant/04-citation-rules.md",
+                    ".claude/skills/research-assistant/03-report-templates.md", "SETUP.md"):
+            self.assertIn(check_report.HARVARD_URL_FIX, (REPO_ROOT / doc).read_text(), doc)
 
 
 class RealExampleTest(unittest.TestCase):

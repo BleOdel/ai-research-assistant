@@ -56,6 +56,15 @@ NOTE_COMMENTARY = re.compile(r"evidence.basis|abstract.only|full.text|disclosure
 NOTE_MAX = 100
 OVERFULL_ERROR_PT = 3.0  # below this an overfull box is invisible in practice
 
+# agsm.bst prints each URL as \harvardurl{...}, which natbib defines as plain
+# \textit{#1}: an `_` in any URL is "Missing $ inserted" and the build fails.
+# The override must take no argument, so \url reads the URL itself with its own
+# catcodes - a [1]-argument \url{#1} fixes `_` but still fails on `%` and `#`.
+# 04-citation-rules.md quotes this line; tests/test_check_report.py keeps the two
+# in step.
+HARVARD_URL_FIX = r"\renewcommand{\harvardurl}{\textbf{URL:} \url}"
+HARVARDURL_OVERRIDE = re.compile(r"\\renewcommand\s*\{?\\harvardurl\}?\s*(\[\d\])?\s*\{([^\n]*)\}")
+
 DATE_PARAGRAPH = re.compile(r"\\paragraph\{\d{4}-\d{2}-\d{2}\}")
 
 
@@ -250,6 +259,27 @@ def check_style(tex: str, style: str | None, f: Findings):
     if numbered and re.search(r"\\citet\b", tex):
         f.error("style", f"\\citet with numbered style {bst} renders as (author?) - write the "
                          "author in prose and use \\citep")
+    if bst == "agsm":
+        check_harvardurl(tex, natbib, f)
+
+
+def check_harvardurl(tex: str, natbib, f: Findings):
+    """agsm needs \\harvardurl redefined to use \\url (see HARVARD_URL_FIX)."""
+    fix = f"add {HARVARD_URL_FIX} right after \\usepackage{{natbib}} (04-citation-rules.md)"
+    override = HARVARDURL_OVERRIDE.search(tex)
+    if not override or "\\url" not in override.group(2):
+        f.error("style", "agsm prints URLs with natbib's \\harvardurl, which breaks the build on "
+                         f"any URL containing _ % or # - {fix}")
+        return
+    if natbib and override.start() < natbib.start():
+        f.error("style", "the \\harvardurl override comes before \\usepackage{natbib}, which "
+                         f"defines it - {fix}")
+    if not re.search(r"\\usepackage(?:\[[^\]]*\])?\{[^}]*\b(hyperref|url)\b[^}]*\}", tex):
+        f.error("style", "the \\harvardurl override uses \\url, but neither hyperref nor url "
+                         "is loaded")
+    if override.group(1):
+        f.warn("style", "\\harvardurl takes the URL as an argument, which fixes _ but still "
+                        f"fails on % and # - use {HARVARD_URL_FIX}")
 
 
 def check_floats(tex: str, f: Findings):
@@ -331,6 +361,20 @@ def check_compile(tex_path: Path, f: Findings):
                                "style renders as (author?)")
         for amount, where in re.findall(r"Overfull \\hbox \(([\d.]+)pt too wide\) (.*)$", log, re.M):
             msg = f"overfull box {amount}pt {where.strip()}"
+            (f.error if float(amount) > OVERFULL_ERROR_PT else f.warn)("compile", msg)
+        # A float taller than the page runs off the bottom of it. An [H] float
+        # logs an overfull \vbox "while \output is active"; any other placement
+        # logs "Float too large for page". Long tables belong in longtable, which
+        # breaks across pages (03-report-templates.md).
+        tall = " - a float taller than the page; use longtable for long tables"
+        for amount, where in re.findall(r"Overfull \\vbox \(([\d.]+)pt too high\) (.*)$", log, re.M):
+            hint = tall if "\\output is active" in where else f" {where.strip()}"
+            msg = f"overfull vbox {amount}pt too high, content runs off the page{hint}"
+            (f.error if float(amount) > OVERFULL_ERROR_PT else f.warn)("compile", msg)
+        for amount, line in re.findall(r"Float too large for page by ([\d.]+)pt(?: on input line (\d+))?",
+                                       log):
+            where = f" (input line {line})" if line else ""
+            msg = f"float too large for page by {amount}pt{where}, content runs off the page{tall}"
             (f.error if float(amount) > OVERFULL_ERROR_PT else f.warn)("compile", msg)
         for line in re.findall(r"^Warning--(.*)$", blg, re.M)[:10]:
             f.warn("bibtex", line.strip())

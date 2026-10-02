@@ -99,7 +99,9 @@ manifest, if one is active) and the citation rules in `04-citation-rules.md`:
 - Technical Findings (Plain Language) - standard section per `03-report-templates.md`,
   unless the active template's manifest says it doesn't map onto that template's
   required structure
-- Comparison table if the topic has genuinely comparable approaches
+- Comparison table if the topic has genuinely comparable approaches - as a
+  `longtable`, not a `table` float, if it may run past a page
+  (`03-report-templates.md`, LaTeX Mechanics)
 - Open Questions / Gaps - stated explicitly, disagreements not smoothed over
 - **Evidence Basis** - a required table, one row per source, per
   `03-report-templates.md`'s Section 8. Every `.bib` entry carries an
@@ -307,8 +309,9 @@ First run the report linter - it rebuilds a copy in a temp directory and checks
 everything mechanical: required sections, an `evidencebasis` field on every `.bib`
 entry, no evidence commentary in `note`, citations and bibliography matching both
 ways, `\bibliographystyle` matching the profile's citation style, the natbib option
-matching the style, no `\citet` with a numbered style, no `[H]` without `float`, and
-no undefined citations/references or visible overfull boxes:
+matching the style, no `\citet` with a numbered style, the `\harvardurl` override on
+a Harvard report, no `[H]` without `float`, and no undefined citations/references,
+visible overfull boxes, or floats taller than the page:
 
 ```bash
 python3 tools/check_report.py reports/<topic_slug> --compile

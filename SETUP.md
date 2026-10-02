@@ -146,6 +146,12 @@ tlmgr --usermode install harvard
 If a report fails to compile with "I couldn't open style file agsm.bst," this is the
 fix. IEEE, APA, Plain, and Author-year all work with zero extra installs.
 
+Harvard reports also carry one preamble line, right after `\usepackage{natbib}`, so
+URLs containing `_`, `%` or `#` compile:
+`\renewcommand{\harvardurl}{\textbf{URL:} \url}` - `/synthesize` adds it, and
+`tools/check_report.py` fails a Harvard report without it. See
+`04-citation-rules.md`.
+
 ## 2. Get the code
 
 If this is your own repo, just clone it:
@@ -238,6 +244,11 @@ moves you onto a dedicated per-key quota instead of the shared pool.
 (`ieeetr`, `plain`) need `\usepackage[numbers,sort&compress]{natbib}`; author-year
 styles (`apalike`, `plainnat`) need plain `\usepackage{natbib}`. See
 `04-citation-rules.md`.
+
+**`! Missing $ inserted` (or `File ended while scanning use of \harvardurl`) in a
+Harvard report's `.bbl`** — a URL contains `_`, `%` or `#`, and the preamble lacks the
+`\harvardurl` override. Add `\renewcommand{\harvardurl}{\textbf{URL:} \url}`
+right after `\usepackage{natbib}`. See `04-citation-rules.md`.
 
 **A citation renders as `(author?)` in the compiled PDF** — you're using `\citet{}`
 with a `.bst` style that isn't natbib-compatible (e.g. `ieeetr`, `plain`). Write the

@@ -124,6 +124,25 @@ silently fall back to `apalike` if `agsm` fails to compile** - `apalike` is APA
 formatting, not Harvard, and a user who asked for Harvard would get a different style
 labeled as the one they chose. Tell the user the exact command above instead.
 
+**Every Harvard report redefines `\harvardurl`.** `agsm.bst` prints each entry's
+`url` field as `\harvardurl{...}`, and natbib's shim for it is plain italic text
+(`\textbf{URL:} \textit{#1}`), so the first URL containing `_`, `%` or `#` breaks the
+build - `_` gives "Missing $ inserted" in the `.bbl`, `%` "File ended while scanning
+use of \harvardurl", `#` "Illegal parameter number". Found 2026-10-02 on a real
+`/update`. Put this line right after `\usepackage{natbib}`, with `hyperref` (which
+provides `\url`) loaded before it:
+
+```latex
+\renewcommand{\harvardurl}{\textbf{URL:} \url}
+```
+
+It deliberately takes **no argument**: `\url` then reads the URL itself, with its
+own catcodes, so all three characters survive. The tempting
+`\renewcommand{\harvardurl}[1]{\textbf{URL:} \url{#1}}` fixes `_` but still fails
+on `%` and `#`, because the URL was already tokenized when `\harvardurl` grabbed it
+(verified by compiling each case). `tools/check_report.py` fails a Harvard report
+without the override, and warns on the one-argument form.
+
 ## The Fact-Check Pass
 
 `/synthesize` spawns a reviewer agent with fresh context whose only job is checking
