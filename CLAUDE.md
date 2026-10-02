@@ -71,6 +71,9 @@ access date and flagged in the prose as not peer-reviewed. See
   any `/defend` prep packs and `/outcome` logs
 - `blog/` - Web track: `template.html` (tracked) and one folder per `/websearch`
   scan containing `index.html` + `sources.json`; state in `seen_web_sources.json`
+- `tools/` - `state.py` (the only write path for `research/`, `blog/` and tracker
+  state - validated, locked, atomic) and `check_report.py` (the report linter), plus
+  CI guards
 - `.claude/skills/` - AI skill definitions for the research workflow
 - `.agents/skills/` - Source-database CLI tools (arxiv-search,
   semantic-scholar-search, google-scholar-search, openalex-search) plus
@@ -100,6 +103,13 @@ unverified.
 After drafting or revising a synthesis report, re-read the generated `.tex`/`.bib` and
 the compiled PDF and verify **all** of the following before presenting it to the user.
 Report the results as a pass/fail checklist.
+
+**Start with `python3 tools/check_report.py reports/<topic_slug> --compile`** - it
+checks every mechanical item below (citations matching the `.bib` both ways, the
+citation style, required sections, `evidencebasis` fields, and the compile: no `??`,
+no undefined citations, no visible overfull boxes) and must report zero errors. It
+cannot judge prose, so the items about what sources actually say and whether
+disagreement is stated honestly still need the reviewer agent and the PDF read.
 
 ### Factual accuracy
 - [ ] Every in-text citation has a matching entry in the `.bib` file, and vice versa

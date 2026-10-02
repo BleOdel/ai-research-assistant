@@ -8,10 +8,15 @@ XR papers under the XR table, ML papers under the ML table, and so on.
 
 ## When it's regenerated
 
-Regenerate the **entire file** from `seen_sources.json` after any write to that file -
-`/research` (Step 4), `/rank` (Step 4), `/synthesize` (Step 6). Never hand-edit
+Automatically, by `tools/state.py`, on every write to `seen_sources.json` - and every
+command writes state only through that helper, so the index cannot fall behind. To
+rebuild it by hand: `python3 tools/state.py regen-index`. Never hand-edit
 `papers_by_subject.md` directly; it will be overwritten on the next regeneration. This
 keeps it a pure derived view instead of two sources of truth that can drift apart.
+
+The format below is implemented in `state.py`, not re-implemented per run. That
+matters: before it was, two sessions rebuilt this file with different column sets,
+and one printed a missing year as the literal word `None`.
 
 ## Classifying a source into a subject
 

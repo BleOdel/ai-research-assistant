@@ -71,7 +71,10 @@ Rules that the schema cannot enforce but the output depends on:
 - **`score` must equal the weighted sum** of `scores` (Relevance 30%, Authority 25%,
   Evidence 25%, Recency 20%), and `tier` must match it (70+ Core, 50-69 Supporting,
   30-49 Peripheral). A card showing a tier inconsistent with its own sub-scores
-  destroys trust in every other card on the page.
+  destroys trust in every other card on the page. Get both from
+  `python3 tools/state.py score --web --relevance R --authority A --evidence E
+  --recency C` rather than by hand - the same values `blog/seen_web_sources.json`
+  stores, so the page and the state file cannot disagree.
 - **`caveat` is required** whenever `independence` is `vendor-competitive`,
   `sponsored`, or `unclear`, or when `tier` is `Peripheral`. The template gives it a
   highlighted block; leaving it null in these cases hides the thing the reader most

@@ -268,10 +268,14 @@ ai-research-assistant/
 ├── reports/                               # Compiled synthesis reports (per topic), incl. outcome.md logs
 ├── research_tracker.csv                   # /outcome status overview across all reports (gitignored)
 ├── tools/
+│   ├── state.py                           # Only write path for research/blog/tracker state
+│   ├── check_report.py                    # Report linter: sections, bib fields, style, compile
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json
 │   └── security_guards.py                 # CI guards: permission allowlist, gitignore rules, manifests
 ├── tests/
-│   └── test_security_guards.py
+│   ├── test_security_guards.py
+│   ├── test_state.py
+│   └── test_check_report.py
 ├── .github/workflows/ci.yml               # CI: LaTeX smoke compile, skill lint, CLI typechecks
 └── SETUP.md                               # Detailed setup guide
 ```

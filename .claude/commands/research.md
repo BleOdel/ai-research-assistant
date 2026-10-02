@@ -140,7 +140,17 @@ otherwise be re-scored on later runs and clutter the subject index permanently.
 
 ## Step 4: Deduplicate & Store
 
-Add ALL fetched sources (new and skipped) to `research/seen_sources.json`:
+Add ALL fetched sources (new and skipped) to `research/seen_sources.json` in **one**
+call to the state helper - never by editing the JSON directly:
+
+```bash
+python3 tools/state.py batch --file sources --json-file <scratch>/new_sources.json
+```
+
+where the input file is `{"<key>": {fields}, ...}` with one object per source. The
+helper takes a lock (so a second session can't overwrite this write), validates every
+value, writes atomically, and refuses the whole batch if any entry is invalid - fix
+what it reports and re-run. Each source's fields:
 
 ```json
 {
@@ -165,17 +175,19 @@ Set `subject` once per entry, per `05-subject-index.md`'s classification rules
 (match the current topic against `01-researcher-profile.md`'s Research Interests).
 Do not re-classify an existing entry on a later run.
 
-### Step 4b: Regenerate the Subject Index
+### Step 4b: Subject Index
 
-Regenerate `research/papers_by_subject.md` from the full, current contents of
-`research/seen_sources.json` per `05-subject-index.md`'s file format - a full
-rebuild, not an incremental patch.
+`research/papers_by_subject.md` is regenerated automatically by every `state.py`
+write to `sources` - there is no separate step. If it ever looks stale, run
+`python3 tools/state.py regen-index`.
 
 `/rank` and `/synthesize` extend this schema additively: scored entries also carry
 `scores` (the four-dimension breakdown), `overall_score`, `verdict` (one bare word:
 `Core`/`Supporting`/`Peripheral`/`Excluded`), `rigor_basis` and `disclosure` (see
-`02-source-evaluation.md`). `/rank` also adds `rank_date` and `impact_basis`. Do not
-drop these fields when re-writing entries.
+`02-source-evaluation.md`). `/rank` also adds `rank_date` and `impact_basis`.
+`state.py` merges rather than replaces, so existing fields are never dropped, and it
+computes `overall_score` and `verdict` itself from `scores` - omit them, or it will
+refuse a value that disagrees with its own arithmetic.
 
 ---
 

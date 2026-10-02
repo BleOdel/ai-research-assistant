@@ -187,17 +187,18 @@ for tool in arxiv-search semantic-scholar-search google-scholar-search openalex-
 done
 ```
 
-And confirm the LaTeX toolchain works:
+And confirm the LaTeX toolchain works - this builds the example report with the full
+4-pass sequence in a temp directory and checks the result:
 
 ```bash
-cd report
-pdflatex -interaction=nonstopmode report_example.tex
-bibtex report_example
-pdflatex -interaction=nonstopmode report_example.tex
-pdflatex -interaction=nonstopmode report_example.tex
-# report_example.pdf should now exist with no `??` unresolved citations
-rm -f *.aux *.log *.bbl *.blg *.out *.pdf
-cd -
+python3 tools/check_report.py report --style IEEE --compile
+```
+
+It should print `PASS`. If you've set your profile to Harvard, also confirm the
+`harvard` bundle is installed (see above):
+
+```bash
+kpsewhich agsm.bst
 ```
 
 ## 5. Run `/setup`

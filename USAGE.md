@@ -413,6 +413,31 @@ Reports, `research/seen_sources.json`, `research/fulltext/`, `documents/`, and
 If you want your reports version-controlled, use a **separate private repo** rather
 than loosening these ignore rules.
 
+### State goes through one door; reports get linted
+
+Every command writes `research/seen_sources.json`, `blog/seen_web_sources.json` and
+`research_tracker.csv` through `tools/state.py` - never by editing them directly. It
+locks the file (so two Claude Code sessions can't overwrite each other), writes
+atomically, refuses invalid values, and computes every `overall_score` and verdict
+from the sub-scores itself. Useful by hand too:
+
+```bash
+python3 tools/state.py check            # anything invalid? which old entries have gaps?
+python3 tools/state.py check --fix-derived   # recompute stale scores/verdicts, nothing else
+python3 tools/state.py score --relevance 90 --rigor 82 --impact 45 --recency 100
+```
+
+`tools/check_report.py` is the report linter `/synthesize` and `/update` run before
+calling a report done. Run it on any report to see where it stands:
+
+```bash
+python3 tools/check_report.py reports/<topic> --compile
+```
+
+It checks the mechanical things - sections, bibliography fields, citation style,
+the compile - and builds in a temp directory, so it never touches your report. It
+doesn't read prose; that's still the reviewer agent's and the PDF read's job.
+
 ---
 
 ## 6. Where everything lives

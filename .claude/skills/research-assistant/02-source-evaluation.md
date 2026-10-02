@@ -221,6 +221,16 @@ regardless of which command reached it first. Zeroing a missing Impact instead o
 renormalizing drags sources across the 75/55/35 verdict boundaries, which is exactly
 the kind of silent inconsistency this file exists to prevent.
 
+**This arithmetic is implemented once, in `tools/state.py`.** Use
+`python3 tools/state.py score --relevance R --rigor G --impact I --recency C` (or
+`--impact insufficient`) instead of computing by hand, and never write
+`overall_score` or `verdict` into state yourself - every state write recomputes both
+from `scores` and refuses a supplied value that disagrees. That rule exists because a
+hand-revised Rigor once left a source's stored score at 74 while its own sub-scores
+summed to 81, and its verdict a tier too low. The weights, thresholds and labels in
+this file are the source of truth; `tests/test_state.py` fails if `state.py` ever
+disagrees with them.
+
 ## Output Format (used by `/synthesize`)
 
 ```

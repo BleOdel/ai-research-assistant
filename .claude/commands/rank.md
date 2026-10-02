@@ -93,12 +93,15 @@ Relevance gets a low score.
 
 Back in the main context, for each scored source:
 
-1. Compute the overall score per `02-source-evaluation.md`'s *Computing the Overall
-   Score* section, including its renormalization rule for sources whose Impact is
-   "insufficient data". Do not restate the weights here - that file is authoritative,
-   and a second copy would drift from it.
-2. Map to the verdict bands in that file's *Thresholds* section, writing the verdict
-   as one bare word: `Core`, `Supporting`, `Peripheral` or `Excluded`.
+1. Compute the overall score and verdict with the state helper rather than by hand -
+   it applies `02-source-evaluation.md`'s weights, the renormalization for Impact
+   "insufficient data", and the verdict bands:
+   ```bash
+   python3 tools/state.py score --relevance R --rigor G --impact I --recency C
+   ```
+   (`--impact insufficient` when no citation data exists.) The Step 4 write computes
+   the same values again and refuses any that disagree, so a hand-computed score
+   cannot slip through.
 
 Sort by overall score (descending). `unfetchable` sources go into a separate list, not
 the ranking.
@@ -107,20 +110,26 @@ the ranking.
 
 ## Step 4: Update State
 
-Update `research/seen_sources.json` in place - these fields are additive to
-`/research`'s schema:
+Write every result in **one** state-helper call - never edit the JSON directly:
 
-- Scored sources: set `"status": "ranked"` and add `"scores"`, `"rigor_basis"`,
-  `"disclosure"`, `"impact_basis"`, `"overall_score"`, `"verdict"` (one bare word),
-  `"rank_date"` (ISO date)
-- Unfetchable sources: set `"status": "unfetchable"` with a `"note"` explaining why
+```bash
+python3 tools/state.py batch --file sources --json-file <scratch>/ranked.json
+```
+
+The input is `{"<key>": {fields}, ...}`; fields merge into the existing entries:
+
+- Scored sources: `"status": "ranked"`, `"scores"`, `"rigor_basis"`, `"disclosure"`,
+  `"impact_basis"`, `"rank_date"` (ISO date). Omit `overall_score` and `verdict` - the
+  helper computes both from `scores`.
+- Unfetchable sources: `"status": "unfetchable"` with a `"note"` explaining why
+
+The batch is all-or-nothing: if the helper refuses it, nothing was written - fix the
+entries it lists and re-run.
 
 Re-running `/rank` is idempotent: already-`ranked` sources are skipped unless `--all`
 re-scores them.
 
-Then regenerate `research/papers_by_subject.md` from the full, current contents of
-`seen_sources.json` per `05-subject-index.md`'s file format, so the index reflects the
-new scores/verdicts - a full rebuild, not an incremental patch.
+The helper regenerates `research/papers_by_subject.md` as part of the same write.
 
 ---
 

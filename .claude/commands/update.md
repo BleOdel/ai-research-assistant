@@ -114,16 +114,30 @@ Resolve every flagged citation per `/synthesize` Step 4's rules before compiling
 
 ## Step 5: Compile, Inspect, Update State
 
-1. Compile and inspect per `/synthesize` Step 5 (4-pass sequence or the active
-   template's declared engine, read the PDF, iterate until clean, remove build
-   artifacts). Check the Revision History section renders correctly on its first
+1. Compile, lint and inspect per `/synthesize` Step 5 - including
+   `python3 tools/check_report.py reports/<topic_slug> --compile` until it reports
+   zero errors. Check the Revision History section renders correctly on its first
    appearance.
-2. Update `research/seen_sources.json`: `status: "synthesized"` for merged sources.
-   Regenerate `research/papers_by_subject.md` per `05-subject-index.md`.
-3. If `research_tracker.csv` exists and has a row for this topic, update it: a
-   `superseded` or `needs_revision` status returns to `active`, `last_event_date`
-   set, and a dated note appended (e.g. "updated: +3 sources, revised §4.2"). Do
-   not create the tracker if it doesn't exist - that's `/outcome`'s job.
+
+   **A report written before a convention existed will fail the linter on things this
+   update did not cause** - no Evidence Basis section, evidence commentary in `note`
+   instead of `evidencebasis`, or a `\bibliographystyle` that no longer matches the
+   profile's citation style. Bring the report up to current conventions as part of
+   this update rather than leaving it failing: move each `note`'s evidence commentary
+   into `evidencebasis`, add the Evidence Basis table, and re-render in the profile's
+   style (switching the natbib option with it - see `04-citation-rules.md`). Record
+   each migration in the Revision History entry, separately from the content changes,
+   so a reader can tell "new sources merged" from "formatting brought up to date".
+2. Record merged sources in state with one call -
+   `python3 tools/state.py batch --file sources --json-file <scratch>/merged.json` -
+   setting `"status": "synthesized"` plus their scoring fields. The helper regenerates
+   `research/papers_by_subject.md` in the same write.
+3. If `research_tracker.csv` exists and has a row for this topic, update it with
+   `python3 tools/state.py upsert --file tracker --key <topic_slug> --json '{...}'`: a
+   `superseded` or `needs_revision` status returns to `active`, `last_event_date` set,
+   and a dated note added via `"notes_append"` (e.g. "2026-10-02: updated: +3
+   sources, revised §4.2") so earlier notes are kept. Do not create the tracker or a
+   new row if none exists - that's `/outcome`'s job, so check first.
 
 ---
 

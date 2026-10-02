@@ -35,10 +35,9 @@ concerns as the original's Step 5 rule).
 
 ## Step 1: Load State
 
-1. Read `research_tracker.csv`. If it does not exist, create it with the header:
-   ```
-   topic,subject,date_synthesized,status,last_event_date,notes
-   ```
+1. Read `research_tracker.csv` if it exists. Don't create it by hand - the first
+   Step 4 write through the state helper creates it with the standard header
+   (`topic,subject,date_synthesized,status,last_event_date,notes`).
 2. Confirm `reports/<topic_slug>/report.tex` exists - `/outcome` only tracks reports
    that were actually synthesized, not raw `/research` discovery runs.
 3. Check whether `reports/<topic_slug>/outcome.md` already exists - if so, this is an
@@ -99,11 +98,19 @@ Update rules, matching `/defend`'s and the original's append-only discipline:
 
 ## Step 4: Update the Tracker
 
-Update (or add) `research_tracker.csv`'s row for this topic: `status` and
-`last_event_date` to what was just recorded, and a short dated note appended to
-`notes` (not replacing prior notes - keep it a running, comma-safe summary). Never
-restructure the CSV, reorder rows, or touch other rows. Set `subject` from
-`research/papers_by_subject.md`'s classification for this topic if not already set.
+Update (or add) this topic's row with one state-helper call - never by editing the
+CSV directly:
+
+```bash
+python3 tools/state.py upsert --file tracker --key <topic_slug> \
+  --json '{"status": "...", "last_event_date": "YYYY-MM-DD", "notes_append": "YYYY-MM-DD: ..."}'
+```
+
+`notes_append` adds the dated note after the existing notes rather than replacing
+them; the helper quotes the CSV correctly, leaves every other row and the column order
+alone, and refuses a status that isn't one of the five above. Include `subject` (from
+`research/papers_by_subject.md`'s classification) and `date_synthesized` when the row
+is new.
 
 ---
 

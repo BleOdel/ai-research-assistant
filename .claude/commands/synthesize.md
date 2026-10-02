@@ -301,9 +301,26 @@ pdflatex -interaction=nonstopmode report.tex
 If any pass errors, fix the `.tex`/`.bib` and re-run the full sequence from the top -
 a partial re-run after a fix can hide a real error behind stale `.aux` state.
 
-### 5b. Inspect
+### 5b. Lint, then inspect
 
-Read the compiled `report.pdf` via the Read tool and verify:
+First run the report linter - it rebuilds a copy in a temp directory and checks
+everything mechanical: required sections, an `evidencebasis` field on every `.bib`
+entry, no evidence commentary in `note`, citations and bibliography matching both
+ways, `\bibliographystyle` matching the profile's citation style, the natbib option
+matching the style, no `\citet` with a numbered style, no `[H]` without `float`, and
+no undefined citations/references or visible overfull boxes:
+
+```bash
+python3 tools/check_report.py reports/<topic_slug> --compile
+```
+
+Every ERROR must be fixed before continuing; warnings are judgment calls - fix them or
+say in Step 6 why not. If an active template's `TEMPLATE.md` explicitly drops a
+section this framework normally requires, that one structure error may stand -
+state it in Step 6. The linter does not read prose: it cannot see a stale claim or a
+smoothed-over disagreement, which is what the reviewer and the PDF read are for.
+
+Then read the compiled `report.pdf` via the Read tool and verify:
 - [ ] No `??` anywhere (unresolved `\cite`/`\ref`)
 - [ ] Bibliography section lists every cited work, correctly formatted in the profile's
       chosen citation style
@@ -313,7 +330,8 @@ Read the compiled `report.pdf` via the Read tool and verify:
 
 ### 5c. Iterate until clean
 
-Fix `.tex` issues and recompile (full 4-pass sequence) until 5b passes fully.
+Fix `.tex` issues and recompile (full 4-pass sequence) until 5b passes fully - the
+linter with zero errors, and the PDF read with nothing found.
 
 ### 5d. Clean up build artifacts
 
@@ -337,7 +355,8 @@ verification pass in the workflow, done once here with final state on disk.
 ## Synthesis Report: <topic>
 
 ### Verification Checklist
-[pass/fail per CLAUDE.md's checklist items]
+[the final `check_report.py --compile` result (must be PASS), then pass/fail for
+CLAUDE.md's remaining checklist items the linter cannot check]
 
 ### Sources Used
 [table: source, verdict from Step 1 scoring, whether the reviewer flagged and resolved
@@ -355,10 +374,17 @@ any issue with it]
 - reports/<topic_slug>/report.pdf
 ```
 
-Update `research/seen_sources.json`: set `status: "synthesized"` for every source used
-in this report. Then regenerate `research/papers_by_subject.md` from the full, current
-contents of `seen_sources.json` per
-`.claude/skills/research-assistant/05-subject-index.md`'s file format - a full
-rebuild, not an incremental patch.
+Record the outcome in state with one state-helper call - never by editing the JSON
+directly. For every source used in this report, write its final Step 1 scoring
+(`scores`, `rigor_basis`, `disclosure`, `evidence_basis`) and `"status": "synthesized"`:
+
+```bash
+python3 tools/state.py batch --file sources --json-file <scratch>/synthesized.json
+```
+
+The helper computes `overall_score`/`verdict` from `scores`, refuses anything
+invalid, and regenerates `research/papers_by_subject.md` in the same write. Write the
+same author list and venue the `.bib` uses - state and bibliography should not
+disagree about who wrote a paper.
 
 Tell the user the PDF is ready for review at the path above.

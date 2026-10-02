@@ -133,7 +133,17 @@ Then read the file back and sanity-check the rendered structure.
 
 ## Step 6: Update State and Present
 
-Write every fetched source to `blog/seen_web_sources.json`:
+Write every fetched source to `blog/seen_web_sources.json` in **one** state-helper
+call - never by editing the JSON directly:
+
+```bash
+python3 tools/state.py batch --file web --json-file <scratch>/web_sources.json
+```
+
+The input is `{"<normalized url>": {fields}, ...}`. The helper locks, validates every
+value against `09-web-source-evaluation.md`, computes `overall_score` and `tier` from
+`scores` with the web weights and thresholds (omit both), and refuses the whole batch
+if any entry is invalid. Each source's fields:
 
 ```json
 {
@@ -143,7 +153,6 @@ Write every fetched source to `blog/seen_web_sources.json`:
       "date": "YYYY-MM-DD or null", "type": "...", "independence": "...",
       "first_seen": "YYYY-MM-DD", "topic": "<topic>",
       "scores": { "relevance": 0, "authority": 0, "evidence": 0, "recency": 0 },
-      "overall_score": 0, "tier": "Core|Supporting|Peripheral|Excluded",
       "status": "included | excluded | unfetchable"
     }
   }
