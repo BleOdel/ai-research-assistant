@@ -13,8 +13,11 @@ Follow these steps **exactly in order**. Do not skip steps.
 
 **Token-efficiency rules:**
 - Never re-Read a file already in context from an earlier step.
-- Pass draft content to the reviewer agent **inline in the prompt**, not as a file it
-  must re-Read.
+- Give the reviewer agent the draft's **file paths**, not a pasted copy. Pasting makes
+  the drafter re-emit the whole draft as output (the expensive direction, and a long
+  report runs to tens of thousands of tokens), and any transcription slip means the
+  reviewer checks text that is not in the file that compiles. Reading the two files is
+  cheap input for the reviewer and checks exactly what ships.
 - Step 5 (compile and inspect) is mandatory and non-skippable - a `.tex`/`.bib` pair
   that looks fine can still fail to compile, orphan a citation, or render a broken
   bibliography.
@@ -122,18 +125,19 @@ manifest, if one is active) and the citation rules in `04-citation-rules.md`:
 claim can't be pinned to a specific source, mark it as synthesis/inference in the prose,
 not a citation.
 
-Keep the draft text in working memory - you will pass it inline to the reviewer in
-Step 3 and revise it in Step 4 without re-reading.
+Keep the draft text in working memory - you will revise it in Step 4 without
+re-reading. (The reviewer reads the files itself in Step 3.)
 
 ---
 
 ## Step 3: REVIEWER - Fact-Check Every Citation
 
 Use the **Agent tool** to spawn a `general-purpose` reviewer agent with fresh context.
-Pass the draft **inline in the prompt** - do not make the reviewer Read the files.
+Point it at the draft's files rather than pasting them (see the token-efficiency rules
+above). Write both files to disk before dispatching, and do not edit them while the
+reviewer runs, so it checks exactly the version that will compile.
 
-Replace `<TOPIC>`, `<INSERT_REPORT_TEX_HERE>`, and `<INSERT_REFERENCES_BIB_HERE>`
-before dispatching:
+Replace `<TOPIC>` before dispatching:
 
 ```
 You are a fact-checker reviewing a literature synthesis report before publication. Your
@@ -141,13 +145,12 @@ ONLY job is citation verification, not prose critique.
 
 ## Draft to Review
 
-<REPORT_TEX file="reports/<TOPIC>/report.tex">
-<INSERT_REPORT_TEX_HERE>
-</REPORT_TEX>
+Read these two files in full before starting - they are the complete draft:
+- reports/<TOPIC>/report.tex
+- reports/<TOPIC>/references.bib
 
-<REFERENCES_BIB file="reports/<TOPIC>/references.bib">
-<INSERT_REFERENCES_BIB_HERE>
-</REFERENCES_BIB>
+Do not edit either file. Your output is the JSON report below; the drafter makes
+every change.
 
 ## Your Task
 
@@ -277,6 +280,18 @@ Do not proceed to Step 5 until both arrays are resolved. This is not optional - 
 report with an unresolved citation flag is not "mostly done," it's a report with a
 known false claim in it, and an unresolved report-level flag is a claim the evidence
 does not carry.
+
+### 4c. Re-check what the resolution rewrote
+
+A fix that corrects a figure or adds an attribution in place needs no second pass. A
+fix that **rewrites** claims does - restructuring a section, reframing a conclusion, or
+adding claims drawn from full text the reviewer surfaced. That new prose has not been
+checked by anyone but its drafter. Send the rewritten regions back to the **same**
+reviewer (`SendMessage` to its agent ID - it still has the sources in context, so this
+is far cheaper than a fresh spawn), naming the regions and asking for the same JSON
+restricted to them. Resolve what it returns the same way. In practice the second pass
+finds less but not nothing: on the first run that needed one, it caught a figure
+attached to the wrong benchmark and an "independent" check that was not.
 
 ---
 

@@ -289,6 +289,33 @@ def check_floats(tex: str, f: Findings):
         f.error("floats", "[H] placement without \\usepackage{float} - fails to compile")
 
 
+def unprotected_caps(title: str) -> list[str]:
+    """Words in a title that BibTeX will lower-case but are acronyms or names.
+
+    Every supported .bst sentence-cases titles, so LLM renders as "Llm" and
+    AgentDojo as "Agentdojo" unless braced. Only text outside braces is at
+    risk. A hyphenated Title-Case compound (Rule-Based) is ordinary prose that
+    sentence case is meant to lower, so it is not flagged.
+    """
+    plain, depth = [], 0
+    for ch in title:
+        if ch == "{":
+            depth += 1
+            plain.append(" ")
+        elif ch == "}":
+            depth = max(depth - 1, 0)
+            plain.append(" ")
+        else:
+            plain.append(ch if depth == 0 else " ")
+    flagged = []
+    for word in re.findall(r"[A-Za-z0-9][A-Za-z0-9.\-]*", "".join(plain)):
+        parts = [p for p in word.split("-") if p]
+        if any((len(p) >= 2 and p.isupper()) or any(c.isupper() for c in p[1:])
+               for p in parts):
+            flagged.append(word)
+    return flagged
+
+
 def check_bib(tex: str, bib_path: Path | None, f: Findings):
     if bib_path is None:
         return
@@ -310,6 +337,11 @@ def check_bib(tex: str, bib_path: Path | None, f: Findings):
     if long_notes:
         f.warn("bib", f"note fields over {NOTE_MAX} characters - notes print inline, so "
                       "commentary belongs in evidencebasis", long_notes)
+    lowered = [k for k, v in entries.items() if unprotected_caps(v.get("title", ""))]
+    if lowered:
+        f.warn("bib", "titles with acronyms or mixed-case names outside braces - every "
+                      "supported style lower-cases title words, so LLM renders as \"Llm\"; "
+                      "brace them, e.g. {LLM}, {AgentDojo} (04-citation-rules.md)", lowered)
     cited, nocite_all = cited_keys(tex)
     missing = sorted(cited - set(entries))
     if missing:

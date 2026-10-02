@@ -65,6 +65,13 @@ Never fabricate a field. If a preprint has no venue, the entry is a `@misc` or
 `@article` with `eprint`/`archivePrefix` set - it does not get a fake `journal` field
 to look more legitimate.
 
+**Brace acronyms and system names in titles.** Every supported style sentence-cases
+titles, lowering every word after the first, so an unbraced `LLM` prints as "llm" and
+`AgentDojo` as "agentdojo". Write `title = {{AgentDojo}: Defending {LLM} Agents}`. Leave
+ordinary capitalised words, including hyphenated ones like `Rule-Based`, unbraced; sentence
+case is meant to lower those. `check_report.py` warns about titles that need this.
+Harvard (`agsm`) makes the problem most visible, but numbered styles do the same.
+
 ## Citation Style
 
 Use the style set in `01-researcher-profile.md`'s `Citation style` field. Default:

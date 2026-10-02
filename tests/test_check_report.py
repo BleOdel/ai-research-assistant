@@ -134,6 +134,27 @@ class StaticTests(ReportFixture):
                                         "note = {Abstract-only evidence basis: paywalled}"))
         self.assertError("note fields holding evidence-basis commentary")
 
+    def test_unbraced_acronym_in_title_is_a_warning(self):
+        self.bib.write_text(BIB.replace("title = {First}", "title = {Securing LLM Agents}"))
+        code, out = self.check()
+        self.assertEqual(code, 0)
+        self.assertTrue(any("outside braces" in w and w.endswith(": a")
+                            for w in out["warnings"]), out["warnings"])
+
+    def test_braced_names_and_hyphenated_title_case_pass(self):
+        self.bib.write_text(BIB.replace(
+            "title = {First}",
+            "title = {{AgentDojo}: A Rule-Based Defense for {LLM} Agents}"))
+        code, out = self.check()
+        self.assertEqual((code, out["warnings"]), (0, []))
+
+    def test_unprotected_caps_ignores_braced_text(self):
+        f = check_report.unprotected_caps
+        self.assertEqual(f("{MELON}: Provable Defense in {AI} Agents"), [])
+        self.assertEqual(f("Order-Oblivious Prompt Injection"), [])
+        self.assertEqual(f("MELON and AgentDojo for LLM-Integrated Apps"),
+                         ["MELON", "AgentDojo", "LLM-Integrated"])
+
     def test_long_note_is_a_warning(self):
         self.bib.write_text(BIB.replace("note = {NDSS Symposium}", "note = {" + "x" * 150 + "}"))
         code, out = self.check()
