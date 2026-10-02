@@ -28,9 +28,10 @@
 \maketitle
 
 \noindent\textit{Search scope: arXiv (cs.CL, cs.LG) and Semantic Scholar, queried for
-``retrieval-augmented generation'' and related terms. This example demonstrates report
-structure and LaTeX/BibTeX mechanics; it is not a live-verified output of a
-\texttt{/synthesize} run.}
+``retrieval-augmented generation'' and related terms. Four sources scored: four Core,
+none Supporting, Peripheral, or Excluded; no candidates were found unfetchable. This
+example demonstrates report structure and LaTeX/BibTeX mechanics; it is not a
+live-verified output of a \texttt{/synthesize} run.}
 
 \begin{abstract}
 Retrieval-augmented generation (RAG) combines a parametric language model with a
@@ -43,6 +44,11 @@ how retrieved passages are fused into generation~\citep{izacard2021fid}. The mai
 questions concern how retrieval and generation should be jointly trained, and how to
 evaluate factual grounding rather than just downstream task accuracy.
 \end{abstract}
+
+\section*{Revision History}
+\paragraph{2026-08-04} Initial synthesis: 4 sources (arXiv, Semantic Scholar).
+Structural example - a real report seeds this entry at first \texttt{/synthesize} and
+\texttt{/update} appends to it.
 
 \section{Background}
 A parametric language model stores factual knowledge implicitly in its weights, which

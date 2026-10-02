@@ -64,24 +64,15 @@ jobs:
     container: texlive/texlive:latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - name: Compile report (4-pass pdflatex + bibtex sequence)
-        run: |
-          cd report
-          pdflatex -interaction=nonstopmode report_example.tex
-          bibtex report_example
-          pdflatex -interaction=nonstopmode report_example.tex
-          pdflatex -interaction=nonstopmode report_example.tex
-          test -f report_example.pdf
-          if grep -q '^!' report_example.log; then
-            echo '::error::pdflatex reported errors compiling report/report_example.tex'
-            grep -A3 '^!' report_example.log
-            exit 1
-          fi
-          if grep -qi 'undefined\|(author?)' report_example.log; then
-            echo '::error::natbib citation resolution failed - check citation style matches natbib package options (see 04-citation-rules.md)'
-            grep -i 'undefined' report_example.log
-            exit 1
-          fi
+      - name: Ensure python3 is available in the TeX container
+        run: command -v python3 || (apt-get update -qq && apt-get install -y -qq python3)
+      - name: Lint and compile the example report (4-pass sequence in a temp dir)
+        # check_report.py supersedes the old inline pdflatex/grep script: same
+        # 4-pass build, plus the structure/bibliography/style checks /synthesize
+        # relies on. The example is IEEE; the committed profile may say otherwise.
+        run: python3 tools/check_report.py report --style IEEE --compile
+      - name: Linter compile tests (skipped in the plain python-tests job, which has no TeX)
+        run: python3 -m unittest tests.test_check_report -v
 
   cli-checks:
     name: CLI checks ${{ matrix.tool }}

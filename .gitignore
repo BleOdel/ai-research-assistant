@@ -19,6 +19,10 @@ bun.lock
 research/*
 !research/.gitkeep
 research_tracker.csv
+# tools/state.py's lock and atomic-write temp files for the tracker (the ones
+# for research/ and blog/ are already covered by those directories' rules).
+.research_tracker.csv.*.tmp
+research_tracker.csv.lock
 reports/*
 !reports/.gitkeep
 

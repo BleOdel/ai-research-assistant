@@ -40,6 +40,9 @@ ALLOWED_PERMISSIONS = {
     "Bash(xelatex:*)",
     "Bash(lualatex:*)",
     "Bash(biber:*)",
+    # The two state/report tools, by exact script path - not python3 in general.
+    "Bash(python3 tools/state.py:*)",
+    "Bash(python3 tools/check_report.py:*)",
 }
 
 # Personal-data ignore rules that must never disappear from .gitignore.
@@ -50,6 +53,10 @@ REQUIRED_IGNORE_RULES = [
     "research/*",
     "!research/.gitkeep",
     "research_tracker.csv",
+    # state.py writes the tracker via a temp file + rename; a crash mid-write would
+    # otherwise leave a full copy of it committable in the repo root.
+    ".research_tracker.csv.*.tmp",
+    "research_tracker.csv.lock",
     "reports/*",
     "!reports/.gitkeep",
     "blog/*",
