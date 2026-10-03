@@ -133,6 +133,41 @@ Then edit `report.tex` and `references.bib` per the merge rules:
 Only touch what the new sources justify - no opportunistic rewrites of unaffected
 prose.
 
+### Step 3b: Scan for Claims the New Sources Made Stale
+
+A new source can make a sentence false without the merge touching it: "the only
+defense in this corpus with an adaptive evaluation" stops being true the moment a
+merged defense reports one. Step 4's reviewer checks only changed prose, so such a
+sentence is invisible to it. (This happened: the 2026-10-02 update of the
+prompt-injection report merged 23 sources and left three such claims standing. One
+was corrected in Section 5 and logged as corrected, while its copy in Section 3
+stayed.) After editing, list every sentence that makes an exclusive, ordinal or
+counting claim about the corpus:
+
+```bash
+python3 tools/check_report.py reports/<topic_slug> --claims
+```
+
+It prints each hit's line, section, the words that triggered it, and the sentence,
+skipping the Revision History. It over-matches by design and always exits 0: each hit
+is a prompt, not a defect. Triage every hit against what Step 2 learned about the
+merged sources. A hit is a **stale-claim candidate** if a merged source could
+plausibly bear on its subject:
+- it says something about a property a merged source might share, such as an
+  adaptive evaluation, a released artifact, a benchmark comparison or a threat model;
+- or it counts a kind of source the merge added to (the scope note and abstract counts
+  always qualify);
+- when unsure, include it.
+
+Drop hits about one paper's internals ("across four victim models") and hits about
+kinds of source the merge added none of.
+
+If a candidate is already plainly false from what Step 2 read, revise it now under
+Step 3's rules. It is then changed prose, so Step 4 checks it anyway. Before moving
+on, look for the same claim elsewhere: the scan output lists every copy, and
+correcting one while another stands is the failure this step exists for. Send every
+other candidate to Step 4. Keep the hit and candidate counts for Step 6.
+
 ---
 
 ## Step 4: Fact-Check the Changes
@@ -144,7 +179,31 @@ this run, and instruct it to verify only those. Claims untouched since the last
 verified version stay verified - this scoping is what makes an update materially
 cheaper than a fresh synthesis.
 
+The scope also includes Step 3b's **stale-claim candidates**. They are unchanged
+prose, but the new sources are what could have falsified them, and the reviewer is
+already reading those sources. Add this section to the prompt, one line per
+candidate:
+
+```
+## Stale-claim candidates
+
+These sentences were not changed in this update, but each makes a claim about the
+corpus as a whole ("the only", "the first", "every", a count) that a newly merged
+source could make false. Check each against every new source you read for this
+review: does any of them do, report or count as what the sentence says only the
+named sources do, or no source does? Report each one that no longer holds in
+`report_level` as type "stale_corpus_claim", quoting the sentence and naming the
+new source(s) that falsify it. Do not re-verify the sentence's other content.
+
+L<line>: <sentence>
+```
+
 Resolve every flagged citation per `/synthesize` Step 4's rules before compiling.
+Resolve a `stale_corpus_claim` like any other report-level finding, by changing the
+prose where it stands: name every source that now shares the property, drop the
+exclusivity, or correct the count. Then re-run `--claims` and check that no other
+copy of the claim survives in another section, the abstract, the Technical Findings
+or a table caption.
 
 ---
 
@@ -194,7 +253,8 @@ change - matching the Revision History entry]
 verdicts; Step 1b candidates declined, and the count of off-topic Step 1b entries]
 
 ### Verification
-[fact-check scope (K citations checked) and result; compile checklist pass/fail]
+[fact-check scope (K citations, plus M stale-claim candidates of N `--claims`
+hits) and result; compile checklist pass/fail]
 
 ### Files
 - reports/<topic_slug>/report.pdf (updated, Revision History dated YYYY-MM-DD)
@@ -213,8 +273,10 @@ may be stale if a prep pack exists for this topic.
    refreshed checked-through date is honest and useful; padding is not.
 3. **Headline-conclusion contradictions stop the run** for an explicit user
    decision - update vs. rewrite is not this command's call to make.
-4. **Fact-check scope = change scope.** New and changed claims only; never re-open
-   verified-and-untouched claims, and never skip the pass entirely either.
+4. **Fact-check scope = change scope.** New and changed claims, plus the
+   stale-claim candidates from Step 3b, because new sources can falsify prose nobody
+   touched. Never re-open other verified-and-untouched claims, and never skip the
+   pass entirely either.
 5. **Same honesty rules as everywhere else**: disagreements stated not smoothed,
    evidence basis recorded (full text vs. abstract), no claim beyond what a fetched
    source supports.

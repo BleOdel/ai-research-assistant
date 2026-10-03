@@ -89,6 +89,14 @@ connectors added.
   revised claims (and any claim whose citation set changed), not the full report -
   claims untouched since the last verified version stay verified. This is what
   makes updates materially cheaper than a fresh `/synthesize`.
+- **Change scope includes stale-claim candidates.** New sources can falsify prose
+  the update never touched. "The only defense in this corpus to report an adaptive
+  evaluation" is false once a merged defense reports one, wherever the sentence sits.
+  `check_report.py --claims` lists every sentence making an exclusive, ordinal or
+  counting claim about the corpus. Each hit whose subject a merged source could
+  plausibly affect goes to the reviewer with the changed claims (`/update` Step 3b).
+  A correction applies to every copy of the claim. The 2026-10-02 update fixed one
+  in Section 5 and logged it as corrected, while the same claim stood in Section 3.
 - **Superseded sources stay cited where historically apt.** If new work supersedes
   an older source, the older one isn't scrubbed - the prose says "X first showed
   ..., later superseded by Y" where the lineage matters, or drops to the comparison

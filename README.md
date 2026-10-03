@@ -214,8 +214,10 @@ evidence basis, citation-count divergence). The list below is the summary.
   merges it into the body **in place** (extending themes, revising contradicted
   claims, retiring answered Open Questions), and appends a dated Revision History
   entry recording what changed and which sources drove it. Fact-checks only the
-  new and changed claims - materially cheaper than a fresh `/synthesize`. "Nothing
-  new since <date>" is a valid, honest outcome.
+  new and changed claims, plus untouched sentences the new sources could have made
+  false ("the only defense to...", counts of the corpus), which
+  `tools/check_report.py --claims` lists. That is materially cheaper than a fresh
+  `/synthesize`. "Nothing new since <date>" is a valid, honest outcome.
 
 ## File structure
 
@@ -275,7 +277,7 @@ ai-research-assistant/
 ├── research_tracker.csv                   # /outcome status overview across all reports (gitignored)
 ├── tools/
 │   ├── state.py                           # Only write path for research/blog/tracker state
-│   ├── check_report.py                    # Report linter: sections, bib fields, style, compile
+│   ├── check_report.py                    # Report linter: sections, bib fields, style, compile; --claims scan
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json
 │   └── security_guards.py                 # CI guards: permission allowlist, gitignore rules, manifests
 ├── tests/

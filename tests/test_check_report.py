@@ -357,5 +357,164 @@ class RealExampleTest(unittest.TestCase):
         self.assertEqual((result.returncode, out["errors"]), (0, []))
 
 
+class ClaimScanTests(unittest.TestCase):
+    """--claims lists sentences whose truth depends on what the corpus holds.
+
+    The fixtures are the three sentences a 2026-10-02 /update left false in the
+    prompt-injection report: new sources did what each said no other source did,
+    and the update's reviewer never saw them because their prose was unchanged.
+    """
+
+    STALE = r"""\documentclass{article}
+\usepackage[numbers]{natbib}
+\title{The only title}
+\begin{document}
+\section{Detection-Based Defenses}
+Spotlight-Guard filters retrieved content before the planner sees it~\citep{sg2026}.
+It is distinctive among the defenses in this corpus in reporting an adaptive
+evaluation~\citep{sg2026}.
+SIEVE is the only source in this corpus that directly benchmarks against
+multiple other defenses~\citep{sieve2025}.
+\begin{table}
+\caption{Defense comparison. Every figure is static and the originating authors' own.}
+\end{table}
+\section*{Revision History}
+\paragraph{2026-10-02} Section~3 no longer says Spotlight-Guard is the only defense
+with an adaptive evaluation.
+\bibliography{references}
+\end{document}
+"""
+
+    def claims(self, body):
+        return check_report.scan_claims(
+            "\\begin{document}\n\\section{S}\n" + body + "\n\\end{document}\n")
+
+    def assertFlagged(self, body, trigger):
+        found = self.claims(body)
+        self.assertTrue(any(trigger in c["triggers"] for c in found),
+                        f"{trigger!r} not in {[c['triggers'] for c in found]}")
+
+    def assertClean(self, body):
+        self.assertEqual(self.claims(body), [])
+
+    def test_the_three_stale_claims_are_listed(self):
+        found = check_report.scan_claims(self.STALE)
+        by_line = {c["line"]: c for c in found}
+        self.assertEqual(sorted(by_line), [7, 9, 12], found)
+        self.assertIn("distinctive", by_line[7]["triggers"])
+        self.assertIn("this corpus", by_line[7]["triggers"])
+        self.assertIn("the only", by_line[9]["triggers"])
+        self.assertIn("every figure", by_line[12]["triggers"])
+        self.assertEqual(by_line[9]["section"], "Detection-Based Defenses")
+        self.assertTrue(by_line[9]["sentence"].startswith("SIEVE is the only source"))
+        self.assertTrue(by_line[9]["sentence"].endswith("defenses~\\citep{sieve2025}."))
+
+    def test_revision_history_and_preamble_are_not_scanned(self):
+        sentences = " ".join(c["sentence"] for c in check_report.scan_claims(self.STALE))
+        self.assertNotIn("no longer says", sentences)
+        self.assertNotIn("title", sentences)
+
+    def test_exclusive_ordinal_and_universal_claims(self):
+        for body, trigger in (
+                ("RETA is the sole defense evaluated this way.", "sole"),
+                ("Its threat model is unique among the attacks.", "unique"),
+                ("No other defense releases code.", "no other"),
+                ("None of the surveyed defenses was tested adaptively.", "none"),
+                ("No source tests an attacker inside the permitted actions.", "no source"),
+                ("Zhan et al. were the first to test this.", "the first"),
+                ("It is the strongest tested defense here.", "the strongest tested defense"),
+                ("This holds for all eight defenses.", "all eight"),
+                ("Every defense reports a static figure.", "every defense"),
+                ("Only RETA reports an adaptive result.", "only"),
+                ("\\textbf{Only} two defenses release code.", "only"),
+                ("It is one of six defenses that report this.", "one of six"),
+                ("Twenty-three defenses report static figures.", "twenty-three defenses"),
+                ("Most defenses report near-zero attack success.", "most defenses"),
+                ("No work surveyed here compares the two.", "surveyed here")):
+            with self.subTest(body=body):
+                self.assertFlagged(body, trigger)
+
+    def test_a_phrase_wrapped_across_lines_still_matches(self):
+        self.assertFlagged("SIEVE is the\n  only defense that benchmarks others.", "the only")
+        self.assertFlagged("No work surveyed\n    here compares them.", "surveyed here")
+
+    def test_facts_about_one_paper_or_mechanism_are_not_listed(self):
+        for body in ("It is evaluated across four victim models and 17 user tools.",
+                     "The visor intercepts every tool call.",
+                     "The planner sees only the user's instructions.",
+                     "Not only the planner but also the executor is isolated.",
+                     "They report four attack types.",
+                     "The defense is described in Section~\\ref{sec:only}.",
+                     "The attack is effective~\\citep{zhan2024first}.",
+                     "See \\url{https://example.org/the-only-defense}."):
+            with self.subTest(body=body):
+                self.assertClean(body)
+
+    def test_abbreviations_do_not_end_a_sentence(self):
+        found = self.claims("Wang et al.\\ evaluate it, e.g. on AgentDojo. It is "
+                            "the only defense with code.")
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0]["sentence"].startswith("It is the only"), found)
+
+    def test_table_cells_are_separate_sentences(self):
+        found = self.claims("\\begin{tabular}{ll}\nRETA & every figure is self-reported "
+                            "here \\\\\nSIEVE & None \\\\\n\\end{tabular}")
+        self.assertEqual([c["sentence"] for c in found],
+                         ["every figure is self-reported here"])
+
+    def test_one_line_per_sentence_with_every_trigger(self):
+        found = self.claims("It is the only one of six defenses in this corpus to do so.")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["triggers"][0], "the only")
+        self.assertEqual(found[0]["triggers"][-1], "this corpus")
+
+
+class ClaimScanCliTests(ReportFixture):
+    def test_claims_never_fail_and_skip_the_lint(self):
+        self.edit_tex(r"\section{Open Questions}", "")  # a lint error --claims ignores
+        self.edit_tex("Body~", "It is the only defense in this corpus with code~")
+        code, out = self.check("--claims")
+        self.assertEqual(code, 0)
+        self.assertEqual(set(out), {"target", "claims"})
+        # line 4 is the scope note's "Two sources" - a corpus count, rightly listed
+        self.assertEqual([c["line"] for c in out["claims"]], [4, 9])
+        self.assertEqual(out["claims"][1]["section"], "Findings")
+        self.assertEqual(out["claims"][1]["triggers"], ["the only", "this corpus"])
+
+    def test_text_output(self):
+        self.edit_tex("Body~", "It is the only defense with code~")
+        result = subprocess.run([sys.executable, str(self.root / "tools" / "check_report.py"),
+                                 str(self.report), "--claims"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("2 sentences", result.stdout.splitlines()[0])
+        self.assertIn("L9  Findings  [the only]", result.stdout)
+
+    def test_claims_and_compile_are_exclusive(self):
+        result = subprocess.run([sys.executable, str(self.root / "tools" / "check_report.py"),
+                                 str(self.report), "--claims", "--compile"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("not allowed with", result.stderr)
+
+
+class DocumentedInvocationTests(unittest.TestCase):
+    """Every `tools/check_report.py ... --flag` the docs tell Claude to run must be
+    a real flag - a typo there fails at run time, mid-command."""
+
+    def test_documented_flags_exist(self):
+        flags = set(check_report.build_parser()._option_string_actions)
+        docs = sorted((REPO_ROOT / ".claude/commands").glob("*.md"))
+        docs += sorted((REPO_ROOT / ".claude/skills/research-assistant").glob("*.md"))
+        docs += [REPO_ROOT / "CLAUDE.md", REPO_ROOT / "SETUP.md", REPO_ROOT / "README.md"]
+        seen = set()
+        for doc in docs:
+            for line in doc.read_text().splitlines():
+                for match in re.finditer(r"tools/check_report\.py([^`\n]*)", line):
+                    for flag in re.findall(r"(?<![\w-])(--[a-z][\w-]*)", match.group(1)):
+                        seen.add(flag)
+                        self.assertIn(flag, flags, f"{doc.name}: {line.strip()}")
+        self.assertTrue({"--compile", "--claims"} <= seen, seen)
+
+
 if __name__ == "__main__":
     unittest.main()

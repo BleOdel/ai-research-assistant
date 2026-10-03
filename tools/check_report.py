@@ -17,6 +17,13 @@ Options:
                  pdflatex -> bibtex -> pdflatex -> pdflatex sequence and check
                  the logs. Works on reports whose build artifacts were already
                  cleaned up, and never leaves files in the report directory.
+  --claims       Instead of linting, list every sentence that makes an
+                 exclusive, ordinal or counting claim about the corpus ("the
+                 only defense", "the first source", "every figure", "six
+                 defenses in this corpus"). A source added later can make such
+                 a sentence false without touching it, so /update sends the
+                 hits to its reviewer. Review prompts, not findings: false
+                 positives are expected and the exit code is always 0.
   --json         Machine-readable output.
 
 Errors fail the check (exit 1); warnings are reported but do not.
@@ -28,6 +35,7 @@ Stdlib only.
 """
 
 import argparse
+import bisect
 import json
 import re
 import shutil
@@ -413,6 +421,154 @@ def check_compile(tex_path: Path, f: Findings):
 
 
 # ---------------------------------------------------------------------------
+# Corpus-claim scan (--claims)
+# ---------------------------------------------------------------------------
+# An /update merges new sources and fact-checks only the prose it changed. A
+# sentence it never touched - "Spotlight-Guard is distinctive among the defenses
+# in this corpus in reporting an adaptive evaluation" - is falsified all the same
+# when a new source does what it says no source does. These patterns find the
+# sentences whose truth depends on what the corpus contains. They over-match on
+# purpose: each hit is a prompt for a reviewer, never an error.
+
+_NUM = (r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+        r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
+        r"(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)"
+        r"(?:-(?:one|two|three|four|five|six|seven|eight|nine))?)")
+# Units a corpus is counted in. Deliberately not models, tools, datasets or
+# figures: "four victim models" is a fact about one paper, not about the corpus.
+_NOUN = (r"(?:sources?|papers?|stud(?:y|ies)|works?|defen[cs]es?|attacks?|benchmarks?|"
+         r"evaluations?|surveys?|reviews?|approach(?:es)?|methods?|replications?)")
+# A count above one names a plural, so "four attack types" is not "four attacks".
+_PLURAL = (r"(?:sources|papers|studies|works|defen[cs]es|attacks|benchmarks|evaluations|"
+           r"surveys|reviews|approaches|methods|replications)")
+# What "every" quantifies over when the claim is about the corpus or the report's
+# own figures - not "every tool call", which describes a mechanism.
+_EVERY = rf"(?:{_NOUN}|figures?|numbers?|results?|claims?|entry|entries|one)"
+_W = r"(?:[\w-]+\s+)"  # one intervening word ("three other defenses")
+
+# A space in a pattern matches any whitespace: LaTeX source wraps phrases across lines.
+CLAIM_PATTERNS = [re.compile(p.replace(" ", r"\s+"), re.I) for p in (
+    # exclusive: "the only defense", "only one source" (and a sentence that opens
+    # with "Only", found per sentence in scan_claims)
+    rf"\bthe only\b|\bonly\s+(?:one|two|three|{_W}?{_NOUN})\b",
+    r"\bsole(?:ly)?\b",
+    r"\bunique(?:ly)?\b",
+    r"\bdistinctive(?:ly)?\b",
+    r"\bno other\b|\bany other\b|\bnone\b",
+    rf"\bno\s+{_W}?{_NOUN}\b",
+    r"\bunlike (?:any|all|every|the other)\b|\balone among\b",
+    # ordinal and superlative: "the first source to", "the strongest defense"
+    r"\b(?:the|is|was|were|are) (?:first|earliest|last|latest)\b|"
+    r"\bfirst (?:to|in|among)\b",
+    rf"\bthe (?:largest|smallest|strongest|weakest|best|highest|lowest|broadest|"
+    rf"most\s+[\w-]+|least\s+[\w-]+)\s+{_W}?{_NOUN}\b",
+    # universal: "every figure", "all four", "all the defenses"
+    rf"\bevery\s+{_W}?{_EVERY}\b|\beach of the\b",
+    rf"\ball\s+(?:of\s+)?(?:the\s+)?(?:{_NUM}\b|{_W}?{_NOUN}\b)",
+    # counted: "six defenses in this corpus", "one of four", "most defenses"
+    rf"\bone\s+(?:{_W})?{_NOUN}\b|\b{_NUM}\s+(?:{_W}){{0,2}}{_PLURAL}\b",
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten)\s+of\s+(?:the\s+)?"
+    rf"{_NUM}\b",
+    rf"\b(?:most|many|few|several|majority|minority|handful)\s+(?:of\s+)?(?:the\s+)?"
+    rf"(?:{_W})?{_NOUN}\b",
+    # scoped to the corpus explicitly
+    r"\b(?:this|the) corpus\b|\b(?:reviewed|surveyed|covered|included) here\b",
+)]
+
+# Command arguments that are never prose: masked so a key like zhan2024first or
+# a URL cannot trigger a hit or end a sentence.
+_NON_PROSE_ARG = re.compile(r"\\(?:no)?cite[a-zA-Z]*\*?\s*(?:\[[^\]]*\]\s*){0,2}\{[^}]*\}|"
+                            r"\\(?:ref|eqref|autoref|cref|Cref|label|url|input|include|"
+                            r"bibliography|bibliographystyle|usepackage|documentclass|"
+                            r"begin|end)\*?(?:\[[^\]]*\])?\{[^}]*\}|"
+                            r"\\href\{[^}]*\}|\\[a-zA-Z]+")
+_ABBREVIATIONS = {"al", "e.g", "i.e", "etc", "vs", "cf", "fig", "figs", "sec", "secs",
+                  "eq", "no", "nos", "approx", "resp", "et"}
+# "Only RETA reports ..." - "only" opening a sentence, after any \textbf{ etc.
+_BEFORE_OPENING_ONLY = re.compile(r"[\s{]*(?=only\b)", re.I)
+_ONLY = re.compile(r"only\b", re.I)
+_HEADING = re.compile(r"\\(?:sub)*section\*?\{([^}]*)\}|\\paragraph\*?\{([^}]*)\}")
+
+
+def _spaces(text: str) -> str:
+    return re.sub(r"[^\n]", " ", text)
+
+
+def _blank(text: str, start: int, end: int) -> str:
+    return text[:start] + _spaces(text[start:end]) + text[end:]
+
+
+def _mask(tex: str) -> str:
+    """tex with everything that is not body prose replaced by spaces, offsets kept."""
+    begin = tex.find("\\begin{document}")
+    masked = _blank(tex, 0, begin) if begin > 0 else tex
+    # The Revision History is an append-only record of past states: a line saying
+    # what an earlier version claimed is history, not a claim about the corpus.
+    history = re.search(r"\\section\*?\{Revision History\}", masked)
+    if history:
+        rest = re.search(r"\\section\*?\{|\\bibliography\{|\\end\{document\}",
+                         masked[history.end():])
+        stop = history.end() + rest.start() if rest else len(masked)
+        masked = _blank(masked, history.start(), stop)
+    return _NON_PROSE_ARG.sub(lambda m: _spaces(m.group(0)), masked)
+
+
+def _sentence_spans(tex: str, masked: str) -> list[tuple[int, int]]:
+    """Split points: sentence-final punctuation before a capital or a command,
+    blank lines, table cells and rows, and structural commands."""
+    cuts = {0, len(tex)}
+    for match in re.finditer(r"[.?!]['\")}]*", masked):
+        if not re.match(r"\s+[A-Z\\]", tex[match.end():match.end() + 80]):
+            continue
+        word = re.search(r"([\w.]+)$", masked[max(match.start() - 20, 0):match.start()])
+        word = word.group(1).lower() if word else ""
+        if word in _ABBREVIATIONS or (len(word) == 1 and word.isalpha()):
+            continue
+        cuts.add(match.end())
+    for match in re.finditer(r"\n[ \t]*\n|(?<!\\)&|\\\\", tex):
+        cuts.update((match.start(), match.end()))
+    for match in re.finditer(r"\\(?:item|caption)\b", tex):
+        cuts.add(match.start())
+    for match in _HEADING.finditer(tex):
+        cuts.update((match.start(), match.end()))
+    for match in re.finditer(r"\\(?:begin|end)\{[^}]*\}", tex):
+        cuts.update((match.start(), match.end()))
+    ordered = sorted(cuts)
+    return list(zip(ordered, ordered[1:]))
+
+
+def scan_claims(tex: str) -> list[dict]:
+    """Sentences of the report body that make a claim about the corpus as a whole,
+    in document order: {line, section, triggers, sentence}."""
+    masked = _mask(tex)
+    spans = _sentence_spans(tex, masked)
+    starts = [s for s, _ in spans]
+    hits: dict[int, list[re.Match]] = {}
+    for pattern in CLAIM_PATTERNS:
+        for match in pattern.finditer(masked):
+            index = bisect.bisect_right(starts, match.start()) - 1
+            hits.setdefault(index, []).append(match)
+    for index, (start, end) in enumerate(spans):
+        lead = _BEFORE_OPENING_ONLY.match(masked, start, end)
+        if lead:
+            hits.setdefault(index, []).append(_ONLY.match(masked, lead.end()))
+    headings = [(m.start(), next(g for g in m.groups() if g is not None))
+                for m in _HEADING.finditer(tex)]
+    claims = []
+    for index in sorted(hits):
+        start, end = spans[index]
+        if len(tex[start:end].split()) < 3:
+            continue  # a table cell reading "None" is not a claim
+        matches = sorted(hits[index], key=lambda m: m.start())
+        triggers = list(dict.fromkeys(" ".join(m.group(0).lower().split()) for m in matches))
+        section = next((title for pos, title in reversed(headings) if pos <= start), "")
+        claims.append({"line": tex.count("\n", 0, matches[0].start()) + 1,
+                       "section": " ".join(section.split()),
+                       "triggers": triggers,
+                       "sentence": " ".join(tex[start:end].split())})
+    return claims
+
+# ---------------------------------------------------------------------------
 
 def run(target: Path, style_arg: str | None, compile_: bool) -> Findings:
     f = Findings()
@@ -433,18 +589,41 @@ def run(target: Path, style_arg: str | None, compile_: bool) -> Findings:
     return f
 
 
-def main(argv: list[str]) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("target")
     parser.add_argument("--style")
-    parser.add_argument("--compile", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--compile", action="store_true")
+    mode.add_argument("--claims", action="store_true")
     parser.add_argument("--json", action="store_true")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def print_claims(target: Path, as_json: bool) -> int:
+    tex_path, _, _ = locate(target)
+    claims = scan_claims(strip_comments(tex_path.read_text(encoding="utf-8")))
+    if as_json:
+        print(json.dumps({"target": str(target), "claims": claims}, indent=2))
+        return 0
+    print(f"CLAIMS  {target}  ({len(claims)} sentences with exclusive, ordinal or counting "
+          "claims - review prompts, not errors)")
+    for claim in claims:
+        where = f"  {claim['section']}" if claim["section"] else ""
+        print(f"  L{claim['line']}{where}  [{', '.join(claim['triggers'])}]")
+        print(f"      {claim['sentence']}")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    args = build_parser().parse_args(argv)
 
     target = Path(args.target)
     if not target.exists():
         print(json.dumps({"error": f"{target} not found", "code": "NOT_FOUND"}), file=sys.stderr)
         return 1
+    if args.claims:
+        return print_claims(target, args.json)
     f = run(target, args.style, args.compile)
     if args.json:
         print(json.dumps({"target": str(target),

@@ -68,6 +68,17 @@ Follow these steps in order.
    - **Scope note vs. state.** Do the scope note's counts and stated exclusions
      account for what `seen_sources.json` shows was found for this topic? A scope note
      that leaves out a group of scored sources undercounts the exclusions.
+   - **Corpus claims that no longer hold.** List every sentence that claims
+     something about the corpus as a whole:
+     ```bash
+     python3 tools/check_report.py reports/<topic_slug> --claims
+     ```
+     For each hit, check whether the rest of the report contradicts it: another
+     section, a table row, or a `.bib` entry's `evidencebasis`. Examples: "the only
+     defense with an adaptive evaluation" while Section 5 lists three others, or a
+     count the scope note and the `.bib` disagree on. Most hits will hold. A
+     contradicted one is usually an `/update` that merged sources and fixed one copy
+     of the claim but not another, and this check is where that first surfaced.
    - **Anything else the read turns up** - a body claim that a source's own
      `evidencebasis` caveat contradicts, a figure quoted without its condition, a
      named benchmark or system that is never cited.

@@ -38,6 +38,11 @@ the report itself is wrong. Look for:
   and a benchmark the report named about 30 times.
 - **A scope note that undercounts.** Exclusions or found-but-unassessed sources that
   `seen_sources.json` records but the scope note does not mention.
+- **Corpus claims the report itself contradicts.** "The only", "the first",
+  "every", or a count, contradicted by another section, a table row or a source's
+  `evidencebasis` (`check_report.py --claims` lists the candidates). An update
+  that merged new sources can leave one copy of such a claim standing after fixing
+  another. The 2026-10-03 stress-test found three in one report.
 - **Claims a source's own caveat undercuts,** figures quoted without their
   conditions, and named systems or benchmarks that are never cited.
 
