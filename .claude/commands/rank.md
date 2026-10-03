@@ -77,6 +77,7 @@ Each agent returns a JSON array, one object per source:
   "status": "scored" | "unfetchable",
   "scores": { "relevance": 0-100, "recency": 0-100, "rigor": 0-100, "impact": 0-100 or "insufficient data" },
   "rigor_basis": "<venue score, then each method adjustment applied and why, e.g. 'venue 68, +10 released artifact'>",
+  "evidence_basis": "abstract" | "fulltext",
   "disclosure": "academic | industry | self-evaluating | vendor-report | unclear",
   "impact_basis": "<which connector's citation data was used, or null>",
   "notes": "1-2 bullets on any non-obvious score, grounded in the fetched abstract"
@@ -119,8 +120,10 @@ python3 tools/state.py batch --file sources --json-file <scratch>/ranked.json
 The input is `{"<key>": {fields}, ...}`; fields merge into the existing entries:
 
 - Scored sources: `"status": "ranked"`, `"scores"`, `"rigor_basis"`, `"disclosure"`,
-  `"impact_basis"`, `"rank_date"` (ISO date). Omit `overall_score` and `verdict` - the
-  helper computes both from `scores`.
+  `"evidence_basis"`, `"impact_basis"`, `"rank_date"` (ISO date).
+  `evidence_basis` is `"abstract"` for a source scored from its fetched abstract -
+  the normal case here - and `"fulltext"` only if the agent actually read the PDF.
+  Omit `overall_score` and `verdict` - the helper computes both from `scores`.
 - Unfetchable sources: `"status": "unfetchable"` with a `"note"` explaining why
 
 The batch is all-or-nothing: if the helper refuses it, nothing was written - fix the

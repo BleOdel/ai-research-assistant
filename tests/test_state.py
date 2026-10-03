@@ -467,6 +467,20 @@ class RubricDriftTests(unittest.TestCase):
                         self.assertIn(flag, flags, f"{doc.name}: {line.strip()}")
         self.assertIn("unmerged", seen)
 
+    def test_rank_writes_every_scored_field(self):
+        """/rank is how sources get scored. If its documented agent output or its
+        state write leaves out a field `check` expects on every scored entry, each
+        run creates that gap anew - evidence_basis was missing this way, leaving 68
+        sources without one."""
+        rank = (REPO_ROOT / ".claude/commands/rank.md").read_text()
+        output = re.search(r"Each agent returns a JSON array.*?```json\n(.*?)```", rank, re.S)
+        write = re.search(r"^- Scored sources:(.*?)(?=^- |\Z)", rank, re.S | re.M)
+        self.assertIsNotNone(output, "rank.md: agent output JSON block not found")
+        self.assertIsNotNone(write, "rank.md: 'Scored sources:' write list not found")
+        for field in state.SCORED_FIELDS:
+            self.assertIn(f'"{field}"', output.group(1), f"rank.md agent output lacks {field}")
+            self.assertIn(f'"{field}"', write.group(1), f"rank.md state write lacks {field}")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -653,12 +653,17 @@ def check(names: list[str], fix_derived: bool) -> dict:
     return report
 
 
+# Every scored entry should carry these; `check` reports each one missing as a gap.
+# /rank's documented output must produce all of them (tests/test_state.py).
+SCORED_FIELDS = ("scores", "evidence_basis", "disclosure", "rigor_basis")
+
+
 def _gaps(key, entry, gaps, warnings):
     def gap(label):
         gaps.setdefault(label, []).append(key)
 
     if entry.get("status") in ("ranked", "synthesized"):
-        for field in ("scores", "evidence_basis", "disclosure", "rigor_basis"):
+        for field in SCORED_FIELDS:
             if entry.get(field) in (None, ""):
                 gap(f"scored entry missing {field}")
     if entry.get("status") == "synthesized" and not entry.get("authors"):
