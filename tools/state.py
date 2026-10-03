@@ -35,6 +35,14 @@ Commands:
   regen-index
       Rebuild research/papers_by_subject.md per 05-subject-index.md. Every
       write to `sources` does this automatically.
+  unmerged --subject S --bib PATH [--json]
+      List `sources` entries for subject S with status "ranked" and verdict
+      Core or Supporting that PATH (a report's references.bib) does not cite.
+      Read-only. /research's dedup treats every seen source as not new, so a
+      source scored for a report but never carried into it is otherwise never
+      offered again - /update and /synthesize run this to catch that. Entries
+      match on DOI, arXiv id or URL however each side spells it: a state key
+      https://doi.org/10.48550/arXiv.2406.13352 matches eprint = {2406.13352}.
 
 Validation applies to every entry a write touches - the merged result, not
 just the patch. overall_score and verdict/tier are always recomputed from
@@ -61,6 +69,8 @@ import tempfile
 import time
 from datetime import date
 from pathlib import Path
+
+from check_report import parse_bib  # one .bib parser for all of tools/
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILE = ROOT / ".claude" / "skills" / "research-assistant" / "01-researcher-profile.md"
@@ -102,6 +112,16 @@ TRACKER_COLUMNS = ("topic", "subject", "date_synthesized", "status", "last_event
 TRACKER_STATUSES = ("active", "presented", "cited", "needs_revision", "superseded")
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# --- Source identifiers (unmerged) -------------------------------------------
+_ARXIV_ID = r"(\d{4}\.\d{4,5}|[a-z][a-z.-]*/\d{7})(?:v\d+)?"
+ARXIV_BARE = re.compile(rf"^{_ARXIV_ID}$", re.I)
+ARXIV_IN_TEXT = re.compile(rf"arxiv(?:\.org/(?:abs|pdf|html)/|[:.]\s?){_ARXIV_ID}", re.I)
+DOI_IN_TEXT = re.compile(r"\b(10\.\d{4,9}/[^\s\"<>{}]+)")
+URL_RE = re.compile(r"^https?://(?:www\.)?([^/?#\s]+)([^?#\s]*)", re.I)
+# Only fields that identify the entry itself - evidencebasis and note mention
+# other papers' ids, and matching on those would hide a source that is missing.
+BIB_ID_FIELDS = ("doi", "eprint", "url", "howpublished")
 
 
 class StateError(Exception):
@@ -499,6 +519,74 @@ def regen_index() -> int:
 
 
 # ---------------------------------------------------------------------------
+# Report coverage
+# ---------------------------------------------------------------------------
+
+def identifiers(*values) -> set[str]:
+    """Canonical arxiv:<id>, doi:<doi> and url:<host/path> forms in VALUES.
+
+    State keys and .bib fields spell one identifier many ways - bare arXiv
+    ids, arxiv.org URLs with or without a version, arXiv DOIs, doi.org URLs -
+    so both sides reduce to these forms and match if any one is shared.
+    """
+    ids = set()
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        bare = ARXIV_BARE.match(value)
+        if bare:
+            ids.add(f"arxiv:{bare.group(1).lower()}")
+        ids.update(f"arxiv:{m.group(1).lower()}" for m in ARXIV_IN_TEXT.finditer(value))
+        ids.update(f"doi:{m.group(1).rstrip('.,;)').lower()}"
+                   for m in DOI_IN_TEXT.finditer(value))
+        url = URL_RE.match(value)
+        if url:
+            ids.add(f"url:{url.group(1).lower()}{url.group(2).rstrip('/')}")
+    return ids
+
+
+def unmerged(subject: str, bib: Path) -> list[dict]:
+    """Ranked Core/Supporting entries for SUBJECT that BIB does not cite."""
+    interests = tracked_interests()
+    if interests is not None and subject not in interests + ["Uncategorized"]:
+        raise StateError(f"subject {subject!r} is not a tracked Research Interest",
+                         "BAD_ARG", [f"tracked: {', '.join(interests)}, Uncategorized"])
+    if not bib.is_file():
+        raise StateError(f"{bib} not found", "NOT_FOUND")
+    bib_entries, problems = parse_bib(bib.read_text(encoding="utf-8"))
+    if problems:
+        raise StateError(f"could not parse {bib.name}", "PARSE_ERROR", problems)
+    cited = set()
+    for fields in bib_entries.values():
+        cited |= identifiers(*(fields.get(f) for f in BIB_ID_FIELDS))
+
+    found = []
+    for key, entry in load("sources", FILES["sources"]).items():
+        if (entry.get("subject") != subject or entry.get("status") != "ranked"
+                or entry.get("verdict") not in ("Core", "Supporting")):
+            continue
+        if identifiers(key, entry.get("url")) & cited:
+            continue
+        found.append({"key": key, **{f: entry.get(f) for f in (
+            "title", "year", "verdict", "overall_score", "rank_date", "url")}})
+    found.sort(key=lambda e: (VERDICTS.index(e["verdict"]), -(e["overall_score"] or 0),
+                              e["title"] or ""))
+    return found
+
+
+def print_unmerged(found: list[dict], subject: str, bib: Path) -> None:
+    if not found:
+        print(f"none - every ranked Core/Supporting source for {subject!r} is in {bib.name}")
+        return
+    print(f"{len(found)} ranked Core/Supporting source(s) for {subject!r} not in {bib.name}:")
+    for e in found:
+        year = f" ({e['year']})" if e.get("year") else ""
+        print(f"  {e['verdict']:<10} {e['overall_score'] or '':>3}  {e['title']}{year}")
+        print(f"             key: {e['key']}")
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -619,7 +707,7 @@ def read_json_arg(args) -> object:
         raise StateError(f"invalid JSON input: {exc}", "BAD_ARG") from exc
 
 
-def main(argv: list[str]) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -649,7 +737,15 @@ def main(argv: list[str]) -> int:
 
     sub.add_parser("regen-index")
 
-    args = parser.parse_args(argv)
+    p_unmerged = sub.add_parser("unmerged")
+    p_unmerged.add_argument("--subject", required=True)
+    p_unmerged.add_argument("--bib", required=True)
+    p_unmerged.add_argument("--json", action="store_true")
+    return parser
+
+
+def main(argv: list[str]) -> int:
+    args = build_parser().parse_args(argv)
     try:
         if args.command == "check":
             report = check(args.files, args.fix_derived)
@@ -703,6 +799,16 @@ def main(argv: list[str]) -> int:
         if args.command == "regen-index":
             print(json.dumps({"ok": True, "file": str(INDEX.relative_to(ROOT)),
                               "entries": regen_index()}))
+            return 0
+
+        if args.command == "unmerged":
+            bib = Path(args.bib)
+            found = unmerged(args.subject, bib)
+            if args.json:
+                print(json.dumps({"subject": args.subject, "bib": str(bib),
+                                  "unmerged": found}, indent=2))
+            else:
+                print_unmerged(found, args.subject, bib)
             return 0
     except StateError as exc:
         out = {"error": str(exc), "code": exc.code}

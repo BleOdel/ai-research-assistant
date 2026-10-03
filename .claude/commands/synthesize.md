@@ -6,8 +6,10 @@ with a second agent, compiles to PDF, and verifies the result.
 `$ARGUMENTS` is the topic, optionally followed by source numbers from a prior
 `/research` run (e.g. `/synthesize retrieval-augmented generation 1,2,4` or
 `/synthesize retrieval-augmented generation all`). If no numbers are given, run
-`/research`'s Steps 0-4 first to populate candidates, then use all `status: new` or
-`status: skipped` (never previously synthesized) entries for this topic.
+`/research`'s Steps 0-4 first to populate candidates, then use all `status: new`,
+`status: skipped` or `status: ranked` (never previously synthesized) entries for this
+topic. Leaving out `ranked` is how three Core sources `/rank` had scored went
+uncited in the prompt-injection report.
 
 Follow these steps **exactly in order**. Do not skip steps.
 
@@ -366,6 +368,40 @@ Keep `report.tex`, `references.bib`, and `report.pdf`.
 
 ## Step 6: Present Final Output
 
+### 6a. Record state and check for dropped sources
+
+Record the outcome in state with one state-helper call - never by editing the JSON
+directly. For every source scored in Step 1, write its final Step 1 scoring
+(`scores`, `rigor_basis`, `disclosure`, `evidence_basis`) with `"status":
+"synthesized"` if the report cites it, or `"status": "ranked"` and `"rank_date"` if it
+does not - a scored source left at `new` is invisible to every later check:
+
+```bash
+python3 tools/state.py batch --file sources --json-file <scratch>/synthesized.json
+```
+
+The helper computes `overall_score`/`verdict` from `scores`, refuses anything
+invalid, and regenerates `research/papers_by_subject.md` in the same write. Write the
+same author list and venue the `.bib` uses - state and bibliography should not
+disagree about who wrote a paper.
+
+Then list what was scored Core/Supporting but is not in the `.bib`:
+
+```bash
+python3 tools/state.py unmerged --subject "<subject>" --bib reports/<topic_slug>/references.bib
+```
+
+`<subject>` is the Research Interest this topic's sources are filed under. The list
+covers the whole interest, so it also holds sources ranked for other topics - ignore
+those. Every entry Step 1 scored for this report must appear in the output's **Scored
+but Not Cited** section with its reason (dropped at the Step 1 prompt, no claim
+needed it, superseded by a cited source). If `report.tex` names a listed source in
+prose - search for its title's distinctive words or tool name - it must be cited: add
+the citation and its `.bib` entry, have the reviewer verify the citing claims as in
+Steps 3-4, recompile and re-lint per Step 5, and set its status to `synthesized`.
+
+### 6b. Verify and present
+
 Run the full Verification Checklist from `CLAUDE.md` now - this is the only
 verification pass in the workflow, done once here with final state on disk.
 
@@ -380,6 +416,10 @@ CLAUDE.md's remaining checklist items the linter cannot check]
 [table: source, verdict from Step 1 scoring, whether the reviewer flagged and resolved
 any issue with it]
 
+### Scored but Not Cited
+[from 6a: each Core/Supporting source Step 1 scored that the report does not cite,
+with verdict and reason - or "none"]
+
 ### Key Findings
 [2-4 sentence summary of the report's headline conclusion]
 
@@ -391,18 +431,5 @@ any issue with it]
 - reports/<topic_slug>/references.bib
 - reports/<topic_slug>/report.pdf
 ```
-
-Record the outcome in state with one state-helper call - never by editing the JSON
-directly. For every source used in this report, write its final Step 1 scoring
-(`scores`, `rigor_basis`, `disclosure`, `evidence_basis`) and `"status": "synthesized"`:
-
-```bash
-python3 tools/state.py batch --file sources --json-file <scratch>/synthesized.json
-```
-
-The helper computes `overall_score`/`verdict` from `scores`, refuses anything
-invalid, and regenerates `research/papers_by_subject.md` in the same write. Write the
-same author list and venue the `.bib` uses - state and bibliography should not
-disagree about who wrote a paper.
 
 Tell the user the PDF is ready for review at the path above.

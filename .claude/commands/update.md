@@ -43,29 +43,61 @@ dedup, storage - all identical). Two update-specific adjustments:
   than year granularity, since every source considered for the original report is
   already recorded there.
 - The interesting output is **new-since-baseline sources only**. Already-seen
-  sources drop out via dedup as usual.
+  sources drop out via dedup as usual - which is why Step 1b exists.
 
-If discovery finds nothing new: say so plainly, update the report's metadata-block
-search-scope date (the "checked through" date moving forward IS information), add no
-Revision History entry (nothing changed), and stop - do not pad an update out of
-nothing. Recompile only if the metadata line changed.
+### Step 1b: Scored but Never Merged
+
+Dedup treats every source already in `seen_sources.json` as not new, including one
+that was scored Core for this report and then never carried into it - so no later
+`/update` would offer it again. (This happened: three Core sources ranked on
+2026-08-26 stayed out of the prompt-injection report through two updates while its
+prose named one of them about 30 times.) List them alongside re-discovery:
+
+```bash
+python3 tools/state.py unmerged --subject "<subject>" --bib reports/<topic_slug>/references.bib
+```
+
+`<subject>` is the report's Research Interest: the `subject` column of its
+`research_tracker.csv` row if there is one, otherwise the interest this topic
+classifies under per `05-subject-index.md` (the same match `/research` Step 4 makes).
+The helper lists every `ranked` Core/Supporting entry under that interest that the
+`.bib` does not cite, matching on DOI, arXiv id or URL however each side spells them.
+
+The list covers the whole Research Interest, not just this topic, so triage it by
+title and stored scores: on-topic entries join the new sources as **merge
+candidates** in Step 2; the rest were ranked for other topics under the same
+interest - count them in one line, never skip them silently. An entry that looks
+on-topic but turns out to be cited under an identifier the helper could not match
+(e.g. the `.bib` has only the venue DOI and state only the arXiv URL) is not a
+candidate - say which `.bib` key covers it.
+
+If discovery finds nothing new **and** Step 1b has no on-topic candidates: say so
+plainly, update the report's metadata-block search-scope date (the "checked through"
+date moving forward IS information), add no Revision History entry (nothing
+changed), and stop - do not pad an update out of nothing. Recompile only if the
+metadata line changed.
 
 ---
 
 ## Step 2: Score the New Sources
 
-Full four-dimension scoring per `02-source-evaluation.md` for each new source, with
-full text via `paper-fetch` where a score turns on something the abstract doesn't
-state (per `07-fulltext.md` - same as `/synthesize` Step 1). Present the scoring
-table, plus a one-line reminder of the report's current headline conclusion, and
-ask:
+Full four-dimension scoring per `02-source-evaluation.md` for each new source and
+each Step 1b candidate, with full text via `paper-fetch` where a score turns on
+something the abstract doesn't state (per `07-fulltext.md` - same as `/synthesize`
+Step 1). A Step 1b candidate's stored score may be `/rank`'s abstract-only triage or
+an older `/synthesize` scoring, so it is a prior, not a substitute. Present one
+scoring table with Step 1b candidates marked as previously ranked (and their
+`rank_date`), plus a one-line reminder of the report's current headline conclusion,
+and ask:
 
 > "Merge the Core/Supporting sources into the report? Reply yes, or tell me which
 > to drop."
 
 Peripheral/Excluded sources are recorded in `seen_sources.json` but never trigger
 report changes. If nothing scores Core/Supporting, report that honestly (the field
-hasn't moved) and stop after updating the metadata date as in Step 1.
+hasn't moved) and stop after updating the metadata date as in Step 1. A Step 1b
+candidate the user declines keeps `status: "ranked"`, so the next `/update` lists
+it again - that is intended; say so when they decline.
 
 ---
 
@@ -79,6 +111,10 @@ Step 0. Present the classification list briefly before editing.
 **If any source contradicts the report's headline conclusion** (the abstract's own
 claim), stop and tell the user per `08-living-updates.md` - that's a rewrite
 decision, not an update.
+
+A Step 1b candidate merges like any new source, but its Revision History line says
+it was scored earlier and omitted (e.g. "scored Core on 2026-08-26, not carried in
+until now") - the reader should not take a back-filled 2023 paper for new work.
 
 Then edit `report.tex` and `references.bib` per the merge rules:
 - Body sections revised in place; never append "Update: actually..." paragraphs
@@ -129,7 +165,7 @@ Resolve every flagged citation per `/synthesize` Step 4's rules before compiling
    when the new style is Harvard - see `04-citation-rules.md`). Record
    each migration in the Revision History entry, separately from the content changes,
    so a reader can tell "new sources merged" from "formatting brought up to date".
-2. Record merged sources in state with one call -
+2. Record merged sources (new and Step 1b alike) in state with one call -
    `python3 tools/state.py batch --file sources --json-file <scratch>/merged.json` -
    setting `"status": "synthesized"` plus their scoring fields. The helper regenerates
    `research/papers_by_subject.md` in the same write.
@@ -155,7 +191,7 @@ change - matching the Revision History entry]
 
 ### What Didn't
 [one line: N sections untouched; any new sources scored but not merged, with
-verdicts]
+verdicts; Step 1b candidates declined, and the count of off-topic Step 1b entries]
 
 ### Verification
 [fact-check scope (K citations checked) and result; compile checklist pass/fail]

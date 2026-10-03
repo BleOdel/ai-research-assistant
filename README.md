@@ -204,7 +204,9 @@ evidence basis, citation-count divergence). The list below is the summary.
   reports repeatedly going stale) but never edits your profile or scoring rubric
   itself; that stays a `/setup` decision.
 - **`/update <topic>`** refreshes an existing report as a living document:
-  re-discovers the topic, scores what's genuinely new since the report was written,
+  re-discovers the topic, scores what's genuinely new since the report was written
+  (plus anything scored Core/Supporting earlier that never made it into the report -
+  `tools/state.py unmerged` lists those, since dedup would otherwise hide them),
   merges it into the body **in place** (extending themes, revising contradicted
   claims, retiring answered Open Questions), and appends a dated Revision History
   entry recording what changed and which sources drove it. Fact-checks only the

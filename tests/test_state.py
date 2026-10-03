@@ -11,6 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATE_SCRIPT = REPO_ROOT / "tools" / "state.py"
+CHECK_REPORT_SCRIPT = REPO_ROOT / "tools" / "check_report.py"  # state.py imports its parse_bib
 SKILLS = REPO_ROOT / ".claude" / "skills" / "research-assistant"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
@@ -49,6 +50,7 @@ class StateFixture(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         (self.root / "tools").mkdir()
         shutil.copy(STATE_SCRIPT, self.root / "tools" / "state.py")
+        shutil.copy(CHECK_REPORT_SCRIPT, self.root / "tools" / "check_report.py")
         profile = self.root / ".claude" / "skills" / "research-assistant" / "01-researcher-profile.md"
         profile.parent.mkdir(parents=True)
         profile.write_text(PROFILE)
@@ -307,6 +309,96 @@ class IndexTests(StateFixture):
         self.assertLess(text.index("## Applied ML"), text.index("## Uncategorized"))
 
 
+CORE = {"relevance": 90, "rigor": 82, "impact": 45, "recency": 100}  # 81
+SUPPORTING = {"relevance": 60, "rigor": 60, "impact": 60, "recency": 60}  # 60
+PERIPHERAL = {"relevance": 40, "rigor": 40, "impact": 40, "recency": 40}  # 40
+
+BIB = """@inproceedings{agentdojo,
+  title = {{AgentDojo}},
+  eprint = {2406.13352},
+  archivePrefix = {arxiv},
+  url = {https://arxiv.org/abs/2406.13352},
+  evidencebasis = {Compared against arXiv:2501.00001, which is not cited here.}
+}
+@inproceedings{greshake,
+  title = {Not What You've Signed Up For},
+  doi = {10.1145/3605764.3623985},
+}
+@misc{injecagent,
+  title = {{InjecAgent}},
+  url = {https://arxiv.org/abs/2403.02691v2},
+}
+@misc{oldkey,
+  title = {Old},
+  howpublished = {arXiv preprint arXiv:2205.00208},
+}
+"""
+
+
+class UnmergedTests(StateFixture):
+    """The drop this command exists to catch: sources scored Core for a report,
+    left status "ranked", and never cited - invisible to /research's dedup."""
+
+    def setUp(self):
+        super().setUp()
+        self.bib = self.root / "references.bib"
+        self.bib.write_text(BIB)
+
+    def seed(self, entries):
+        result = self.run_state("batch", "--file", "sources", "--json", json.dumps(entries))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def unmerged(self, *extra, subject="XR Security"):
+        return self.run_state("unmerged", "--subject", subject, "--bib", str(self.bib), *extra)
+
+    def test_lists_ranked_core_and_supporting_missing_from_the_bib(self):
+        self.seed({
+            # cited, each under a different spelling of its identifier
+            "https://doi.org/10.48550/arXiv.2406.13352": entry(status="ranked", scores=CORE),
+            "https://doi.org/10.1145/3605764.3623985": entry(status="ranked", scores=CORE),
+            "2403.02691": entry(status="ranked", scores=CORE),
+            "arxiv:2205.00208": entry(status="ranked", scores=CORE,
+                                      url="https://www.semanticscholar.org/paper/abc"),
+            # not cited - only mentioned in another entry's evidencebasis
+            "https://arxiv.org/abs/2501.00001": entry(title="Missing core", status="ranked",
+                                                      scores=CORE),
+            "10.1000/missing": entry(title="Missing supporting", status="ranked",
+                                     scores=SUPPORTING),
+            # not cited, but out of scope
+            "10.1000/peripheral": entry(status="ranked", scores=PERIPHERAL),
+            "10.1000/synthesized": entry(status="synthesized", scores=CORE),
+            "10.1000/unscored": entry(status="new"),
+            "10.1000/elsewhere": entry(subject="Applied ML", status="ranked", scores=CORE),
+        })
+        result = self.unmerged("--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        found = json.loads(result.stdout)["unmerged"]
+        self.assertEqual([(e["key"], e["verdict"], e["overall_score"]) for e in found],
+                         [("https://arxiv.org/abs/2501.00001", "Core", 81),
+                          ("10.1000/missing", "Supporting", 60)])
+        text = self.unmerged().stdout
+        self.assertIn("2 ranked Core/Supporting source(s) for 'XR Security' not in "
+                      "references.bib", text)
+        self.assertIn("Missing core", text)
+
+    def test_nothing_missing_says_so(self):
+        self.seed({"2406.13352": entry(status="ranked", scores=CORE)})
+        result = self.unmerged()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("none - every ranked Core/Supporting source", result.stdout)
+
+    def test_bad_subject_and_missing_bib_are_refused(self):
+        self.seed({"k": entry()})
+        err = self.assertRefused(self.unmerged(subject="XR"), "BAD_ARG")
+        self.assertIn("XR Security", " ".join(err["problems"]))
+        self.bib.unlink()
+        self.assertRefused(self.unmerged(), "NOT_FOUND")
+
+    def test_unparseable_bib_is_refused(self):
+        self.bib.write_text("@misc{broken, title = {unclosed}\n")
+        self.assertRefused(self.unmerged(), "PARSE_ERROR")
+
+
 class RubricDriftTests(unittest.TestCase):
     """state.py's constants must match the rubric documents they enforce."""
 
@@ -355,6 +447,25 @@ class RubricDriftTests(unittest.TestCase):
         websearch = (REPO_ROOT / ".claude/commands/websearch.md").read_text()
         found = re.search(r'"status": "([\w| ]+)"', websearch).group(1)
         self.assertEqual(tuple(s.strip() for s in found.split("|")), state.WEB_STATUSES)
+
+    def test_documented_invocations_exist(self):
+        """Every `tools/state.py <command> --flag` a command doc tells Claude to run
+        must be a real subcommand and flag - a typo there fails at run time."""
+        parser = state.build_parser()
+        commands = parser._subparsers._group_actions[0].choices
+        docs = sorted((REPO_ROOT / ".claude/commands").glob("*.md"))
+        docs += sorted(SKILLS.glob("*.md"))
+        seen = set()
+        for doc in docs:
+            for line in doc.read_text().splitlines():
+                for match in re.finditer(r"tools/state\.py ([a-z][\w-]*)([^`\n]*)", line):
+                    command, rest = match.groups()
+                    seen.add(command)
+                    self.assertIn(command, commands, f"{doc.name}: {line.strip()}")
+                    flags = set(commands[command]._option_string_actions)
+                    for flag in re.findall(r"(?<![\w-])(--[a-z][\w-]*)", rest):
+                        self.assertIn(flag, flags, f"{doc.name}: {line.strip()}")
+        self.assertIn("unmerged", seen)
 
 
 if __name__ == "__main__":
