@@ -179,10 +179,14 @@ evidence basis, citation-count divergence). The list below is the summary.
   file to edit - `/research`/`/rank` discover connectors dynamically.
 - **`/defend <topic>`** builds a prep pack for presenting or defending a
   `/synthesize` report - to a supervisor, in a lab meeting, at a conference, or in a
-  thesis viva. Seeds likely tough questions from the report's own Open Questions
-  section and any excluded/peripheral sources, drafts honest answers grounded only
-  in what the report actually supports, optionally researches a named audience
-  member's own work, and offers a mock Q&A roleplay.
+  thesis viva - or, with no event given, stress-tests it. It leads with **report
+  issues** the prep exposes (e.g. Core sources scored but never cited, a scope note
+  that undercounts), each with a suggested fix the user can approve. It then seeds
+  likely tough questions from the report's own Open Questions section and any
+  excluded/peripheral sources, drafts honest answers grounded only in what the
+  report actually supports, optionally researches a named audience member's own
+  work, and offers a mock Q&A in practice mode (you answer, then get feedback) or
+  walkthrough mode (model answers with traps to avoid).
 - **`/websearch <topic>`** is the grey-literature track: searches practitioner
   blogs, engineering writeups, official docs, specs, and technical discussion,
   scores each source on a **separate credibility rubric** (Authority and Evidence

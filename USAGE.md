@@ -20,7 +20,7 @@ Type these **inside Claude Code**, not in your shell.
 | `/rank` | Batch-score a large haul against the full rubric, return a shortlist |
 | `/synthesize <topic> [nums\|all]` | Score → draft → fact-check → compile → verify |
 | `/update <topic>` | Refresh an existing report in place, with a dated Revision History |
-| `/defend <topic> [context]` | Presentation/viva prep pack + mock Q&A |
+| `/defend <topic> [context]` | Stress-test or presentation/viva prep pack + mock Q&A |
 | `/outcome [topic]` | Record what happened to a report after the fact |
 | `/gaps` | Cross-report: recurring gaps, divergent sources, portfolio health |
 | `/expand` | Enrich your profile from `documents/`, Google Scholar, GitHub |
@@ -216,10 +216,19 @@ Design rules worth knowing:
 
 ```
 /defend retrieval-augmented-generation-for-code-search viva
+/defend retrieval-augmented-generation-for-code-search
 ```
 
-Builds a prep pack for a supervisor meeting, lab talk, conference, or thesis viva.
-Likely questions are seeded, in priority order, from:
+Builds a prep pack for a supervisor meeting, lab talk, conference, or thesis viva -
+or, with no context given, a **stress-test**: how well does the report hold up under
+questioning, with no event in view.
+
+The pack **opens with report issues** that preparing exposed - most usefully, sources
+scored Core for the topic that the report never cites (`state.py unmerged`), and a
+scope note that leaves out what was found. Each comes with a suggested fix;
+`/defend` never edits the report itself, but offers the fix as a separate step you
+approve, run under `/update`'s rules. Likely questions are then seeded, in priority
+order, from:
 
 1. **Your report's own Open Questions section** — a sharp questioner's first move is
    almost always to probe the gaps the report already discloses.
@@ -230,9 +239,11 @@ Likely questions are seeded, in priority order, from:
 5. Standard hard questions, rephrased against your actual content.
 
 Name a specific audience member and it will research their published work for
-genuine tensions with your conclusions. It also offers a mock Q&A roleplay with
-feedback after each answer. Saves to
-`reports/<topic-slug>/defense_prep_<context>.md`.
+genuine tensions with your conclusions. It also offers a mock Q&A in two modes:
+**practice** (you answer, then get feedback) or **walkthrough** (a model answer, why
+it works, and the traps to avoid); say "show me" on any question to switch. Saves to
+`reports/<topic-slug>/defense_prep_<context>.md` (`defense_prep_stress-test.md` with
+no context).
 
 Answers are grounded only in what the report supports — where the honest answer is
 "the literature doesn't resolve this," that is what it prepares you to say.

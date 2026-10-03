@@ -92,7 +92,8 @@ The user may also ask for individual steps without the full workflow:
   already ran)
 - "Check the citations in this report" - Step 4 only, run standalone against an
   existing `.tex`/`.bib` pair
-- "Help me prep to present/defend this report" - equivalent to `/defend`, see
+- "Help me prep to present/defend this report", or "how well does this report hold
+  up?" - equivalent to `/defend` (a stress-test when no event is named), see
   `06-defense-prep.md`
 - "Record what happened to this report" (presented, cited, needs revision,
   superseded) - equivalent to `/outcome`

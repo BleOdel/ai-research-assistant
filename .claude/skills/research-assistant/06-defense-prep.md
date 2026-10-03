@@ -2,10 +2,51 @@
 
 Used by `/defend` to turn a compiled `/synthesize` report into a prep pack for
 presenting or defending it out loud - to a supervisor, in a lab meeting, at a
-conference, or in a thesis viva. The report is this framework's equivalent of a
-submitted CV/cover letter: whoever is on the other side of the table has (or will
-have) read it, so every prepared answer must be consistent with what it actually
-claims - never a stronger or different claim than the paper on record.
+conference, or in a thesis viva - or for stress-testing it with no event in view. The
+report is this framework's equivalent of a submitted CV/cover letter: whoever is on
+the other side of the table has (or will have) read it, so every prepared answer must
+be consistent with what it actually claims - never a stronger or different claim than
+the paper on record.
+
+## Settings
+
+The setting shapes the register and which sections the pack includes, not the
+honesty rules, which never change.
+
+| Setting | Questioner | Questions to ask back |
+|---|---|---|
+| **Stress-test** (default, no event) | A sharp, well-read reader | Omitted - no one to ask |
+| Supervisor / lab meeting | Collegial, probing, wants next steps | Included |
+| Conference Q&A | Short, pointed, may not know the area | Included, brief |
+| Thesis viva / paper rebuttal | Examining, not exchanging | Omitted |
+
+A stress-test is a full pack without the event framing: the same questions, answers
+and report issues, written for someone checking whether their report holds up rather
+than rehearsing for a date. Never assume an event the user did not name.
+
+## Report Issues Come First
+
+Preparing a defense means reading the report the way a sharp questioner will, against
+the state it was built from, and that read finds problems drafting missed. They go in
+the pack's first section, ahead of any question, because a defense is weakest where
+the report itself is wrong. Look for:
+
+- **Scored but never cited.** Core/Supporting sources for this topic that the
+  `.bib` does not cite (`state.py unmerged`). An expert notices a missing
+  foundational paper before anything else. On this framework's first stress-test the
+  check found three, including the paper that introduced the report's central concept
+  and a benchmark the report named about 30 times.
+- **A scope note that undercounts.** Exclusions or found-but-unassessed sources that
+  `seen_sources.json` records but the scope note does not mention.
+- **Claims a source's own caveat undercuts,** figures quoted without their
+  conditions, and named systems or benchmarks that are never cited.
+
+Each issue gets the evidence, how it would come up in questioning, and a suggested
+fix. `/defend` never applies the fix itself; it is a separate, user-approved step
+under `/update`'s rules, after which the affected pack sections are refreshed. Until
+it is fixed, the answer mapping says how to handle the issue honestly if it comes up:
+name it first rather than be caught on it. "No issues found" is a valid result, stated
+with what was checked.
 
 ## Where Likely Questions Come From
 
@@ -69,7 +110,20 @@ defensible in depth if pushed.
 
 ## Mock Defense / Roleplay Guidelines
 
-If the user wants to practice:
+Two modes, switchable at any question:
+
+- **Practice** - the user answers first; feedback follows (below). This is the better
+  rehearsal for a real event.
+- **Walkthrough** - for each question, a model answer, then why it works, the traps
+  to avoid (the overclaims and mis-stated figures this report invites), and the
+  likely follow-up. Users often want this first, especially for a stress-test or an
+  unfamiliar report; "show me" on any question switches to it for that question.
+
+A model answer is held to the same rule as any other: nothing beyond what the report
+supports, at the report's own strength ("mostly held", "one static study"), with the
+weaknesses volunteered rather than waiting to be found.
+
+Structure, in either mode:
 
 1. Warm-up: one easy, expected question (e.g. "summarize your headline finding in
    two sentences").
@@ -81,9 +135,15 @@ If the user wants to practice:
    question grounded in a real tension between their work and the report's
    conclusion.
 
-After each answer, give brief feedback: what was well-grounded, what strayed beyond
-what the report actually supports, and which specific report passage or source would
-have made the answer stronger. Calibrate register to the profile's expertise level
-for this topic (`01-researcher-profile.md`'s Depth Calibration) - an expert-level
-defense should sound like peer-level engagement with what's contestable, not a
-rehearsed elevator pitch.
+In practice mode, after each answer, give brief feedback: what was well-grounded,
+what strayed beyond what the report actually supports, and which specific report
+passage or source would have made the answer stronger. Calibrate register to the
+profile's expertise level for this topic (`01-researcher-profile.md`'s Depth
+Calibration) - an expert-level defense should sound like peer-level engagement with
+what's contestable, not a rehearsed elevator pitch.
+
+End the run with a short summary rather than a verdict: the habits that carried the
+strong answers (naming who did the work and their stake in it, using the report's own
+verbs, volunteering weaknesses, keeping open tensions open) and the figures most
+likely to be misstated under pressure. If the user only saw model answers, say so,
+and offer a practice run before any real event.
