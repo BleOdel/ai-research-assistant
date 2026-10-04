@@ -107,10 +107,13 @@ For a topic, create:
   \usepackage{hyperref}
   \usepackage{natbib}
   \renewcommand{\harvardurl}{\textbf{URL:} \url}
+  \setcitestyle{aysep={,}}
   ```
 
-  Without it, any URL containing `_`, `%` or `#` fails the compile - see
+  Without the override, any URL containing `_`, `%` or `#` fails the compile - see
   `04-citation-rules.md`'s "Harvard style specifically" for why it takes no argument.
+  The last line gives UK Harvard's "(Liu et al., 2023)" instead of agsm's
+  "(Liu et al. 2023)".
 - **Long tables use `longtable`, not a `table` float.** A float cannot break across
   pages, so a comparison or Evidence Basis table taller than the page runs off the
   bottom of it (an `[H]` float logs `Overfull \vbox ... while \output is active`; any

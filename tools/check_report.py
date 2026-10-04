@@ -71,6 +71,12 @@ OVERFULL_ERROR_PT = 3.0  # below this an overfull box is invisible in practice
 # 04-citation-rules.md quotes this line; tests/test_check_report.py keeps the two
 # in step.
 HARVARD_URL_FIX = r"\renewcommand{\harvardurl}{\textbf{URL:} \url}"
+# agsm separates author and year with a space, "(Liu et al. 2023)"; UK Harvard
+# guides (Cite Them Right among them) put a comma there, "(Liu et al., 2023)", and
+# a semicolon between citations, which natbib applies once this line is set.
+# Quoted in 03-report-templates.md and 04-citation-rules.md.
+HARVARD_CITE_STYLE = r"\setcitestyle{aysep={,}}"
+HARVARD_COMMA = re.compile(r"\\setcitestyle\s*\{[^}\n]*aysep\s*=\s*\{,\}")
 HARVARDURL_OVERRIDE = re.compile(r"\\renewcommand\s*\{?\\harvardurl\}?\s*(\[\d\])?\s*\{([^\n]*)\}")
 
 DATE_PARAGRAPH = re.compile(r"\\paragraph\{\d{4}-\d{2}-\d{2}\}")
@@ -269,6 +275,10 @@ def check_style(tex: str, style: str | None, f: Findings):
                          "author in prose and use \\citep")
     if bst == "agsm":
         check_harvardurl(tex, natbib, f)
+        if not HARVARD_COMMA.search(tex):
+            f.warn("style", "agsm prints citations as (Liu et al. 2023); UK Harvard guides want "
+                            f"(Liu et al., 2023) - add {HARVARD_CITE_STYLE} after the "
+                            "\\harvardurl override (04-citation-rules.md)")
 
 
 def check_harvardurl(tex: str, natbib, f: Findings):

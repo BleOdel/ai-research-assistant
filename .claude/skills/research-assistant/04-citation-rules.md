@@ -150,6 +150,19 @@ on `%` and `#`, because the URL was already tokenized when `\harvardurl` grabbed
 (verified by compiling each case). `tools/check_report.py` fails a Harvard report
 without the override, and warns on the one-argument form.
 
+**Every Harvard report also sets the author-year comma.** `agsm` writes
+"(Karpukhin et al. 2020)"; most UK guides, Cite Them Right among them, want
+"(Karpukhin et al., 2020)" and a semicolon between citations. One line, after the
+`\harvardurl` override, gives both:
+
+```latex
+\setcitestyle{aysep={,}}
+```
+
+Textual citations are unaffected: `\citet` still prints "Karpukhin et al. (2020)".
+Verified 2026-10-04 by compiling the prompt-injection report with and without it (no
+layout change). `tools/check_report.py` warns when a Harvard report lacks it.
+
 ## The Fact-Check Pass
 
 `/synthesize` spawns a reviewer agent with fresh context whose only job is checking

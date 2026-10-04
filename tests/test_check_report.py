@@ -42,7 +42,7 @@ BIB = """@article{a,
 
 
 HARVARD_PREAMBLE = ("\\usepackage{hyperref}\n\\usepackage{natbib}\n"
-                    + check_report.HARVARD_URL_FIX)
+                    + check_report.HARVARD_URL_FIX + "\n" + check_report.HARVARD_CITE_STYLE)
 
 
 class ReportFixture(unittest.TestCase):
@@ -199,6 +199,17 @@ class StaticTests(ReportFixture):
         self.make_harvard("\\usepackage{hyperref}\n\\usepackage{natbib}")
         self.assertError("\\harvardurl")
 
+    def test_harvard_without_comma_is_a_warning(self):
+        self.make_harvard(HARVARD_PREAMBLE.replace(check_report.HARVARD_CITE_STYLE, ""))
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(any("(Liu et al., 2023)" in w for w in out["warnings"]), out["warnings"])
+
+    def test_harvard_with_comma_has_no_style_warning(self):
+        self.make_harvard()
+        code, out = self.check()
+        self.assertEqual((code, [w for w in out["warnings"] if "Liu et al." in w]), (0, []))
+
     def test_harvardurl_override_must_use_url(self):
         self.make_harvard("\\usepackage{natbib}\n"
                           "\\renewcommand{\\harvardurl}[1]{\\textbf{URL:} \\textit{#1}}")
@@ -345,6 +356,11 @@ class HarvardUrlFixDriftTests(unittest.TestCase):
         for doc in (".claude/skills/research-assistant/04-citation-rules.md",
                     ".claude/skills/research-assistant/03-report-templates.md", "SETUP.md"):
             self.assertIn(check_report.HARVARD_URL_FIX, (REPO_ROOT / doc).read_text(), doc)
+
+    def test_docs_quote_the_comma_setting(self):
+        for doc in (".claude/skills/research-assistant/04-citation-rules.md",
+                    ".claude/skills/research-assistant/03-report-templates.md"):
+            self.assertIn(check_report.HARVARD_CITE_STYLE, (REPO_ROOT / doc).read_text(), doc)
 
 
 class RealExampleTest(unittest.TestCase):
