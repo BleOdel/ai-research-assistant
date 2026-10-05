@@ -33,7 +33,9 @@ At least one of `--query`, `--category`, or `--since` is required.
 
 Key flags:
 - `--query <text>` / `-q <text>` — free-text query, matched against title/abstract/
-  authors/etc.
+  authors/etc. Each word must appear somewhere in the paper (words are ANDed;
+  common stopwords such as "and", "of", "in" are dropped). Wrap a set phrase in
+  double quotes to require it verbatim: `-q '"virtual reality" privacy attacks'`.
 - `--category <code>` / `-c <code>` — an arXiv category, e.g. `cs.LG`, `cs.CL`,
   `stat.ML`. See https://arxiv.org/category_taxonomy for the full list.
 - `--since <YYYY-MM-DD>` — only papers submitted on or after this date.

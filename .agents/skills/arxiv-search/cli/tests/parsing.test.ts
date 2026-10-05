@@ -82,18 +82,38 @@ describe("parseFeed", () => {
 });
 
 describe("buildSearchQuery", () => {
-  test("builds a query clause for --query", () => {
-    expect(buildSearchQuery({ query: "graph neural networks" })).toBe('all:"graph neural networks"');
+  test("ANDs one clause per word instead of quoting the whole query as a phrase", () => {
+    expect(buildSearchQuery({ query: "graph neural networks" })).toBe(
+      'all:"graph" AND all:"neural" AND all:"networks"',
+    );
+  });
+
+  test("keeps double-quoted phrases whole and drops stopwords outside them", () => {
+    expect(buildSearchQuery({ query: '"virtual reality" security and privacy of "state of the art"' })).toBe(
+      'all:"virtual reality" AND all:"security" AND all:"privacy" AND all:"state of the art"',
+    );
+  });
+
+  test("a query of only stopwords is still searched", () => {
+    expect(buildSearchQuery({ query: "the" })).toBe('all:"the"');
   });
 
   test("ANDs query and category", () => {
-    expect(buildSearchQuery({ query: "rag", category: "cs.CL" })).toBe('all:"rag"+AND+cat:cs.CL');
+    expect(buildSearchQuery({ query: "rag", category: "cs.CL" })).toBe('all:"rag" AND cat:cs.CL');
   });
 
   test("adds a submittedDate range clause for --since", () => {
     const q = buildSearchQuery({ category: "cs.LG", since: "2024-01-01" });
     expect(q).toContain("cat:cs.LG");
-    expect(q).toContain("submittedDate:[202401010000+TO+");
+    expect(q).toContain("submittedDate:[202401010000 TO ");
+  });
+
+  test("encodes as arXiv expects: spaces become +, never %2B", () => {
+    const encoded = new URLSearchParams({
+      search_query: buildSearchQuery({ query: '"prompt injection"', category: "cs.CR", since: "2024-01-01" }),
+    }).toString();
+    expect(encoded).toContain("+AND+cat%3Acs.CR+AND+submittedDate");
+    expect(encoded).not.toContain("%2B");
   });
 
   test("throws when no criteria are given", () => {

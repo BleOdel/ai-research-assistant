@@ -6,7 +6,7 @@
 // parsing: the markup shape is well documented and shallow enough that a full parser
 // is unnecessary overhead.
 
-export const BASE_URL = "http://export.arxiv.org/api/query"
+export const BASE_URL = "https://export.arxiv.org/api/query"
 
 export function writeError(error: string, code: string): void {
   process.stderr.write(JSON.stringify({ error, code }) + "\n")
@@ -175,26 +175,53 @@ function escapeTerm(term: string): string {
   return `"${term.replace(/"/g, '\\"')}"`
 }
 
+// Words that would only make an ANDed query stricter without narrowing the topic.
+const STOPWORDS = new Set([
+  "a", "an", "and", "are", "as", "at", "by", "for", "from", "in", "into", "is", "of",
+  "on", "or", "the", "to", "via", "with",
+])
+
+/**
+ * Split a free-text query into arXiv `all:` clauses, one per word, keeping
+ * "double-quoted phrases" whole. Quoting the entire query made arXiv match it as
+ * one exact phrase, so any query longer than a set phrase returned nothing.
+ */
+export function queryTerms(query: string): string[] {
+  const terms: string[] = []
+  for (const m of query.matchAll(/"([^"]+)"|(\S+)/g)) {
+    const term = (m[1] ?? m[2]).trim()
+    if (term && (m[1] !== undefined || !STOPWORDS.has(term.toLowerCase()))) terms.push(term)
+  }
+  return terms
+}
+
 export interface QueryOpts {
   query?: string
   category?: string
   since?: string // YYYY-MM-DD
 }
 
-/** Build the search_query string arXiv's API expects, ANDing the given fields. */
+/**
+ * Build the search_query string arXiv's API expects, ANDing the given fields.
+ * Clauses are joined with spaces, which URLSearchParams encodes as "+": a literal
+ * "+" would be sent as %2B, and arXiv then ignores the AND.
+ */
 export function buildSearchQuery(opts: QueryOpts): string {
   const clauses: string[] = []
-  if (opts.query) clauses.push(`all:${escapeTerm(opts.query)}`)
+  if (opts.query) {
+    const terms = queryTerms(opts.query)
+    clauses.push(...(terms.length ? terms : [opts.query.trim()]).map((t) => `all:${escapeTerm(t)}`))
+  }
   if (opts.category) clauses.push(`cat:${opts.category}`)
   if (opts.since) {
     const from = opts.since.replace(/-/g, "") + "0000"
     const to = "99991231" + "2359"
-    clauses.push(`submittedDate:[${from}+TO+${to}]`)
+    clauses.push(`submittedDate:[${from} TO ${to}]`)
   }
   if (clauses.length === 0) {
     throw new Error("At least one of --query, --category, or --since is required")
   }
-  return clauses.join("+AND+")
+  return clauses.join(" AND ")
 }
 
 /** Normalize a user-supplied id (bare id, versioned id, or /abs/ URL) to arXiv's id_list form. */
