@@ -40,9 +40,10 @@ ALLOWED_PERMISSIONS = {
     "Bash(xelatex:*)",
     "Bash(lualatex:*)",
     "Bash(biber:*)",
-    # The two state/report tools, by exact script path - not python3 in general.
+    # The state/report tools, by exact script path - not python3 in general.
     "Bash(python3 tools/state.py:*)",
     "Bash(python3 tools/check_report.py:*)",
+    "Bash(python3 tools/evidence_table.py:*)",
 }
 
 # Personal-data ignore rules that must never disappear from .gitignore.

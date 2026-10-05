@@ -9,7 +9,8 @@
       "Bash(lualatex:*)",
       "Bash(biber:*)",
       "Bash(python3 tools/state.py:*)",
-      "Bash(python3 tools/check_report.py:*)"
+      "Bash(python3 tools/check_report.py:*)",
+      "Bash(python3 tools/evidence_table.py:*)"
     ]
   }
 }
