@@ -120,9 +120,11 @@ Then edit `report.tex` and `references.bib` per the merge rules:
 - Body sections revised in place; never append "Update: actually..." paragraphs
   against stale claims
 - New `.bib` entries for merged sources, each carrying an `evidencebasis` field
-  (never `note` - see `04-citation-rules.md`) plus a matching new row in the
-  Evidence Basis table (`03-report-templates.md`, Section 8) - a report updated
-  without this regresses to having some sources documented and others not
+  (never `note` - see `04-citation-rules.md`), then regenerate the Evidence Basis
+  table (`03-report-templates.md`, Section 8) so each gets its row:
+  `python3 tools/evidence_table.py reports/<topic_slug> --write`. A report updated
+  without this regresses to having some sources documented and others not, which
+  the linter reports as an error
 - Technical Findings and comparison-table updates where the categories call for them
 - Open Questions updated (answered ones removed/reworded with the answering
   citation)
@@ -219,7 +221,8 @@ or a table caption.
    instead of `evidencebasis`, or a `\bibliographystyle` that no longer matches the
    profile's citation style. Bring the report up to current conventions as part of
    this update rather than leaving it failing: move each `note`'s evidence commentary
-   into `evidencebasis`, add the Evidence Basis table, and re-render in the profile's
+   into `evidencebasis` in the structured form, generate the Evidence Basis table with
+   `tools/evidence_table.py`, and re-render in the profile's
    style (switching the natbib option with it, and adding the `\harvardurl` override
    and the `\setcitestyle{aysep={,}}` comma when the new style is Harvard - see `04-citation-rules.md`). Record
    each migration in the Revision History entry, separately from the content changes,

@@ -30,16 +30,33 @@ Every entry in `references.bib` must include, at minimum:
   Semantic Scholar paper page)
 - **`evidencebasis` recording the evidence basis** - how this source's content was
   obtained, and anything the reader needs in order to weigh the citation. This is
-  required, not optional. Two forms:
-  - Full text read: `evidencebasis = {Primary PDF read directly via paper-fetch on
-    YYYY-MM-DD - full text, not abstract-only}`
+  required, not optional. It opens with one of two forms and ends with two labelled
+  parts:
+  - Full text read: `evidencebasis = {Primary PDF read via paper-fetch on YYYY-MM-DD;
+    abstract read via <connector> on YYYY-MM-DD. Disclosure: <label>. Caveat: <text>.}`
   - Abstract only: `evidencebasis = {Abstract-only evidence basis: <why no full text
-    - e.g. IEEE paywall, no preprint found>; abstract verified via <route>}`
+    - e.g. IEEE paywall, no preprint found>; abstract read via <connector> on
+    YYYY-MM-DD. Disclosure: <label>. Caveat: <text>.}`
 
-  Add to the same field anything unresolved about the source: a venue confirmed
-  against the publisher rather than a database tag, a preprint whose published version
-  could not be located, a disclosure label worth surfacing (`self-evaluating`,
-  `vendor-report`).
+  `<label>` is the source's disclosure label from `02-source-evaluation.md`
+  (`academic`, `industry`, `self-evaluating`, `vendor-report`, `unclear`). The caveat
+  is what a reader must weigh before relying on a claim from this source: a venue
+  confirmed against the publisher rather than a database tag, a preprint whose
+  published version could not be located, a figure that holds only under one
+  condition. Keep `Caveat:` last.
+
+  The Evidence Basis table is generated from these fields, not written by hand:
+  ```bash
+  python3 tools/evidence_table.py reports/<topic_slug> --write
+  ```
+  It reads "Full text" or "Abstract" from the opening, the route from the first
+  "via", and the label and caveat from their prefixes (a missing part renders as
+  "--"). It replaces the report's Evidence Basis section, or inserts one before
+  `\bibliographystyle`. The caveat is copied into the table verbatim, so **escape
+  `%`, `&`, `#` and `_` in it as `\%`, `\&`, `\#`, `\_`** (an unescaped `%` comments
+  out the rest of the row and the compile fails with "Extra alignment tab"); text
+  inside `\url{...}` needs no escaping. The generator refuses a field with an
+  unescaped character, and `check_report.py` reports the same thing as an error.
 
   **Use `evidencebasis`, not `note`, deliberately.** `note` is a standard BibTeX field
   that every shipped citation style (`ieeetr`, `plain`, `apalike`, `agsm`, `plainnat`) prints

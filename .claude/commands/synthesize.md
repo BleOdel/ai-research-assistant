@@ -112,9 +112,15 @@ manifest, if one is active) and the citation rules in `04-citation-rules.md`:
   `03-report-templates.md`'s Section 8. Every `.bib` entry carries an
   `evidencebasis` field recording how its content was obtained - full text read, or
   abstract-only with the reason - per `04-citation-rules.md`'s BibTeX Entry Format;
-  this section transcribes that field (plus each source's disclosure label and any
-  attribution caveat) into one table rather than leaving it to render inline after
-  each reference. Required on every entry, not just the ones that seem doubtful.
+  this section turns that field (with its disclosure label and caveat) into one
+  table rather than leaving it to render inline after each reference. Required on
+  every entry, not just the ones that seem doubtful. Write the fields in the
+  structured form `04-citation-rules.md` gives, then generate the section instead of
+  typing the table:
+  ```bash
+  python3 tools/evidence_table.py reports/<topic_slug> --write
+  ```
+  Re-run it after any `.bib` change, including Step 4's fixes.
   **Use the `evidencebasis` field name, not `note`** - `note` renders inline in the
   bibliography under every stock citation style, which is exactly what this section
   exists to avoid.

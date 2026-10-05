@@ -86,7 +86,10 @@ For a topic, create:
    This section exists specifically so that data does **not** get rendered inline
    after every reference entry. Store it in each `.bib` entry's `evidencebasis`
    field (a custom field no stock `.bst` style prints - see `04-citation-rules.md`),
-   then transcribe it here as one compact table. A bibliography with a paragraph of
+   then generate this section from those fields with
+   `python3 tools/evidence_table.py reports/<topic_slug> --write` rather than
+   transcribing it by hand - a hand-kept table drifts from the `.bib`, and the
+   linter errors on any `.bib` entry the table has no row for. A bibliography with a paragraph of
    evidence commentary after every citation is hard to read as a bibliography; a
    single table serves the same transparency purpose without breaking the reference
    list's own readability.

@@ -25,6 +25,7 @@ Supporting.}
 \section{Technical Findings (Plain Language)} Plain.
 \section{Open Questions} Open.
 \section{Evidence Basis} Table.
+Rows: Author~\citep{a}; Author~\citep{b}.
 \bibliographystyle{ieeetr}
 \bibliography{references}
 \end{document}
@@ -154,6 +155,30 @@ class StaticTests(ReportFixture):
         self.assertEqual(f("Order-Oblivious Prompt Injection"), [])
         self.assertEqual(f("MELON and AgentDojo for LLM-Integrated Apps"),
                          ["MELON", "AgentDojo", "LLM-Integrated"])
+
+    def test_unescaped_percent_in_caveat_is_an_error(self):
+        self.bib.write_text(BIB.replace("Abstract-only evidence basis: paywalled",
+                                        "Abstract-only. Disclosure: academic. Caveat: 60% ASR"))
+        out = self.assertError("unescaped % & # or _")
+        self.assertTrue(any(e.endswith(": a") for e in out["errors"]), out["errors"])
+
+    def test_escaped_caveat_and_url_underscore_pass(self):
+        self.bib.write_text(BIB.replace(
+            "Abstract-only evidence basis: paywalled",
+            "Abstract-only, NO_OA_PDF. Caveat: 60\\% ASR, code at \\url{github.com/a_b}"))
+        code, out = self.check()
+        self.assertEqual((code, out["errors"]), (0, []))
+
+    def test_entry_cited_only_in_evidence_table_is_unused(self):
+        self.edit_tex(r"Body~\citep{b}", "Body")
+        self.assertIn(r"Author~\citep{b}", self.tex.read_text())
+        out = self.assertError("never cited outside the Evidence Basis table")
+        self.assertTrue(any(e.endswith(": b") for e in out["errors"]), out["errors"])
+
+    def test_evidence_table_missing_a_row_is_an_error(self):
+        self.edit_tex("Rows: Author~\\citep{a}; Author~\\citep{b}.", "Rows: Author~\\citep{a}.")
+        out = self.assertError("Evidence Basis table has no row")
+        self.assertTrue(any(e.endswith(": b") for e in out["errors"]), out["errors"])
 
     def test_long_note_is_a_warning(self):
         self.bib.write_text(BIB.replace("note = {NDSS Symposium}", "note = {" + "x" * 150 + "}"))

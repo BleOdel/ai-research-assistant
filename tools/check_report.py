@@ -334,6 +334,36 @@ def unprotected_caps(title: str) -> list[str]:
     return flagged
 
 
+# The Evidence Basis table is the evidencebasis fields copied into LaTeX table rows,
+# so a bare % there comments out the rest of the row and a bare & splits it - found
+# 2026-10-04 as an "Extra alignment tab" compile error far from its cause. \url and
+# \href arguments are exempt: \url reads its own argument verbatim.
+LATEX_SPECIALS = "%&#_"
+EVIDENCE_HEADING = re.compile(r"\\section\*?\{Evidence Basis\}")
+
+
+def unescaped_specials(text: str) -> set[str]:
+    """LaTeX special characters in TEXT that are not backslash-escaped."""
+    text = re.sub(r"\\(?:url|href)\{[^}]*\}", "", text)
+    return {ch for ch in LATEX_SPECIALS if re.search(r"(?<!\\)" + re.escape(ch), text)}
+
+
+def copied_text(evidencebasis: str) -> str:
+    """The part of an evidencebasis field the Evidence Basis table copies verbatim: the
+    text after "Caveat:" in the structured form (04-citation-rules.md), otherwise the
+    whole field, which a hand-built table would transcribe."""
+    caveat = re.search(r"Caveat:\s*(.*)$", evidencebasis)
+    return caveat.group(1) if caveat else evidencebasis
+
+
+def evidence_section(tex: str) -> str | None:
+    heading = EVIDENCE_HEADING.search(tex)
+    if not heading:
+        return None
+    end = re.search(r"\\section\*?\{|\\bibliographystyle\{|\\bibliography\{", tex[heading.end():])
+    return tex[heading.end():heading.end() + end.start()] if end else tex[heading.end():]
+
+
 def check_bib(tex: str, bib_path: Path | None, f: Findings):
     if bib_path is None:
         return
@@ -349,6 +379,21 @@ def check_bib(tex: str, bib_path: Path | None, f: Findings):
                   if k not in commentary and len(v.get("note", "")) > NOTE_MAX]
     if no_basis:
         f.error("bib", "entries with no evidencebasis field (04-citation-rules.md)", no_basis)
+    special = [k for k, v in entries.items()
+               if unescaped_specials(copied_text(v.get("evidencebasis", "")))]
+    if special:
+        f.error("bib", "evidencebasis caveats with an unescaped % & # or _ - the Evidence Basis "
+                       "table copies the caveat into LaTeX, where % comments out the rest of the "
+                       "row and & splits it; escape as \\% \\& \\# \\_", special)
+    section = evidence_section(tex)
+    if section is not None:
+        in_table = set()
+        for cite in re.finditer(r"\\cite[tp]?\*?(?:\[[^\]]*\])*\{([^}]*)\}", section):
+            in_table.update(k.strip() for k in cite.group(1).split(","))
+        no_row = sorted(set(entries) - in_table)
+        if no_row:
+            f.error("bib", "Evidence Basis table has no row for these entries - regenerate it "
+                           "with python3 tools/evidence_table.py <report> --write", no_row)
     if commentary:
         f.error("bib", "note fields holding evidence-basis commentary, which prints inline in "
                        "the bibliography - move it to evidencebasis", commentary)
@@ -364,9 +409,12 @@ def check_bib(tex: str, bib_path: Path | None, f: Findings):
     missing = sorted(cited - set(entries))
     if missing:
         f.error("citations", f"cited but not in {bib_path.name}", missing)
-    unused = sorted(set(entries) - cited)
+    # The generated table cites every entry, so a source only it cites is still unused.
+    in_body = cited_keys(tex.replace(section, "") if section else tex)[0]
+    unused = sorted(set(entries) - in_body)
     if unused and not nocite_all:
-        f.error("citations", f"in {bib_path.name} but never cited", unused)
+        f.error("citations", f"in {bib_path.name} but never cited"
+                + (" outside the Evidence Basis table" if section else ""), unused)
 
 
 # ---------------------------------------------------------------------------

@@ -72,8 +72,9 @@ access date and flagged in the prose as not peer-reviewed. See
 - `blog/` - Web track: `template.html` (tracked) and one folder per `/websearch`
   scan containing `index.html` + `sources.json`; state in `seen_web_sources.json`
 - `tools/` - `state.py` (the only write path for `research/`, `blog/` and tracker
-  state - validated, locked, atomic) and `check_report.py` (the report linter), plus
-  CI guards
+  state - validated, locked, atomic), `check_report.py` (the report linter) and
+  `evidence_table.py` (generates a report's Evidence Basis table from its `.bib`),
+  plus CI guards
 - `.claude/skills/` - AI skill definitions for the research workflow
 - `.agents/skills/` - Source-database CLI tools (arxiv-search,
   semantic-scholar-search, google-scholar-search, openalex-search) plus
