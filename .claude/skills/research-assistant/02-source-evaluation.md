@@ -264,8 +264,36 @@ judgments.
 `/rank` and `/synthesize` both run the full four-dimension rubric above, but at
 different depths: `/rank` scores from the abstract and profile only, cheaply, across
 many sources at once, to produce a shortlist - it never fact-checks or drafts.
-`/synthesize` re-runs the same rubric per source (never trusting a `/rank` score as
-final) as part of a deeper pass that also fact-checks every citation against
-actually-fetched content before anything is written. A `/rank` verdict is a strong
-signal for where to spend `/synthesize` effort, not a substitute for `/synthesize`'s
-own scoring pass.
+`/synthesize` scores every source for its own topic as part of a deeper pass that also
+fact-checks every citation against actually-fetched content before anything is
+written. A `/rank` verdict is a strong signal for where to spend `/synthesize`
+effort. It stands in for `/synthesize`'s own scoring only under the rule below.
+
+## Reusing a `/rank` Score
+
+Three of the four dimensions describe the source, not the question being asked of
+it: Rigor (venue and method), Impact (citations for its age) and Recency (age against
+the field's half-life). Only Relevance depends on the topic, and `/rank` scores it
+against the Research Interest as a whole. So `/synthesize` and `/update` may carry a
+`/rank` scoring forward instead of redoing it, when both of these hold:
+
+- The entry is `ranked`, with every scored field (`scores`, `rigor_basis`,
+  `disclosure`, `evidence_basis`) and a `rank_date` no more than 30 days old.
+  `python3 tools/state.py candidates --subject "<interest>"` lists exactly these as
+  `reuse`, and everything else as `score`, with the reason.
+- Nothing read since contradicts it. If full text is fetched (`07-fulltext.md`), or
+  the reviewer finds that the method differs from what the abstract implied,
+  re-score Rigor from what was read.
+
+Relevance is then re-scored against the report's topic from the fetched abstract.
+The exception is a topic that **is** the interest as a whole, such as a field-level
+state-of-the-art report. There `/rank` already answered the same question, and its
+Relevance stands. After re-scoring any dimension, recompute the overall score and
+verdict with `state.py score`.
+
+The report's metadata block says how many scorings were carried forward and their
+rank dates, so a reader can tell which judgments were made for this report.
+`/synthesize` is authoritative because its reviewer checks every citation against
+fetched content, not because it repeats the rubric arithmetic on the same abstract.
+A field-level XR run would otherwise have re-scored 55 sources ranked two days
+earlier, against the same question and the same abstracts.

@@ -399,6 +399,142 @@ class UnmergedTests(StateFixture):
         self.assertRefused(self.unmerged(), "PARSE_ERROR")
 
 
+LANDMARK_PROFILE = """# Researcher Profile
+
+## Research Interests
+
+### XR Security
+- **Why tracked:** test
+- **Known landmark works (if any):**
+
+  *Side channels*
+  - Going Through the Motions: AR/VR Keylogging from User Head
+    Motions
+  - LookUnlock
+  - Inception Attacks: Immersive Hijacking
+
+  *Surveys*
+  - Odeleye, Loukas, Heartfield. 2023. Virtually Secure: A taxonomic assessment of
+    cybersecurity challenges in virtual reality environments. Computers & Security.
+    *(Own work - confirmed by researcher, 2026-08-05)*
+  - Security and Privacy Approaches in Mixed Reality: A Literature Survey
+- **Expertise level:** expert
+
+### Applied ML
+- **Why tracked:** test
+- **Known landmark works (if any):** none yet.
+
+## Depth Calibration
+"""
+
+
+class LandmarkTests(StateFixture):
+    def setUp(self):
+        super().setUp()
+        (self.root / ".claude/skills/research-assistant/01-researcher-profile.md").write_text(
+            LANDMARK_PROFILE)
+        self.run_state("batch", "--file", "sources", "--json", json.dumps({
+            "k1": entry(title="Going through the motions: AR/VR keylogging from user head motions"),
+            "k2": entry(title="Virtually secure: A taxonomic assessment of cybersecurity challenges "
+                              "in virtual reality environments", status="skipped",
+                        subject="Applied ML"),
+            "k3": entry(title="Security and Privacy Approaches in Mixed Reality"),
+            "k4": entry(title="Unlock"),
+            "k5": entry(title="Inception Attacks: Immersive Hijacking in Virtual Reality Systems"),
+        }))
+
+    def landmarks(self, subject="XR Security"):
+        result = self.run_state("landmarks", "--subject", subject, "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)["landmarks"]
+
+    def test_lists_each_landmark_with_its_group_and_match(self):
+        found = self.landmarks()
+        self.assertEqual([(w["group"], (w["match"] or {}).get("key")) for w in found], [
+            ("Side channels", "k1"), ("Side channels", None), ("Side channels", "k5"),
+            ("Surveys", "k2"), ("Surveys", "k3")])
+
+    def test_continuation_lines_join_and_provenance_note_is_dropped(self):
+        found = self.landmarks()
+        self.assertEqual(found[0]["text"],
+                         "Going Through the Motions: AR/VR Keylogging from User Head Motions")
+        self.assertTrue(found[3]["text"].endswith("Computers & Security."), found[3]["text"])
+
+    def test_matches_across_subjects_and_statuses(self):
+        self.assertEqual(self.landmarks()[3]["match"]["subject"], "Applied ML")
+
+    def test_short_title_needs_a_close_match_not_containment(self):
+        self.assertIsNone(self.landmarks()[1]["match"])  # "Unlock" is inside "LookUnlock"
+
+    def test_text_output_lists_missing_first(self):
+        out = self.run_state("landmarks", "--subject", "XR Security").stdout
+        self.assertIn("5 landmark work(s) for 'XR Security': 4 in seen_sources.json, 1 missing", out)
+        self.assertLess(out.index("MISSING  LookUnlock"), out.index("present"))
+
+    def test_interest_without_landmarks(self):
+        self.assertEqual(self.landmarks("Applied ML"), [])
+        self.assertIn("none -", self.run_state("landmarks", "--subject", "Applied ML").stdout)
+
+    def test_unknown_subject_is_refused(self):
+        self.assertRefused(self.run_state("landmarks", "--subject", "XR"), "BAD_ARG")
+
+
+def ranked(rank_date, **fields):
+    base = entry(status="ranked", rank_date=rank_date, evidence_basis="abstract",
+                 disclosure="academic", rigor_basis="70 (venue 70)",
+                 scores={"relevance": 80, "rigor": 70, "impact": 60, "recency": 70})
+    base.update(fields)
+    return base
+
+
+class CandidateTests(StateFixture):
+    def setUp(self):
+        super().setUp()
+        from datetime import date, timedelta
+        day = lambda n: (date.today() - timedelta(days=n)).isoformat()
+        result = self.run_state("batch", "--file", "sources", "--json", json.dumps({
+            "fresh": ranked(day(3), title="Fresh"),
+            "stale": ranked(day(45), title="Stale"),
+            "partial": {k: v for k, v in ranked(day(1), title="Partial").items()
+                        if k != "evidence_basis"},
+            "new": entry(title="New", relevance="high"),
+            "skipped": entry(title="Skipped", status="skipped", relevance="low"),
+            "done": ranked(day(1), title="Done", status="synthesized"),
+            "other": ranked(day(1), title="Other", subject="Applied ML"),
+        }))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def candidates(self, *extra):
+        result = self.run_state("candidates", "--subject", "XR Security", "--json", *extra)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_splits_fresh_complete_rankings_from_the_rest(self):
+        found = self.candidates()
+        self.assertEqual([r["key"] for r in found["reusable"]], ["fresh"])
+        self.assertEqual({r["key"]: r["reason"] for r in found["to_score"]}, {
+            "new": "new (triage: high)",
+            "skipped": "skipped (triage: low)",
+            "partial": "ranked but missing evidence_basis",
+            "stale": f"ranked {found['to_score'][-1]['rank_date']}, 45 days ago (over 30)",
+        })
+
+    def test_max_age_moves_the_cutoff(self):
+        found = self.candidates("--max-age", "60")
+        self.assertEqual(sorted(r["key"] for r in found["reusable"]), ["fresh", "stale"])
+        self.assertEqual(self.candidates("--max-age", "2")["reusable"], [])
+
+    def test_text_output(self):
+        out = self.run_state("candidates", "--subject", "XR Security").stdout
+        self.assertIn("5 candidate(s) - 1 with reusable /rank scoring (at most 30 days old), "
+                      "4 to score", out)
+
+    def test_bad_arguments_are_refused(self):
+        self.assertRefused(self.run_state("candidates", "--subject", "XR"), "BAD_ARG")
+        self.assertRefused(self.run_state("candidates", "--subject", "XR Security",
+                                          "--max-age", "-1"), "BAD_ARG")
+
+
 class RubricDriftTests(unittest.TestCase):
     """state.py's constants must match the rubric documents they enforce."""
 
@@ -466,6 +602,8 @@ class RubricDriftTests(unittest.TestCase):
                     for flag in re.findall(r"(?<![\w-])(--[a-z][\w-]*)", rest):
                         self.assertIn(flag, flags, f"{doc.name}: {line.strip()}")
         self.assertIn("unmerged", seen)
+        self.assertIn("landmarks", seen)
+        self.assertIn("candidates", seen)
 
     def test_rank_writes_every_scored_field(self):
         """/rank is how sources get scored. If its documented agent output or its

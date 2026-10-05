@@ -85,7 +85,10 @@ Full four-dimension scoring per `02-source-evaluation.md` for each new source an
 each Step 1b candidate, with full text via `paper-fetch` where a score turns on
 something the abstract doesn't state (per `07-fulltext.md` - same as `/synthesize`
 Step 1). A Step 1b candidate's stored score may be `/rank`'s abstract-only triage or
-an older `/synthesize` scoring, so it is a prior, not a substitute. Present one
+an older `/synthesize` scoring. Carry a `/rank` scoring forward only under
+`02-source-evaluation.md`'s *Reusing a `/rank` Score* (fresh and complete, Relevance
+re-scored against this report's topic); otherwise it is a prior, not a substitute.
+Present one
 scoring table with Step 1b candidates marked as previously ranked (and their
 `rank_date`), plus a one-line reminder of the report's current headline conclusion,
 and ask:

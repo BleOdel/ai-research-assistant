@@ -102,6 +102,36 @@ Use `WebSearch` for any connector whose CLI fails at runtime (including after a
 appended with the connector's domain (e.g. `site:arxiv.org <topic>`) as a rough
 substitute.
 
+### 1d. Profile landmark works
+
+Each Research Interest in the profile can carry a "Known landmark works" list
+(`/setup` and `/expand` record it): the papers the researcher already knows are
+central to the area. Topic queries do not reliably find them. A field-level run on XR
+security and privacy started with 12 of that interest's 99 landmarks in the corpus,
+because nothing ever looked the others up. When the topic falls under a Research
+Interest, list that interest's landmarks against state:
+
+```bash
+python3 tools/state.py landmarks --subject "<interest>"
+```
+
+Each line is `MISSING` or `present`, matched by title against every entry in
+`seen_sources.json`. Look up the `MISSING` ones that bear on this topic: all of them
+when the topic is the interest as a whole, otherwise those whose title or sub-area
+group (shown in brackets) fits it.
+
+- Search by title, one call at a time, with `semantic-scholar-search`'s `search`
+  (`--limit 3`). Pace the calls one second apart as in Step 2, and fall back to
+  `openalex-search` when a call fails or finds nothing.
+- Accept a hit only if its title **is** the landmark's title. A dropped subtitle or
+  different capitalization is fine; a different paper with similar words is not.
+- A landmark with no matching hit is listed by name in Step 5. Never substitute the
+  nearest paper.
+
+Accepted hits join the pool with `relevance: "high"` and a `note` saying they came
+from the profile's landmark list. They skip Step 3's triage, since the researcher has
+already vouched for them, but are deduplicated in Step 2 like any other result.
+
 ---
 
 ## Step 2: Fetch & Parse
@@ -211,6 +241,9 @@ If any connector hit `RATE_LIMITED` and fell back to WebSearch (or was skipped
 entirely), say so explicitly here - e.g. "Semantic Scholar was rate-limited for this
 run; results below are arXiv + WebSearch only." Coverage gaps should be visible, not
 silently absorbed.
+
+If Step 1d ran, add one line for it: how many landmarks were missing, how many were
+looked up and found, and the titles of any that could not be resolved.
 
 After presenting, ask:
 > "Want me to synthesize a report from any of these? Give me the numbers (or 'all') and

@@ -43,6 +43,19 @@ Commands:
       offered again - /update and /synthesize run this to catch that. Entries
       match on DOI, arXiv id or URL however each side spells it: a state key
       https://doi.org/10.48550/arXiv.2406.13352 matches eprint = {2406.13352}.
+  landmarks --subject S [--json]
+      List the "Known landmark works" the profile records for Research Interest
+      S, each matched by title against every `sources` entry. Read-only.
+      /expand and /setup record landmarks, but discovery only ever ran topic
+      queries, so a field-level report found 12 of an interest's 99 landmarks;
+      /research looks up the ones listed as missing.
+  candidates --subject S [--max-age DAYS] [--json]
+      Split subject S's never-synthesized entries (new, skipped, ranked) into
+      those whose /rank scoring is fresh and complete - status ranked, every
+      scored field present, rank_date at most DAYS old (default 30) - and those
+      that still need scoring, with the reason. Read-only. /synthesize and
+      /update reuse fresh Rigor, Impact and Recency scores instead of redoing
+      them (02-source-evaluation.md, Reusing a /rank Score).
 
 Validation applies to every entry a write touches - the merged result, not
 just the patch. overall_score and verdict/tier are always recomputed from
@@ -68,6 +81,7 @@ import sys
 import tempfile
 import time
 from datetime import date
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from check_report import parse_bib  # one .bib parser for all of tools/
@@ -586,6 +600,152 @@ def print_unmerged(found: list[dict], subject: str, bib: Path) -> None:
         print(f"             key: {e['key']}")
 
 
+LANDMARK_LINE = "- **Known landmark works"
+TITLE_RATIO = 0.85
+MIN_CONTAINED = 20  # a shorter title inside a landmark line is too weak a match
+
+
+def _norm_title(text: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).split())
+
+
+def title_matches(landmark: str, title: str) -> bool:
+    """Whether a profile landmark line names the paper titled TITLE. A landmark
+    line may carry authors, year and venue around the title ("Odeleye et al.
+    2023. Virtually Secure: ... Computers & Security."), or omit its subtitle."""
+    a, b = _norm_title(landmark), _norm_title(title)
+    if not a or not b:
+        return False
+    if (len(b) >= MIN_CONTAINED and b in a) or (len(a) >= MIN_CONTAINED and a in b):
+        return True
+    matcher = SequenceMatcher(None, a, b)
+    return matcher.real_quick_ratio() >= TITLE_RATIO and matcher.ratio() >= TITLE_RATIO
+
+
+def landmark_works(subject: str) -> list[dict]:
+    """The "Known landmark works" list under SUBJECT's heading in the profile,
+    as [{"text", "group"}], in order. Italic lines (*Sub-area*) set the group;
+    a trailing *(provenance note)* is dropped."""
+    if not PROFILE.exists():
+        raise StateError(f"{PROFILE.relative_to(ROOT)} not found", "NOT_FOUND")
+    interests = tracked_interests() or []
+    if subject not in interests:
+        raise StateError(f"subject {subject!r} is not a tracked Research Interest",
+                         "BAD_ARG", [f"tracked: {', '.join(interests)}"])
+    lines = PROFILE.read_text(encoding="utf-8").splitlines()
+    start = lines.index(f"### {subject}") + 1
+    works, group, inside = [], None, False
+    for line in lines[start:]:
+        if line.startswith(("### ", "## ")):
+            break
+        if line.startswith(LANDMARK_LINE):
+            inside = True
+            continue
+        if not inside:
+            continue
+        if re.match(r"^- \*\*", line):  # the next field of this interest
+            break
+        stripped = line.strip()
+        italic = re.fullmatch(r"\*([^*(].*?)\*", stripped)  # *(note)* is not a group
+        if italic:
+            group = italic.group(1)
+        elif re.match(r"^\s+- ", line):
+            works.append({"text": stripped[2:], "group": group})
+        elif stripped and works and line.startswith("    "):
+            works[-1]["text"] += " " + stripped
+    for work in works:
+        work["text"] = re.sub(r"\s*\*\(.*?\)\*\s*$", "", work["text"]).strip()
+    return [w for w in works if w["text"] and not w["text"].lower().startswith(("none", "["))]
+
+
+def landmarks(subject: str) -> list[dict]:
+    """Each landmark of SUBJECT with the `sources` entry whose title it names, if any."""
+    entries = load("sources", FILES["sources"])
+    out = []
+    for work in landmark_works(subject):
+        match = next((k for k, e in entries.items() if title_matches(work["text"], e.get("title"))),
+                     None)
+        found = None
+        if match:
+            e = entries[match]
+            found = {"key": match, **{f: e.get(f) for f in (
+                "title", "status", "verdict", "subject")}}
+        out.append({**work, "match": found})
+    return out
+
+
+def print_landmarks(found: list[dict], subject: str) -> None:
+    if not found:
+        print(f"none - the profile records no landmark works for {subject!r}")
+        return
+    missing = [w for w in found if not w["match"]]
+    print(f"{len(found)} landmark work(s) for {subject!r}: {len(found) - len(missing)} in "
+          f"seen_sources.json, {len(missing)} missing")
+    for w in missing:
+        print(f"  MISSING  {w['text']}" + (f"  [{w['group']}]" if w["group"] else ""))
+    for w in found:
+        if w["match"]:
+            m = w["match"]
+            print(f"  present  {m['status']:<11} {m.get('verdict') or '':<10} {m['title']}")
+
+
+CANDIDATE_STATUSES = ("new", "skipped", "ranked")
+
+
+def candidates(subject: str, max_age: int, today: date | None = None) -> dict:
+    """SUBJECT's never-synthesized entries, split by whether /rank's scoring of them
+    can be reused (02-source-evaluation.md, Reusing a /rank Score)."""
+    interests = tracked_interests()
+    if interests is not None and subject not in interests + ["Uncategorized"]:
+        raise StateError(f"subject {subject!r} is not a tracked Research Interest",
+                         "BAD_ARG", [f"tracked: {', '.join(interests)}, Uncategorized"])
+    if max_age < 0:
+        raise StateError("--max-age must be 0 or more", "BAD_ARG")
+    today = today or date.today()
+    reusable, to_score = [], []
+    for key, entry in load("sources", FILES["sources"]).items():
+        if entry.get("subject") != subject or entry.get("status") not in CANDIDATE_STATUSES:
+            continue
+        row = {"key": key, **{f: entry.get(f) for f in (
+            "title", "year", "status", "relevance", "verdict", "overall_score", "rank_date")}}
+        status = entry["status"]
+        if status != "ranked":
+            row["reason"] = status + (f" (triage: {entry['relevance']})"
+                                      if entry.get("relevance") else "")
+            to_score.append(row)
+            continue
+        missing = [f for f in SCORED_FIELDS if not entry.get(f)]
+        rank_date = entry.get("rank_date")
+        age = (today - date.fromisoformat(rank_date)).days \
+            if isinstance(rank_date, str) and DATE_RE.match(rank_date) else None
+        if missing:
+            row["reason"] = f"ranked but missing {', '.join(missing)}"
+        elif age is None:
+            row["reason"] = "ranked with no rank_date"
+        elif age > max_age:
+            row["reason"] = f"ranked {rank_date}, {age} days ago (over {max_age})"
+        else:
+            row["age_days"] = age
+            reusable.append(row)
+            continue
+        to_score.append(row)
+    reusable.sort(key=lambda r: -(r["overall_score"] or 0))
+    to_score.sort(key=lambda r: (CANDIDATE_STATUSES.index(r["status"]), r["title"] or ""))
+    return {"subject": subject, "max_age": max_age, "today": today.isoformat(),
+            "reusable": reusable, "to_score": to_score}
+
+
+def print_candidates(found: dict) -> None:
+    r, t = found["reusable"], found["to_score"]
+    print(f"{found['subject']!r}: {len(r) + len(t)} candidate(s) - {len(r)} with reusable /rank "
+          f"scoring (at most {found['max_age']} days old), {len(t)} to score")
+    for row in r:
+        print(f"  reuse    {row['verdict']:<10} {row['overall_score']:>3}  {row['title']}  "
+              f"[ranked {row['rank_date']}]")
+    for row in t:
+        print(f"  score    {row['reason']:<28} {row['title']}")
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -746,6 +906,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_unmerged.add_argument("--subject", required=True)
     p_unmerged.add_argument("--bib", required=True)
     p_unmerged.add_argument("--json", action="store_true")
+
+    p_landmarks = sub.add_parser("landmarks")
+    p_landmarks.add_argument("--subject", required=True)
+    p_landmarks.add_argument("--json", action="store_true")
+
+    p_candidates = sub.add_parser("candidates")
+    p_candidates.add_argument("--subject", required=True)
+    p_candidates.add_argument("--max-age", type=int, default=30)
+    p_candidates.add_argument("--json", action="store_true")
     return parser
 
 
@@ -814,6 +983,22 @@ def main(argv: list[str]) -> int:
                                   "unmerged": found}, indent=2))
             else:
                 print_unmerged(found, args.subject, bib)
+            return 0
+
+        if args.command == "landmarks":
+            found = landmarks(args.subject)
+            if args.json:
+                print(json.dumps({"subject": args.subject, "landmarks": found}, indent=2))
+            else:
+                print_landmarks(found, args.subject)
+            return 0
+
+        if args.command == "candidates":
+            found = candidates(args.subject, args.max_age)
+            if args.json:
+                print(json.dumps(found, indent=2))
+            else:
+                print_candidates(found)
             return 0
     except StateError as exc:
         out = {"error": str(exc), "code": exc.code}

@@ -9,9 +9,10 @@ a ranked shortlist, cheap enough to run after every `/research` batch.
 `/rank` produces **triage scores**, not a finished synthesis. It scores from each
 source's abstract/content and the researcher profile only - no fact-checking, no deep
 detail fetches beyond what's needed to read the abstract, no LaTeX drafting.
-`/synthesize`'s own Step 1 scoring remains authoritative and always re-runs when the
-user actually synthesizes a report - `/rank`'s scores are a triage signal, not a
-substitute.
+`/synthesize`'s own Step 1 scoring remains authoritative: it re-scores Relevance
+against its topic, and reuses a `/rank` scoring's other dimensions only when the
+scoring is fresh and complete (`02-source-evaluation.md`, *Reusing a `/rank`
+Score*).
 
 Follow these steps **in order**.
 
@@ -164,13 +165,13 @@ Rules for the presentation:
 
 - Every claim traces to a fetched abstract or the profile - no invented details.
 - State explicitly that these are **triage scores from the abstract only**, and that
-  `/synthesize` will re-score with full context (and fact-check every citation)
-  before anything is drafted.
+  `/synthesize` will re-score Relevance against its topic (and fact-check every
+  citation) before anything is drafted.
 - Then ask: "Want to synthesize a report from any of these? Give me the number(s) (or
   a topic) and I'll start `/synthesize`."
 - If the user picks source(s), run `/synthesize` on that topic, passing the triage
-  verdict as prior context but **re-running the full Step 1 scoring** - triage never
-  substitutes for it.
+  verdict as prior context. Its Step 1 decides per source what it can reuse, per
+  `02-source-evaluation.md`'s *Reusing a `/rank` Score*.
 
 ---
 

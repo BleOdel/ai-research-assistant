@@ -32,7 +32,24 @@ Read the scoring framework and profile **once**:
 - `.claude/skills/research-assistant/02-source-evaluation.md`
 - `.claude/skills/research-assistant/01-researcher-profile.md`
 
-For each candidate source, fetch its full content if not already fetched (use each
+List the candidates for the Research Interest this topic falls under:
+
+```bash
+python3 tools/state.py candidates --subject "<interest>"
+```
+
+- **`reuse` rows** have a fresh, complete `/rank` scoring. Keep their Rigor, Impact
+  and Recency, and re-score only Relevance against this topic from the fetched
+  abstract, per `02-source-evaluation.md`'s *Reusing a `/rank` Score*. When the topic
+  is the interest as a whole, Relevance stands too. Say in the metadata block how
+  many scorings were carried forward, and from which rank dates.
+- **`score` rows** get the full scoring below.
+- **`skipped (triage: low)` rows** were judged off-topic from their abstract by
+  `/research`. Score them only if this topic is broader than the query that found
+  them. Otherwise record their number and the criterion in the metadata block's
+  exclusions.
+
+For each source still to score, fetch its full content if not already fetched (use each
 connector's `detail` command per its `SKILL.md`, or `WebFetch` on its URL), then score
 all four dimensions (Relevance, Recency, Rigor, Impact) per the framework, and assign
 each source a `disclosure` label. Rigor is now two-part - score venue, then apply the

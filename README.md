@@ -149,13 +149,18 @@ evidence basis, citation-count divergence). The list below is the summary.
 - **`/setup`** builds your researcher profile (interests, expertise level, citation
   style, output preferences).
 - **`/research <topic>`** discovers sources via the connector CLIs, deduplicates
-  against previous runs, and triages by relevance.
+  against previous runs, and triages by relevance. It also looks up the profile's
+  "Known landmark works" for the topic's Research Interest that are not yet in the
+  corpus (`tools/state.py landmarks` lists them), since topic queries rarely find
+  them all.
 - **`/rank`** batch-scores a large `/research` haul against the full evaluation
   rubric via parallel agent dispatch, returning a ranked shortlist before you commit
   to a full `/synthesize` pass. Bridges `/research` and `/synthesize` the way triage
   scores bridge a rough list and a real decision.
 - **`/synthesize <topic>`** runs the full drafter-reviewer workflow: score sources,
-  draft a report, fact-check every citation, compile and verify the PDF.
+  draft a report, fact-check every citation, compile and verify the PDF. Sources
+  `/rank` scored in the last 30 days keep their topic-independent scores
+  (`tools/state.py candidates` lists which), so only Relevance is redone.
 - **`/reset [profile|documents|research|reports|blog|all]`** wipes profile data,
   `documents/` content, discovery state, compiled reports, or `/websearch` scans back
   to a blank slate. Shows exactly what will be deleted and requires typing `RESET` to
