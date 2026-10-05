@@ -312,6 +312,17 @@ rm -rf reports/*/
 
 Do not delete `reports/.gitkeep` if present.
 
+Then retire each deleted topic's row in `research_tracker.csv`, if the file exists and
+has one. Otherwise the tracker goes on describing reports that are gone (one row
+stayed `active` for two months this way):
+
+```bash
+python3 tools/state.py upsert --file tracker --key <topic_slug> \
+  --json '{"status": "retired", "last_event_date": "YYYY-MM-DD", "notes_append": "YYYY-MM-DD: report deleted by /reset reports"}'
+```
+
+Leave the tracker itself alone; resetting it is not part of the `reports` scope.
+
 ---
 
 ## Step 4: Confirm What Was Done and Next Steps

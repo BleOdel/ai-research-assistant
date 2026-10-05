@@ -123,7 +123,7 @@ WEB_TYPES = (
 
 # --- Outcome tracker (outcome.md) --------------------------------------------
 TRACKER_COLUMNS = ("topic", "subject", "date_synthesized", "status", "last_event_date", "notes")
-TRACKER_STATUSES = ("active", "presented", "cited", "needs_revision", "superseded")
+TRACKER_STATUSES = ("active", "presented", "cited", "needs_revision", "superseded", "retired")
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 

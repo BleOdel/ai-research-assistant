@@ -274,6 +274,14 @@ class OtherFileTests(StateFixture):
         self.assertRefused(self.upsert("topic-a", {"status": "done"}, file="tracker"), "done")
         self.assertRefused(self.upsert("topic-a", {"colour": "red"}, file="tracker"), "colour")
 
+    def test_tracker_retires_a_deleted_report(self):
+        self.upsert("topic-a", {"status": "active", "notes": "2026-08-07: presented."}, file="tracker")
+        result = self.upsert("topic-a", {"status": "retired", "last_event_date": "2026-10-05",
+                                         "notes_append": "2026-10-05: report deleted."}, file="tracker")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("topic-a,,,retired,2026-10-05,2026-08-07: presented. 2026-10-05: report deleted.",
+                      self.tracker.read_text())
+
     def test_score_command(self):
         result = self.run_state("score", "--relevance", "90", "--rigor", "82",
                                 "--impact", "45", "--recency", "100")

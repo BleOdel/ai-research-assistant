@@ -207,8 +207,9 @@ evidence basis, citation-count divergence). The list below is the summary.
   score or characterize the same paper differently. Reads and suggests only - never
   edits a report.
 - **`/outcome [topic]`** records what happened to a report after the fact -
-  presented, cited in your own subsequent work, flagged for revision, or superseded
-  by a later `/research` update - into `research_tracker.csv` and a per-report
+  presented, cited in your own subsequent work, flagged for revision, superseded
+  by a later `/research` update, or retired once the report is deleted - into
+  `research_tracker.csv` and a per-report
   `outcome.md` log. Surfaces patterns worth acting on (e.g. one subject area's
   reports repeatedly going stale) but never edits your profile or scoring rubric
   itself; that stays a `/setup` decision.

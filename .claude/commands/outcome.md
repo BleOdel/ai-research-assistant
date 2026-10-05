@@ -26,6 +26,12 @@ concerns as the original's Step 5 rule).
 
 - Nothing → list reports with a non-final status (see Step 2's status list) and ask
   which to update. If none exist, say so and stop - nothing to record yet.
+- Either way, check every `research_tracker.csv` row against `reports/`. A row whose
+  `reports/<topic>/report.tex` no longer exists, and whose status is not `retired`,
+  is an **orphan**: the report was deleted (`/reset reports` before it retired rows,
+  or by hand) or folded into another. Name each orphan, say what its notes record, and
+  offer to retire it (Step 2). An orphan once stayed `active` for two months after
+  its report was gone, and `/update` and `/gaps` read the tracker as if it existed.
 - A topic slug (or a close partial match) → target `reports/<topic_slug>/` directly.
   Ambiguous partial matches: list and ask. No match: show available topics from
   `reports/*/` and ask which one, or note that `/synthesize` hasn't produced anything
@@ -39,7 +45,9 @@ concerns as the original's Step 5 rule).
    Step 4 write through the state helper creates it with the standard header
    (`topic,subject,date_synthesized,status,last_event_date,notes`).
 2. Confirm `reports/<topic_slug>/report.tex` exists - `/outcome` only tracks reports
-   that were actually synthesized, not raw `/research` discovery runs.
+   that were actually synthesized, not raw `/research` discovery runs. The one
+   exception is retiring an orphan row (Step 0): there is no report folder to log in,
+   so skip Step 3 and write only the tracker row in Step 4.
 3. Check whether `reports/<topic_slug>/outcome.md` already exists - if so, this is an
    update (append), not a fresh record.
 
@@ -59,6 +67,11 @@ Ask the user what happened, then classify into a **status**:
   feedback, or the user's own re-reading) that the report should be fixed to address
 - `superseded` - a later `/research` run on this topic turned up enough new or
   contradicting work that the existing report's conclusions are stale
+- `retired` - the report no longer exists under `reports/`: deleted, or folded into
+  another report. The row is kept as history. Its note says when the report was found
+  missing and, if known, why, and names the report that absorbed it, if any. This is
+  the one final status: a retired topic synthesized again starts a fresh row's
+  history with `active`.
 
 `presented` and `cited` are not final - a report can be presented, then cited, then
 presented again; each is its own dated event. `needs_revision` and `superseded` mark
@@ -80,7 +93,7 @@ Create or update `reports/<topic_slug>/outcome.md`:
 ```markdown
 # Outcome: <Topic>
 
-**Current status:** active | presented | cited | needs_revision | superseded
+**Current status:** active | presented | cited | needs_revision | superseded | retired
 
 ## Usage Log
 <!-- Append-only, most recent last. Never rewrite or remove a prior entry. -->
@@ -108,7 +121,7 @@ python3 tools/state.py upsert --file tracker --key <topic_slug> \
 
 `notes_append` adds the dated note after the existing notes rather than replacing
 them; the helper quotes the CSV correctly, leaves every other row and the column order
-alone, and refuses a status that isn't one of the five above. Include `subject` (from
+alone, and refuses a status that isn't one of the six above. Include `subject` (from
 `research/papers_by_subject.md`'s classification) and `date_synthesized` when the row
 is new.
 
