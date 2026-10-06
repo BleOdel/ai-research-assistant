@@ -169,7 +169,12 @@ rewrite. Keep `CLAUDE.md`'s Researcher Profile section and
 
 - **New landmark works** → append to the relevant interest's "Known landmark works"
   list in `01-researcher-profile.md` (and the corresponding summary in `CLAUDE.md` if
-  it lists landmark works there too).
+  it lists landmark works there too). Keep the list's shape: one indented `  - `
+  item per work, beginning with its title (or `Authors. Year. Title. Venue.`),
+  an italic `*Sub-area*` line above each group, and the source label last on the
+  item. `/research` reads this list with `tools/state.py landmarks` and looks up
+  every work not yet in the corpus by title, so a work recorded here is found on
+  the next run.
 - **New sub-areas** → append to the relevant interest's "Sub-areas of interest" list.
 - **New Research Interest** → add as a new `###` entry under Research Interests in
   both files, with `Why tracked`, `Expertise level` (ask the user if not inferable),

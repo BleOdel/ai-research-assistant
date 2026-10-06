@@ -39,7 +39,8 @@ In priority order:
 
 **`/research` and `/rank` deliberately do NOT fetch full text.** Discovery and
 batch triage are cheap by design - abstract-level scoring across many sources is
-their entire point, and `/synthesize` re-scores properly anyway. Downloading
+their entire point, and `/synthesize` re-scores Relevance for its topic and fetches
+full text where a score turns on it. Downloading
 dozens of multi-MB PDFs during discovery would be slow and wasteful.
 
 ## Rules

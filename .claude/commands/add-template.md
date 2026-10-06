@@ -106,7 +106,8 @@ Collect:
    Results, Discussion, Conclusion`)? If so, record it exactly. Then check it against
    `03-report-templates.md`'s standard sections (Abstract, Background, Thematic
    sections, **Technical Findings (Plain Language)**, Comparison table, Open
-   Questions, References) and note explicitly where each standard section maps in
+   Questions, **Revision History**, **Evidence Basis**, References) and note
+   explicitly where each standard section maps in
    the custom structure, or that it doesn't fit and should be dropped/merged for this
    template. Never silently drop Technical Findings or Open Questions without asking
    - they're core to this framework's honesty discipline, not decoration.
@@ -120,6 +121,12 @@ Collect:
    profile's own `Citation style` preference for reports drafted from this template?
 8. **Known pitfalls** (optional) - macros that break with certain content, characters
    needing escaping, sections that must not be reordered.
+
+Whatever the template, its preamble must load `array` and `longtable`
+(`\usepackage{array,longtable}`, unless the class already does). `/synthesize`
+generates the Evidence Basis section with `tools/evidence_table.py` as a `longtable`
+using `array`'s column syntax, and the tool refuses a report without them. It writes
+`\citet`/`\citep` for `natbib` templates and `\textcite` for `biblatex` ones.
 
 ---
 

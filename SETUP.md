@@ -109,7 +109,8 @@ Install a LaTeX distribution to compile the generated `.tex` reports to PDF:
 Reports compile with `pdflatex` + `bibtex` (the standard 4-pass sequence:
 `pdflatex → bibtex → pdflatex → pdflatex`), which every mainstream TeX distribution
 ships out of the box — no extra packages required beyond what's in the preamble
-(`geometry`, `hyperref`, `natbib`, `booktabs`), with one exception: **Harvard**
+(`geometry`, `hyperref`, `natbib`, `booktabs`, and `array` and `longtable` from
+LaTeX's required `tools` bundle), with one exception: **Harvard**
 citation style needs one additional package, not included in a minimal install. See
 below.
 
@@ -126,7 +127,7 @@ curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh
 If a package is reported missing on compile, install it directly:
 
 ```bash
-tlmgr install geometry hyperref natbib booktabs
+tlmgr install geometry hyperref natbib booktabs tools
 ```
 
 #### Harvard citation style: one extra package
@@ -146,10 +147,11 @@ tlmgr --usermode install harvard
 If a report fails to compile with "I couldn't open style file agsm.bst," this is the
 fix. IEEE, APA, Plain, and Author-year all work with zero extra installs.
 
-Harvard reports also carry one preamble line, right after `\usepackage{natbib}`, so
-URLs containing `_`, `%` or `#` compile:
-`\renewcommand{\harvardurl}{\textbf{URL:} \url}` - `/synthesize` adds it, and
-`tools/check_report.py` fails a Harvard report without it. See
+Harvard reports also carry two preamble lines, right after `\usepackage{natbib}`:
+`\renewcommand{\harvardurl}{\textbf{URL:} \url}`, so URLs containing `_`, `%` or `#`
+compile, and `\setcitestyle{aysep={,}}`, for UK Harvard's "(Liu et al., 2023)" rather
+than agsm's "(Liu et al. 2023)". `/synthesize` adds both; `tools/check_report.py` fails
+a Harvard report without the first and warns without the second. See
 `04-citation-rules.md`.
 
 ## 2. Get the code
@@ -180,9 +182,9 @@ done
 ## 4. Verify your setup
 
 ```bash
-python tools/lint_skills.py
-python tools/security_guards.py
-python -m unittest discover -s tests -t .
+python3 tools/lint_skills.py
+python3 tools/security_guards.py
+python3 -m unittest discover -s tests -t .
 ```
 
 All three should pass on a fresh clone. Then check the connectors:
@@ -249,6 +251,13 @@ styles (`apalike`, `plainnat`) need plain `\usepackage{natbib}`. See
 Harvard report's `.bbl`** — a URL contains `_`, `%` or `#`, and the preamble lacks the
 `\harvardurl` override. Add `\renewcommand{\harvardurl}{\textbf{URL:} \url}`
 right after `\usepackage{natbib}`. See `04-citation-rules.md`.
+
+**`! Extra alignment tab has been changed to \cr` in the Evidence Basis table** - a
+source's `evidencebasis` caveat contains an unescaped `%`, `&`, `#` or `_`, which the
+table copies verbatim. Escape it in `references.bib` (`\%`) and regenerate with
+`python3 tools/evidence_table.py reports/<topic> --write`; `tools/check_report.py`
+names the entry. **`! Illegal pream-token`** in the same table means the preamble does
+not load `array`; add `\usepackage{array,longtable}`.
 
 **A citation renders as `(author?)` in the compiled PDF** — you're using `\citet{}`
 with a `.bst` style that isn't natbib-compatible (e.g. `ieeetr`, `plain`). Write the

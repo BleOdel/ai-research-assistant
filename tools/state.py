@@ -625,7 +625,8 @@ def title_matches(landmark: str, title: str) -> bool:
 def landmark_works(subject: str) -> list[dict]:
     """The "Known landmark works" list under SUBJECT's heading in the profile,
     as [{"text", "group"}], in order. Italic lines (*Sub-area*) set the group;
-    a trailing *(provenance note)* is dropped."""
+    a trailing provenance note - *(Own work ...)* or /setup's and /expand's
+    *[Inferred from ...]* - is dropped."""
     if not PROFILE.exists():
         raise StateError(f"{PROFILE.relative_to(ROOT)} not found", "NOT_FOUND")
     interests = tracked_interests() or []
@@ -646,7 +647,7 @@ def landmark_works(subject: str) -> list[dict]:
         if re.match(r"^- \*\*", line):  # the next field of this interest
             break
         stripped = line.strip()
-        italic = re.fullmatch(r"\*([^*(].*?)\*", stripped)  # *(note)* is not a group
+        italic = re.fullmatch(r"\*([^*(\[].*?)\*", stripped)  # *(note)*, *[note]* are not groups
         if italic:
             group = italic.group(1)
         elif re.match(r"^\s+- ", line):
@@ -654,7 +655,7 @@ def landmark_works(subject: str) -> list[dict]:
         elif stripped and works and line.startswith("    "):
             works[-1]["text"] += " " + stripped
     for work in works:
-        work["text"] = re.sub(r"\s*\*\(.*?\)\*\s*$", "", work["text"]).strip()
+        work["text"] = re.sub(r"\s*\*(\(.*?\)|\[.*?\])\*\s*$", "", work["text"]).strip()
     return [w for w in works if w["text"] and not w["text"].lower().startswith(("none", "["))]
 
 

@@ -34,7 +34,8 @@ When the user gives a topic, follow this workflow:
 
 ### Step 2: Score Sources
 - For sources selected for synthesis, run the full four-dimension scoring in
-  `02-source-evaluation.md`
+  `02-source-evaluation.md` - reusing a fresh, complete `/rank` scoring per its
+  *Reusing a `/rank` Score* section (`tools/state.py candidates` lists which)
 - Present the scoring table before drafting - the user should see what's about to be
   cited and why, and can veto a source before it enters the report
 
@@ -44,6 +45,8 @@ When the user gives a topic, follow this workflow:
 - Follow the citation rules in `04-citation-rules.md` - every claim traces to fetched
   content, no exceptions
 - Write `reports/<topic_slug>/report.tex` and `reports/<topic_slug>/references.bib`
+- Generate the Evidence Basis section from the `.bib` with
+  `python3 tools/evidence_table.py reports/<topic_slug> --write`, never by hand
 
 ### Step 4: Fact-Check
 - Spawn a reviewer agent with fresh context (via the Agent tool) to run the Fact-Check
@@ -58,7 +61,8 @@ When the user gives a topic, follow this workflow:
 
 ### Step 5: Compile and Verify
 - Compile with the 4-pass pdflatex/bibtex sequence in `CLAUDE.md`'s verification
-  checklist
+  checklist, and run `python3 tools/check_report.py reports/<topic_slug> --compile`
+  until it reports zero errors
 - Read the rendered PDF pages and fix any layout or rendering defects
 - Run through the full Verification Checklist in `CLAUDE.md` and report it as a
   pass/fail list
@@ -96,7 +100,7 @@ The user may also ask for individual steps without the full workflow:
   up?" - equivalent to `/defend` (a stress-test when no event is named), see
   `06-defense-prep.md`
 - "Record what happened to this report" (presented, cited, needs revision,
-  superseded) - equivalent to `/outcome`
+  superseded, retired) - equivalent to `/outcome`
 - "What gaps keep coming up across my reports" / "what should I work on next" -
   equivalent to `/gaps`, which reasons across all reports at once rather than one
 - "Bring this report up to date" / "what's new on this topic since the report" -

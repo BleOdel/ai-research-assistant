@@ -12,6 +12,9 @@ to re-run - a hand-maintained table drifts from the .bib, which is how it was do
 until a report's table and bibliography disagreed.
 
 Each row comes from one field:
+- Source: \\citet{key} with an author-year natbib style; with a numbered one,
+  "Surname~\\citep{key}", "A and B~\\citep{key}" or "Surname et al.~\\citep{key}";
+  \\textcite{key} under biblatex.
 - Evidence Basis: "Full text" when the field starts with "Primary PDF", otherwise
   "Abstract", plus the route named after the first "via ".
 - Disclosure: the label after "Disclosure:" (02-source-evaluation.md's labels).
@@ -75,26 +78,32 @@ def sort_key(key: str, fields: dict) -> tuple:
             fields.get("year", ""), key)
 
 
-def source_cell(key: str, fields: dict, numbered: bool) -> str:
+def source_cell(key: str, fields: dict, numbered: bool, biblatex: bool = False) -> str:
+    if biblatex:
+        return rf"\textcite{{{key}}}"
     if not numbered:
         return rf"\citet{{{key}}}"
     authors = (fields.get("author") or "").split(" and ")
     name = surname(authors[0]) if authors[0] else key
-    return name + (" et al." if len(authors) > 1 else "") + rf"~\citep{{{key}}}"
+    if len(authors) == 2:
+        name += " and " + surname(authors[1])
+    elif len(authors) > 2:
+        name += " et al."
+    return name + rf"~\citep{{{key}}}"
 
 
-def row(key: str, fields: dict, numbered: bool) -> tuple[str, list[str]]:
+def row(key: str, fields: dict, numbered: bool, biblatex: bool = False) -> tuple[str, list[str]]:
     basis = fields.get("evidencebasis", "")
     problems = []
     kind = "Full text" if basis.lstrip().startswith("Primary PDF") else "Abstract"
-    route = re.search(r"\bvia ([\w.-]+)", basis)
+    route = re.search(r"\bvia ([\w-]+(?:\.[\w-]+)*)", basis)  # "usenix.org", not "search."
     disclosure = re.search(r"Disclosure:\s*([A-Za-z-]+)", basis)
     caveat = re.search(r"Caveat:\s*(.*?)\s*$", basis)
     label = disclosure.group(1) if disclosure else "--"
     if disclosure and label not in DISCLOSURE:
         problems.append(f"{key}: disclosure {label!r} is not one of {', '.join(DISCLOSURE)}")
     note = caveat.group(1).rstrip(".") if caveat else "--"
-    cells = [source_cell(key, fields, numbered),
+    cells = [source_cell(key, fields, numbered, biblatex),
              kind + (f" ({route.group(1)})" if route else ""), label, note]
     return " & ".join(cells) + r" \\", problems
 
@@ -122,9 +131,10 @@ def build(tex: str, bib_text: str) -> tuple[str, int]:
                             "\\% \\& \\# \\_")
     style = re.search(r"\\bibliographystyle\{([^}]+)\}", tex)
     numbered = bool(style) and style.group(1).strip() in NUMBERED_BST
+    biblatex = uses_package(tex, "biblatex")
     rows = []
     for key in sorted(entries, key=lambda k: sort_key(k, entries[k])):
-        line, row_problems = row(key, entries[key], numbered)
+        line, row_problems = row(key, entries[key], numbered, biblatex)
         problems += row_problems
         rows.append(line)
     if problems:
@@ -159,6 +169,10 @@ def build(tex: str, bib_text: str) -> tuple[str, int]:
     return section + "\n", len(rows)
 
 
+def uses_package(tex: str, name: str) -> bool:
+    return bool(re.search(r"\\usepackage(?:\[[^\]]*\])?\{[^}]*\b%s\b" % re.escape(name), tex))
+
+
 def write(tex: str, section: str) -> str:
     heading = HEADING.search(tex)
     if heading:
@@ -181,8 +195,12 @@ def main(argv: list[str]) -> int:
     try:
         tex_path, bib_path = locate(Path(args.target))
         tex = tex_path.read_text(encoding="utf-8")
-        if not re.search(r"\\usepackage(?:\[[^\]]*\])?\{[^}]*\blongtable\b", tex):
-            raise TableError(["report.tex does not load longtable - add \\usepackage{longtable}"])
+        missing = [p for p in ("longtable", "array") if not uses_package(tex, p)
+                   and not (p == "array" and uses_package(tex, "tabularx"))]
+        if missing:
+            raise TableError([f"report.tex does not load {' or '.join(missing)} - the table is a "
+                              f"longtable with array's >{{}} column syntax; add "
+                              f"\\usepackage{{array,longtable}}"])
         section, count = build(tex, bib_path.read_text(encoding="utf-8"))
         changed = False
         if args.write:

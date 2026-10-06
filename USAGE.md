@@ -73,7 +73,15 @@ you have ever seen (`research/seen_sources.json`), and returns a table with a ch
 high/medium/low triage.
 
 It deliberately does **not** score properly here — full scoring across raw search
-results would be wasteful, and `/synthesize` re-scores anyway.
+results would be wasteful; `/rank` and `/synthesize` do that.
+
+It also checks the **Known landmark works** your profile lists for the topic's
+research interest (`/setup` and `/expand` record them). Topic queries rarely find
+them all, so any not yet in your corpus are looked up by exact title and added; the
+output names any it could not find.
+
+On arXiv every word of a query must appear in the paper, so put set phrases in double
+quotes (`"virtual reality" privacy attacks`) rather than relying on word order.
 
 If a connector is rate-limited or missing its API key, `/research` says so in the
 output rather than silently under-reporting coverage. Read that line: it tells you
@@ -87,8 +95,10 @@ how complete the sweep actually was.
 
 Worth running at roughly **8+ new sources**. It dispatches parallel agents (~5
 sources each) to score everything against the full four-dimension rubric, then
-returns a ranked shortlist. It never fact-checks or drafts — it exists purely to
-help you decide where to spend a full synthesis pass.
+returns a ranked shortlist. It never fact-checks or drafts — it exists to help you
+decide where to spend a full synthesis pass. Its scores also save `/synthesize` work:
+for 30 days, `/synthesize` keeps a ranked source's Rigor, Impact and Recency and
+re-scores only Relevance against its own topic.
 
 Skip it for small hauls.
 
@@ -102,17 +112,22 @@ Pass source numbers from the `/research` table, or `all`. This is the expensive
 command, and it runs five stages:
 
 1. **Score** each source on Relevance (40%), Rigor (25%), Impact (20%), Recency
-   (15%). Shows you the table and asks before drafting — you can veto sources here.
-2. **Draft** the LaTeX report: abstract, thematic sections organized by approach
-   (never a flat per-paper list), a plain-language Technical Findings section, a
-   comparison table where approaches are genuinely comparable, and explicit Open
-   Questions.
+   (15%), reusing a fresh `/rank` scoring where there is one (`tools/state.py
+   candidates` shows which). Shows you the table and asks before drafting — you can
+   veto sources here.
+2. **Draft** the LaTeX report: abstract, a dated Revision History, thematic sections
+   organized by approach (never a flat per-paper list), a plain-language Technical
+   Findings section, a comparison table where approaches are genuinely comparable,
+   explicit Open Questions, and an Evidence Basis table (per source: full text or
+   abstract, disclosure label, caveat) generated from the `.bib` by
+   `tools/evidence_table.py`.
 3. **Fact-check.** A separate agent with fresh context re-fetches every cited source
    — full text via `paper-fetch` where an open-access PDF exists, abstract otherwise
    — and verifies the claim attributed to it actually appears there.
 4. **Revise.** Every flagged citation must be resolved before compiling.
-5. **Compile and inspect.** 4-pass `pdflatex → bibtex → pdflatex → pdflatex`, then
-   the rendered PDF is read back and checked for `??`, layout breaks, and
+5. **Compile and inspect.** 4-pass `pdflatex → bibtex → pdflatex → pdflatex`, the
+   report linter (`tools/check_report.py --compile`) until it reports zero errors,
+   then the rendered PDF is read back and checked for `??`, layout breaks, and
    bibliography errors.
 
 Output: `reports/<topic-slug>/report.tex`, `references.bib`, `report.pdf`.
@@ -259,6 +274,10 @@ Records what happened: `presented`, `cited` (in your own later work),
 `research_tracker.csv` (created on first use) and an append-only
 `reports/<topic-slug>/outcome.md` log.
 
+It also checks every tracker row against `reports/`. A row whose report no longer
+exists is flagged, and you can mark it `retired`: the one final status, kept as
+history so the tracker never describes a report that is gone.
+
 If several reports in one subject area keep going stale, it will say so and suggest
 recalibrating — but it never edits your profile or scoring rubric itself. That stays
 your decision.
@@ -350,7 +369,7 @@ or `biblatex`+`biber`. Once active, `/synthesize` drafts into it instead of the 
 
 Scopes: `profile`, `documents`, `research`, `reports`, `blog`, `all`. Shows exactly
 what will be deleted and requires you to type `RESET` — nothing is removed until you
-do.
+do. `reports` also marks each deleted report's `research_tracker.csv` row `retired`.
 
 `blog` clears `/websearch` scans and their discovery state while preserving
 `blog/template.html` and `blog/README.md` — those are framework files, not your data,
@@ -436,6 +455,10 @@ from the sub-scores itself. Useful by hand too:
 python3 tools/state.py check            # anything invalid? which old entries have gaps?
 python3 tools/state.py check --fix-derived   # recompute stale scores/verdicts, nothing else
 python3 tools/state.py score --relevance 90 --rigor 82 --impact 45 --recency 100
+python3 tools/state.py unmerged --subject "<interest>" --bib reports/<topic>/references.bib
+                                        # scored Core/Supporting, never cited by the report
+python3 tools/state.py landmarks --subject "<interest>"    # profile landmarks not in the corpus
+python3 tools/state.py candidates --subject "<interest>"   # which /rank scores /synthesize can reuse
 ```
 
 `tools/check_report.py` is the report linter `/synthesize` and `/update` run before
@@ -446,8 +469,18 @@ python3 tools/check_report.py reports/<topic> --compile
 ```
 
 It checks the mechanical things - sections, bibliography fields, citation style,
-the compile - and builds in a temp directory, so it never touches your report. It
-doesn't read prose; that's still the reviewer agent's and the PDF read's job.
+the Evidence Basis table against the `.bib`, the compile - and builds in a temp
+directory, so it never touches your report. It doesn't read prose; that's still the
+reviewer agent's and the PDF read's job. `--claims` lists every sentence that makes a
+claim about the corpus as a whole ("the only", "the first", a count), which is what
+`/update` checks after merging new sources.
+
+The Evidence Basis table is generated, never typed. After editing a source's
+`evidencebasis` field in `references.bib`, regenerate it:
+
+```bash
+python3 tools/evidence_table.py reports/<topic> --write
+```
 
 ---
 
@@ -464,7 +497,7 @@ research/
     fulltext/             cached open-access PDFs
 documents/
     cv/ linkedin/ publications/   your own materials (for /setup and /expand)
-research_tracker.csv      report status overview (created by /outcome)
+research_tracker.csv      report status overview (created by /outcome; deleted reports are "retired")
 blog/
     template.html         interactive report shell (tracked, editable)
     seen_web_sources.json web discovery state

@@ -299,10 +299,13 @@ ai-research-assistant/
 ## How `/synthesize` works
 
 1. **Score** every candidate source against `02-source-evaluation.md`'s four
-   dimensions (Relevance, Recency, Rigor, Impact).
-2. **Draft** a LaTeX report: abstract, background, thematic sections (organized by
-   approach, not a flat per-paper list), a comparison table where approaches are
-   genuinely comparable, and an explicit Open Questions section.
+   dimensions (Relevance, Recency, Rigor, Impact), reusing a `/rank` scoring under 30
+   days old for everything but Relevance.
+2. **Draft** a LaTeX report: abstract, a dated Revision History, background,
+   thematic sections (organized by approach, not a flat per-paper list), a
+   comparison table where approaches are genuinely comparable, an explicit Open
+   Questions section, and an Evidence Basis table generated from the `.bib` by
+   `tools/evidence_table.py`.
 3. **Fact-check.** A second agent, spawned with fresh context, re-fetches every
    cited source and verifies the claim attributed to it actually appears there. This
    is the drafter-reviewer split, applied to citation accuracy instead of prose
@@ -314,8 +317,9 @@ ai-research-assistant/
 4. **Revise** based on the reviewer's findings — every flagged citation must be
    resolved before compiling.
 5. **Compile and inspect.** The 4-pass `pdflatex → bibtex → pdflatex → pdflatex`
-   sequence, then Claude reads the rendered PDF and fixes any layout or citation
-   rendering defects before presenting it.
+   sequence and the report linter (`tools/check_report.py --compile`), then Claude
+   reads the rendered PDF and fixes any layout or citation rendering defects before
+   presenting it.
 
 ### What makes this different from asking an LLM to "write a literature review"
 
@@ -347,7 +351,7 @@ install - see [SETUP.md](SETUP.md#harvard-citation-style-one-extra-package).
 Four shipped connectors cover academic search from different angles:
 
 - **`arxiv-search`** — arXiv Export API. No account needed. Preprints only, CS/
-  physics/math/stats coverage.
+  physics/math/stats coverage. Every query word must match; quote set phrases.
 - **`semantic-scholar-search`** — Semantic Scholar Graph API. No account needed for
   basic use, but its unauthenticated pool is shared globally across every caller and
   is often rate-limited; an optional free `SEMANTIC_SCHOLAR_API_KEY` gets a dedicated
@@ -386,8 +390,9 @@ Full command parity with the ai-job-search pattern this framework is adapted fro
 `/setup`, `/research`, `/rank`, `/synthesize`, `/reset`, `/expand`, `/add-template`,
 `/add-source`, `/defend`, `/outcome` are all built, four academic connectors are
 live, and everything above is committed and CI-verified. Beyond parity, the
-framework adds full-text PDF reading (`paper-fetch` + `07-fulltext.md`) and
-living-document mode (`/update`). Deliberately not built (open ideas for a future
+framework adds full-text PDF reading (`paper-fetch` + `07-fulltext.md`),
+living-document mode (`/update`), cross-report analysis (`/gaps`) and a separate
+grey-literature track (`/websearch`). Deliberately not built (open ideas for a future
 extension, not planned work):
 
 - Contradiction/consensus flagging across sources at discovery time (`/update` does

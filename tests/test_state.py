@@ -426,6 +426,7 @@ LANDMARK_PROFILE = """# Researcher Profile
     cybersecurity challenges in virtual reality environments. Computers & Security.
     *(Own work - confirmed by researcher, 2026-08-05)*
   - Security and Privacy Approaches in Mixed Reality: A Literature Survey
+    *[Inferred from documents/publications - review before relying on this]*
 - **Expertise level:** expert
 
 ### Applied ML
@@ -467,6 +468,8 @@ class LandmarkTests(StateFixture):
         self.assertEqual(found[0]["text"],
                          "Going Through the Motions: AR/VR Keylogging from User Head Motions")
         self.assertTrue(found[3]["text"].endswith("Computers & Security."), found[3]["text"])
+        self.assertEqual(found[4]["text"],
+                         "Security and Privacy Approaches in Mixed Reality: A Literature Survey")
 
     def test_matches_across_subjects_and_statuses(self):
         self.assertEqual(self.landmarks()[3]["match"]["subject"], "Applied ML")
