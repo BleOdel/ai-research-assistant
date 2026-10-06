@@ -190,6 +190,8 @@ because the ceiling is lower. The page's footer says so.
 vendor's own engineering blog is often the single best source on their system.
 You just get told which you're reading, and comparative claims from interested
 parties are attributed in the prose rather than stated as fact.
+The one exception is **marketing**: a page that exists to sell something is recorded
+and excluded, never shown, however well it scores.
 
 **Single-source claims are attributed opinion, not fact.** And the command checks
 whether apparent corroboration actually traces back to one origin — the specific
@@ -523,7 +525,8 @@ verdicts, evidence basis, and status. It is fully regenerated from
 ### Source statuses and verdicts
 
 `seen_sources.json` statuses: `new`, `skipped`, `ranked`, `unfetchable`,
-`synthesized`.
+`synthesized`. `blog/seen_web_sources.json` statuses: `included`, `excluded`,
+`unfetchable` - every page a scan looked at is recorded, so the next scan skips it.
 
 Score verdicts: **Core** (75+, cite substantively), **Supporting** (55-74, cite for
 context), **Peripheral** (35-54, only if it fills a real gap), **Excluded** (<35).

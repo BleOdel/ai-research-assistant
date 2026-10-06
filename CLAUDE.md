@@ -91,8 +91,9 @@ access date and flagged in the prose as not peer-reviewed. See
 
 For an existing report, `/update <topic>` merges what's new in place rather than
 re-synthesizing. For what practitioners rather than researchers are writing,
-`/websearch <topic>` runs the web track instead - it has its own verification list in
-`10-html-reports.md`, not the LaTeX checklist below.
+`/websearch <topic>` runs the web track instead - verified by
+`python3 tools/check_webscan.py blog/<topic_slug>` and `10-html-reports.md`'s list, not
+the LaTeX checklist below.
 
 **Important:** Every claim in a synthesis report must trace to a source that was
 actually fetched during the run. A citation that cannot be matched to fetched content

@@ -49,6 +49,12 @@ single best source on their system — penalizing it numerically would be wrong.
 reader just has to know which they are reading, and comparative claims from
 interested parties get attributed in the prose rather than stated as fact.
 
+**Marketing is the exception: it is excluded, not labeled.** A page whose purpose is
+to sell a product or service is recorded in `seen_web_sources.json` as `excluded` and
+never appears on a page, whatever it scores. A company's own documentation or
+engineering blog is not marketing just because the company wrote it; that is
+`first-party`. See `09-web-source-evaluation.md`.
+
 ## The template
 
 `template.html` is a fixed shell with the rendering logic already written.
@@ -61,8 +67,36 @@ It is theme-aware, responsive, and keyboard-navigable, with live filtering, tier
 type chips, sorting, and expandable per-source detail.
 
 Editing it is fine and expected — it is yours. Keep it self-contained, keep the
-`[TOKEN]` names intact, and keep the independence badge visible. Format details are
-in `.claude/skills/research-assistant/10-html-reports.md`.
+`[TOKEN]` names intact in the page, and keep the independence badge visible. Two
+rules protect what `/websearch` writes into it:
+
+- **The header comment names the tokens without brackets.** `/websearch` replaces
+  every occurrence of each token, so a bracketed token in the comment gets the whole
+  report pasted into it. (Pages built before 2026-10-06 carry that duplicate.)
+- **The embedded source JSON has every `<` written as `\u003c`.** Titles and
+  summaries come from fetched, untrusted pages, and a title containing `</script>`
+  would otherwise end the data block and run in your browser. The template also links
+  only `http(s)` URLs.
+
+Format details are in `.claude/skills/research-assistant/10-html-reports.md`.
+
+## Checking a scan
+
+Every page is linted before it is presented, and you can re-run the check any time:
+
+```bash
+python3 tools/check_webscan.py blog/<topic-slug>
+```
+
+It fails a page with a leftover token, a data block that does not parse or contains a
+raw `<`, a source outside the schema (including any `marketing` source), a score or
+tier that disagrees with its sub-scores, a missing caveat, a `sources.json` that
+differs from the page, or a source not recorded as `included` in
+`seen_web_sources.json`. It warns when a page was built from an older template.
+
+`seen_web_sources.json` records every candidate a scan looked at - `included`,
+`excluded` (with the reason) or `unfetchable` (with the error) - so the next scan
+skips pages it already judged and a scope note's "recorded as unfetchable" is true.
 
 ## Privacy
 

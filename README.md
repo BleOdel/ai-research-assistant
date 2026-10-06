@@ -196,10 +196,12 @@ evidence basis, citation-count divergence). The list below is the summary.
   blogs, engineering writeups, official docs, specs, and technical discussion,
   scores each source on a **separate credibility rubric** (Authority and Evidence
   Quality in place of the academic Rigor and Impact), labels every source's
-  independence (`independent` / `first-party` / `vendor-competitive` / `sponsored`),
-  and builds a self-contained **interactive HTML page** under `blog/<topic>/` with
-  live filtering and sorting. Kept deliberately separate from the academic track so
-  an unreviewed assertion never sits beside a replicated result unmarked.
+  independence (`independent` / `first-party` / `vendor-competitive` / `sponsored` /
+  `unclear`), excludes marketing pages outright, and builds a self-contained
+  **interactive HTML page** under `blog/<topic>/` with live filtering and sorting,
+  linted by `tools/check_webscan.py` before it is presented. Kept deliberately
+  separate from the academic track so an unreviewed assertion never sits beside a
+  replicated result unmarked.
 - **`/gaps`** reasons across **all** your reports at once, which no other command
   does: it surfaces open questions that recur independently in two or more reports (a
   research-direction signal a single report cannot produce), flags sources already in
