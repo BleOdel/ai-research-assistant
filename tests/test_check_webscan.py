@@ -102,6 +102,10 @@ class CheckWebscanTests(unittest.TestCase):
         self.assertTrue(any("not http(s)" in e for e in out["errors"]))
         self.assertTrue(any("never infer a date" in e for e in out["errors"]))
 
+    def test_marketing_source_is_an_error(self):
+        self.write([SOURCE, {**SECOND, "type": "marketing"}])
+        self.assertError("marketing sources are always excluded")
+
     def test_sources_json_must_match(self):
         self.write([SOURCE, SECOND], standalone=[SOURCE])
         self.assertError("parses to different data")

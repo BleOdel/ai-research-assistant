@@ -16,6 +16,7 @@ Errors (exit 1):
   and "</script>" would end the block and run what follows (write "<" as \\u003c)
 - a source missing a schema field, with a type, independence label, tier or date
   outside 10-html-reports.md's schema, or a url that is not http(s)
+- a marketing source: 09-web-source-evaluation.md excludes them, whatever their scores
 - a score or tier that disagrees with its own sub-scores (state.py's web rubric)
 - a vendor-competitive, sponsored, unclear or Peripheral source with no caveat
 - sources.json missing, or parsing to different data than the page
@@ -76,7 +77,7 @@ def section(page: str, css_class: str, tag: str) -> str | None:
 
 
 def check_sources(sources: list, f: Findings) -> None:
-    missing, enums, urls, dates, tiers, caveats = {}, [], [], [], [], []
+    missing, enums, urls, dates, tiers, caveats, marketing = {}, [], [], [], [], [], []
     for i, s in enumerate(sources):
         name = label(s, i)
         if not isinstance(s, dict):
@@ -88,6 +89,8 @@ def check_sources(sources: list, f: Findings) -> None:
         if s.get("type") not in WEB_TYPES or s.get("independence") not in WEB_INDEPENDENCE \
                 or s.get("tier") not in TIERS:
             enums.append(f"{name} ({s.get('type')}, {s.get('independence')}, {s.get('tier')})")
+        if s.get("type") == "marketing":
+            marketing.append(name)
         if not re.match(r"^https?://", str(s.get("url") or ""), re.I):
             urls.append(name)
         if s.get("date") is not None and not re.match(r"^\d{4}-\d{2}-\d{2}$", str(s["date"])):
@@ -103,6 +106,9 @@ def check_sources(sources: list, f: Findings) -> None:
         f.error("schema", f"sources missing '{field}' (use null, never omit)", names)
     if enums:
         f.error("schema", "type, independence or tier outside 10-html-reports.md's schema", enums)
+    if marketing:
+        f.error("schema", "marketing sources are always excluded - record them in "
+                          "seen_web_sources.json as excluded and drop them from the page", marketing)
     if urls:
         f.error("schema", "url is not http(s) - the template will not link it", urls)
     if dates:

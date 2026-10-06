@@ -68,6 +68,9 @@ Drop immediately, recording `status: "excluded"` with a one-line reason:
 - Paywalled or login-gated with no readable content
 - Content-farm or evidently AI-generated filler
 - The page turned out to be about a different subject
+- Marketing: the page exists to sell a product or service (type `marketing`, per
+  `09-web-source-evaluation.md`). Record its `type` too. A company's own docs or
+  engineering blog is not marketing; classify by the page's purpose.
 
 If `WebFetch` returns a cross-host redirect, follow it once with the redirect URL;
 if that also fails, record the source as `unfetchable` rather than scoring it from

@@ -61,7 +61,7 @@ Every element of `[SOURCES_JSON]`:
   "author": "Name, or null if none is identifiable",
   "site": "example.com",
   "date": "YYYY-MM-DD, or null if the page is undated",
-  "type": "engineering-blog | official-docs | standard-or-spec | research-adjacent | talk-writeup | news | forum-thread | tutorial | opinion | marketing",
+  "type": "engineering-blog | official-docs | standard-or-spec | research-adjacent | talk-writeup | news | forum-thread | tutorial | opinion",
   "tier": "Core | Supporting | Peripheral",
   "score": 82,
   "scores": { "relevance": 88, "authority": 80, "evidence": 85, "recency": 75 },
@@ -89,6 +89,8 @@ Rules that the schema cannot enforce but the output depends on:
   `sponsored`, or `unclear`, or when `tier` is `Peripheral`. The template gives it a
   highlighted block; leaving it null in these cases hides the thing the reader most
   needs.
+- **`marketing` is not a page type.** Marketing pages are always excluded
+  (`09-web-source-evaluation.md`, Content Type), so the array never holds one.
 - **Excluded sources (<30) do not appear in the array.** They are recorded in
   `blog/seen_web_sources.json` with `status: "excluded"` so a later run does not
   rediscover and re-evaluate them.

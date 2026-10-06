@@ -100,8 +100,14 @@ Classify each source; the type sets reader expectations more than any score does
 (preprint summaries, lab blogs) · `talk-writeup` · `news` · `forum-thread`
 (HN/Reddit/Stack Overflow) · `tutorial` · `opinion` · `marketing`
 
-`marketing` content is recorded and excluded rather than silently dropped, so a
-later run does not rediscover and re-evaluate it.
+`marketing` content - a page whose purpose is to sell a product or service, such as a vendor
+resource page, a whitepaper behind a sales form or a sponsored explainer - is **always
+excluded**, whatever its other scores. It is recorded in `blog/seen_web_sources.json` with
+`status: "excluded"` rather than silently dropped, so a later run does not rediscover
+and re-evaluate it, and it never appears on the page. (A first-party engineering blog or
+official documentation is not marketing just because a company wrote it: classify by
+purpose, and label its independence.) `tools/check_webscan.py` fails a page that
+carries a `marketing` source.
 
 ## Weighting and Thresholds
 
