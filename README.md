@@ -285,13 +285,16 @@ ai-research-assistant/
 │   ├── state.py                           # Only write path for research/blog/tracker state
 │   ├── check_report.py                    # Report linter: sections, bib fields, style, compile; --claims scan
 │   ├── evidence_table.py                  # Generates the Evidence Basis table from references.bib
+│   ├── check_webscan.py                   # /websearch page linter: tokens, data block, schema, state
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json
 │   └── security_guards.py                 # CI guards: permission allowlist, gitignore rules, manifests
 ├── tests/
 │   ├── test_security_guards.py
 │   ├── test_state.py
 │   ├── test_check_report.py
-│   └── test_evidence_table.py
+│   ├── test_evidence_table.py
+│   ├── test_check_webscan.py
+│   └── test_web_template.py
 ├── .github/workflows/ci.yml               # CI: LaTeX smoke compile, skill lint, CLI typechecks
 └── SETUP.md                               # Detailed setup guide
 ```

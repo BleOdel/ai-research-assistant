@@ -32,7 +32,7 @@ this design exists to prevent.
 | `[TOPIC]` | Human-readable topic. Appears in `<title>` and `<h1>` |
 | `[RUN_DATE]` | `YYYY-MM-DD` |
 | `[SCOPE_NOTE]` | One paragraph: what was searched, what was excluded and why, known coverage gaps. Plain text or a single `<p>` |
-| `[SYNTHESIS]` | The findings prose. HTML fragment - `<p>`, `<h3>`, `<ul>`, `<li>`, `<strong>`, `<em>`, `<a>` only |
+| `[SYNTHESIS]` | The findings prose. HTML fragment - `<p>`, `<h3>`, `<ul>`, `<li>`, `<strong>`, `<em>`, `<a>`, `<code>` only |
 | `[SOURCES_JSON]` | A JSON array matching the schema below |
 
 `[TOPIC]` appears twice (title and heading) - replace both. The template's header
@@ -125,6 +125,10 @@ rather than editing the JSON embedded in the HTML** - keeping the two in sync
 matters, since `sources.json` is what a later `/websearch` run reads back.
 
 ## Verification Before Presenting
+
+`python3 tools/check_webscan.py blog/<topic_slug>` checks every item below, plus the
+schema, the page against `blog/seen_web_sources.json`, and that nothing is loaded from
+outside the page. It must report zero errors before the page is presented.
 
 1. No `[TOKEN]` placeholders remain anywhere in the file.
 2. The embedded JSON parses (the template shows a parse-failure message rather

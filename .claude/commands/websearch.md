@@ -95,7 +95,7 @@ Then ask:
 > "Build the HTML report from the Core and Supporting sources? Reply yes, or tell me
 > which to drop or promote."
 
-**If the user says no**, run Step 6's state write anyway (scored sources as
+**If the user says no**, run Step 5's state write anyway (scored sources as
 `included`, plus every `excluded` and `unfetchable` candidate) and stop. Recording
 them is what stops the next run fetching the same pages again.
 
@@ -118,23 +118,7 @@ Per `10-html-reports.md`:
 
 ---
 
-## Step 5: Verify
-
-Run `10-html-reports.md`'s verification list and report it as a pass/fail checklist:
-
-1. No `[TOKEN]` placeholders remain (grep the file - a leftover token is this
-   track's equivalent of a `??` in a compiled PDF).
-2. The embedded JSON parses.
-3. Every `score`/`tier` pair is consistent with its own sub-scores.
-4. Every flagged-independence and every Peripheral source has a non-null `caveat`.
-5. `sources.json` parses to the same array as the embedded block.
-6. The embedded block contains no literal `<`.
-
-Then read the file back and sanity-check the rendered structure.
-
----
-
-## Step 6: Update State and Present
+## Step 5: Update State
 
 Write **every candidate this run looked at** to `blog/seen_web_sources.json` in
 **one** state-helper call - never by editing the JSON directly. That means the scored
@@ -167,6 +151,31 @@ if any entry is invalid. Each source's fields:
 }
 ```
 
+Write state before verifying: Step 6's checker compares the page against it.
+
+---
+
+## Step 6: Verify and Present
+
+Lint the page - it checks everything mechanical in `10-html-reports.md`'s
+verification list, and the page against the state file just written:
+
+```bash
+python3 tools/check_webscan.py blog/<topic_slug>
+```
+
+It must report zero errors: no `[TOKEN]` left, one embedded JSON array that parses
+and has no literal `<`, every source in the schema with a `score`/`tier` that matches
+its sub-scores and a `caveat` where one is required, `sources.json` matching the page,
+every source recorded as `included` in `blog/seen_web_sources.json` with the same
+scores, and nothing loaded from outside the page. Fix what it reports in the source
+array (and in state, through the helper) and rebuild; never hand-patch the embedded
+JSON. Warnings are judgment calls - fix them or say why not.
+
+The linter does not read prose. Then read the page back and check what it cannot:
+that the synthesis is organized by theme, attributes contested claims, and says
+where apparent corroboration traces to one origin.
+
 Present:
 
 ```
@@ -182,7 +191,7 @@ Evaluated N sources (X Core, Y Supporting, Z Peripheral; W excluded).
 reproducible evidence, and whether any claim rests on a single unverified source]
 
 ### Verification
-[the Step 5 checklist, pass/fail]
+[the `check_webscan.py` result (must be PASS), then the prose checks above]
 
 Open: blog/<topic_slug>/index.html
 ```

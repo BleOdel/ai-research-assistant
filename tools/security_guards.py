@@ -44,6 +44,7 @@ ALLOWED_PERMISSIONS = {
     "Bash(python3 tools/state.py:*)",
     "Bash(python3 tools/check_report.py:*)",
     "Bash(python3 tools/evidence_table.py:*)",
+    "Bash(python3 tools/check_webscan.py:*)",
 }
 
 # Personal-data ignore rules that must never disappear from .gitignore.

@@ -170,6 +170,16 @@ replaced by **Authority** (who wrote this, do they have standing here) and
 **Evidence Quality** (are claims shown with code, benchmarks, and versions, or
 merely asserted). Recency is weighted higher because grey literature decays faster.
 
+Before a page is presented, `/websearch` lints it - the web track's counterpart to the
+report linter. Run it yourself on any scan:
+
+```bash
+python3 tools/check_webscan.py blog/<topic-slug>
+```
+
+It checks the page is complete, its embedded data is valid and safe, every score and
+tier matches its sub-scores, and the page agrees with `blog/seen_web_sources.json`.
+
 **A Core web source is not equivalent to a Core paper.** The thresholds are lower
 because the ceiling is lower. The page's footer says so.
 
