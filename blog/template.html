@@ -3,12 +3,15 @@
   Interactive web/grey-literature report template.
   Filled in by /websearch - see .claude/skills/research-assistant/10-html-reports.md
 
-  Replace these tokens:
-    [TOPIC]        - human-readable topic
-    [RUN_DATE]     - YYYY-MM-DD
-    [SCOPE_NOTE]   - one paragraph: what was searched, what was excluded, coverage gaps
-    [SYNTHESIS]    - the actual findings prose (HTML: <p>, <h3>, <ul> allowed)
-    [SOURCES_JSON] - JSON array, schema documented in 10-html-reports.md
+  Replace each token below, written in the page in square brackets. They are
+  named here without brackets on purpose: a replace-all would otherwise paste the
+  whole report into this comment.
+    TOPIC        - human-readable topic (title and heading)
+    RUN_DATE     - YYYY-MM-DD
+    SCOPE_NOTE   - one paragraph: what was searched, what was excluded, coverage gaps
+    SYNTHESIS    - the actual findings prose (HTML: p, h3, ul allowed)
+    SOURCES_JSON - JSON array, schema documented in 10-html-reports.md, with every
+                   "<" written as \u003c so page content cannot end the script block
 
   Self-contained by design: no CDN, no external fonts, no network calls.
   Opens from file:// and works offline.
@@ -270,7 +273,7 @@
     el.innerHTML =
       '<h3><button type="button" aria-expanded="false" aria-controls="d' + i + '">' + esc(s.title) + "</button></h3>" +
       '<div class="meta">' +
-        '<span class="tier ' + esc(s.tier) + '">' + esc(s.tier) + " · " + (s.score || 0) + "</span>" +
+        '<span class="tier ' + esc(s.tier) + '">' + esc(s.tier) + " · " + (Number(s.score) || 0) + "</span>" +
         '<span class="dot">·</span><span>' + esc(s.site || "unknown site") + "</span>" +
         '<span class="dot">·</span><span>' + esc(s.author || "no named author") + "</span>" +
         '<span class="dot">·</span><span>' + dateTxt + "</span>" +
@@ -287,7 +290,9 @@
           "<span>Evidence <b>" + (sc.evidence || 0) + "</b></span>" +
           "<span>Recency <b>" + (sc.recency || 0) + "</b></span>" +
         "</div>" +
-        '<a class="visit" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">Open source ↗</a>' +
+        (/^https?:\/\//i.test(s.url || "")
+          ? '<a class="visit" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">Open source ↗</a>'
+          : '<span class="visit">No http(s) link recorded</span>') +
       "</div>";
 
     var btn = el.querySelector("h3 button");

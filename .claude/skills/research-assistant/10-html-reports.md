@@ -35,7 +35,17 @@ this design exists to prevent.
 | `[SYNTHESIS]` | The findings prose. HTML fragment - `<p>`, `<h3>`, `<ul>`, `<li>`, `<strong>`, `<em>`, `<a>` only |
 | `[SOURCES_JSON]` | A JSON array matching the schema below |
 
-`[TOPIC]` appears twice (title and heading) - replace both.
+`[TOPIC]` appears twice (title and heading) - replace both. The template's header
+comment names the tokens without brackets, so a replace-all fills only these slots.
+(Until 2026-10-06 it named them with brackets, and every page built before then
+carries a second copy of its scope note, synthesis and source JSON in that comment.)
+
+**Escape `<` in the source JSON.** `[SOURCES_JSON]` sits inside a `<script>` block, and
+titles, summaries and key points come from fetched pages, which are untrusted. A title
+containing `</script>` would end the block and run whatever follows when the page is
+opened. Write every `<` in the array as `\u003c` - still valid JSON, and `JSON.parse`
+turns it back into `<` - e.g. `json.dumps(sources, ensure_ascii=False).replace("<",
+"\\u003c")`. The template also refuses to link any `url` that is not `http(s)`.
 
 **After writing, verify no `[TOKEN]` placeholders remain.** A leftover token is the
 HTML equivalent of a `??` in a compiled PDF: it means the build did not complete.
@@ -121,4 +131,6 @@ matters, since `sources.json` is what a later `/websearch` run reads back.
    than a blank page, so a silent break is visible - but check anyway).
 3. Every `score`/`tier` pair is internally consistent with its sub-scores.
 4. Every source with a flagged independence label has a non-null `caveat`.
-5. `sources.json` and the embedded array are identical.
+5. `sources.json` and the embedded array parse to the same data (the embedded copy
+   has `<` escaped as `\u003c`; `sources.json` may be written either way).
+6. The embedded block contains no literal `<`, so no fetched text can close it.

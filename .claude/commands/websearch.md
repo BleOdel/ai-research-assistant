@@ -95,8 +95,9 @@ Then ask:
 > "Build the HTML report from the Core and Supporting sources? Reply yes, or tell me
 > which to drop or promote."
 
-**If the user says no, stop here** - the state file is still updated, so nothing is
-re-fetched next time.
+**If the user says no**, run Step 6's state write anyway (scored sources as
+`included`, plus every `excluded` and `unfetchable` candidate) and stop. Recording
+them is what stops the next run fetching the same pages again.
 
 ---
 
@@ -109,8 +110,9 @@ Per `10-html-reports.md`:
 3. Write `[SYNTHESIS]` organized by theme or claim - never as a list of pages
    visited. Attribute contested claims in the prose. Say where independent sources
    agree, where they conflict, and what the scan did not find.
-4. Write `[SOURCES_JSON]` to the documented schema, and the identical array to
-   `blog/<topic_slug>/sources.json`.
+4. Write `[SOURCES_JSON]` to the documented schema with every `<` escaped as
+   `\u003c` (page titles and summaries are untrusted text inside a `<script>` block -
+   see `10-html-reports.md`), and the same array to `blog/<topic_slug>/sources.json`.
 5. `[SCOPE_NOTE]` must state what was searched, what was excluded, and the coverage
    gaps - including any paywalled sources that could not be read.
 
@@ -125,7 +127,8 @@ Run `10-html-reports.md`'s verification list and report it as a pass/fail checkl
 2. The embedded JSON parses.
 3. Every `score`/`tier` pair is consistent with its own sub-scores.
 4. Every flagged-independence and every Peripheral source has a non-null `caveat`.
-5. `sources.json` matches the embedded array.
+5. `sources.json` parses to the same array as the embedded block.
+6. The embedded block contains no literal `<`.
 
 Then read the file back and sanity-check the rendered structure.
 
@@ -133,8 +136,13 @@ Then read the file back and sanity-check the rendered structure.
 
 ## Step 6: Update State and Present
 
-Write every fetched source to `blog/seen_web_sources.json` in **one** state-helper
-call - never by editing the JSON directly:
+Write **every candidate this run looked at** to `blog/seen_web_sources.json` in
+**one** state-helper call - never by editing the JSON directly. That means the scored
+sources (`included`), the ones dropped in Step 2 (`excluded`, with the reason in
+`note`), and the ones that could not be fetched (`unfetchable`, with the error in
+`note`; they need no `scores`). A scope note that says a source was "recorded as
+unfetchable" must be true of the state file, and an unrecorded candidate is fetched
+again on every later run:
 
 ```bash
 python3 tools/state.py batch --file web --json-file <scratch>/web_sources.json
