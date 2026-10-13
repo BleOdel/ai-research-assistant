@@ -43,9 +43,13 @@ Commands:
       offered again - /update and /synthesize run this to catch that. Entries
       match on DOI, arXiv id or URL however each side spells it: a state key
       https://doi.org/10.48550/arXiv.2406.13352 matches eprint = {2406.13352}.
-  landmarks --subject S [--json]
+  landmarks --subject S [--related] [--json]
       List the "Known landmark works" the profile records for Research Interest
       S, each matched by title against every `sources` entry. Read-only.
+      --related adds landmarks recorded under other interests whose entry names
+      S (e.g. "Also relevant to S's ... sub-area"): a field-level XR report
+      otherwise missed the researcher's own detection paper, filed under the
+      Applied ML interest.
       /expand and /setup record landmarks, but discovery only ever ran topic
       queries, so a field-level report found 12 of an interest's 99 landmarks;
       /research looks up the ones listed as missing.
@@ -659,11 +663,18 @@ def landmark_works(subject: str) -> list[dict]:
     return [w for w in works if w["text"] and not w["text"].lower().startswith(("none", "["))]
 
 
-def landmarks(subject: str) -> list[dict]:
-    """Each landmark of SUBJECT with the `sources` entry whose title it names, if any."""
+def landmarks(subject: str, related: bool = False) -> list[dict]:
+    """Each landmark of SUBJECT with the `sources` entry whose title it names, if any.
+    With RELATED, also the landmarks of other interests whose text names SUBJECT."""
     entries = load("sources", FILES["sources"])
+    works = [{**w, "interest": subject} for w in landmark_works(subject)]
+    if related:
+        for other in tracked_interests() or []:
+            if other != subject:
+                works += [{**w, "interest": other} for w in landmark_works(other)
+                          if subject.lower() in w["text"].lower()]
     out = []
-    for work in landmark_works(subject):
+    for work in works:
         match = next((k for k, e in entries.items() if title_matches(work["text"], e.get("title"))),
                      None)
         found = None
@@ -683,7 +694,8 @@ def print_landmarks(found: list[dict], subject: str) -> None:
     print(f"{len(found)} landmark work(s) for {subject!r}: {len(found) - len(missing)} in "
           f"seen_sources.json, {len(missing)} missing")
     for w in missing:
-        print(f"  MISSING  {w['text']}" + (f"  [{w['group']}]" if w["group"] else ""))
+        tags = [t for t in (w["group"], None if w["interest"] == subject else f"from {w['interest']}") if t]
+        print(f"  MISSING  {w['text']}" + (f"  [{'; '.join(tags)}]" if tags else ""))
     for w in found:
         if w["match"]:
             m = w["match"]
@@ -910,6 +922,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_landmarks = sub.add_parser("landmarks")
     p_landmarks.add_argument("--subject", required=True)
+    p_landmarks.add_argument("--related", action="store_true")
     p_landmarks.add_argument("--json", action="store_true")
 
     p_candidates = sub.add_parser("candidates")
@@ -987,7 +1000,7 @@ def main(argv: list[str]) -> int:
             return 0
 
         if args.command == "landmarks":
-            found = landmarks(args.subject)
+            found = landmarks(args.subject, args.related)
             if args.json:
                 print(json.dumps({"subject": args.subject, "landmarks": found}, indent=2))
             else:

@@ -162,6 +162,21 @@ Point it at the draft's files rather than pasting them (see the token-efficiency
 above). Write both files to disk before dispatching, and do not edit them while the
 reviewer runs, so it checks exactly the version that will compile.
 
+**Split the review when the report cites more than about 30 sources.** One agent
+cannot fetch and read a hundred sources in a single context without its checks
+thinning out towards the end. Give each of several reviewers about 20-25 keys, grouped
+by the sections that cite them, so each one reads the sources behind a coherent block
+of argument and can run the report-level checks across them. Send every reviewer the
+prompt below unchanged, plus a short **Your scope** block listing its keys and its
+sections, and telling it to skip the unused-entry check (the linter already matches
+citations to the `.bib` in both directions). Give one reviewer the cross-cutting text
+as well -- the abstract, the scope note, the comparison table, the plain-language
+findings and the Open Questions -- for every key cited there, since those passages
+restate claims from every section. Dispatch at most five at once, and edit nothing
+until all have returned, so every reviewer checks the same file. The first report
+large enough to need this cited 107 sources across five reviewers; each found errors
+the others could not see, including two "only"/"the only" counts that were false.
+
 Replace `<TOPIC>` before dispatching:
 
 ```
@@ -314,7 +329,8 @@ adding claims drawn from full text the reviewer surfaced. That new prose has not
 checked by anyone but its drafter. Send the rewritten regions back to the **same**
 reviewer (`SendMessage` to its agent ID - it still has the sources in context, so this
 is far cheaper than a fresh spawn), naming the regions and asking for the same JSON
-restricted to them. Resolve what it returns the same way. In practice the second pass
+restricted to them. With a split review, each rewritten region goes to the reviewer
+that read its sources, and the cross-cutting reviewer re-checks the framing passages. Resolve what it returns the same way. In practice the second pass
 finds less but not nothing: on the first run that needed one, it caught a figure
 attached to the wrong benchmark and an "independent" check that was not.
 

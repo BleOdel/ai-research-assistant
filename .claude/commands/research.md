@@ -112,11 +112,15 @@ because nothing ever looked the others up. When the topic falls under a Research
 Interest, list that interest's landmarks against state:
 
 ```bash
-python3 tools/state.py landmarks --subject "<interest>"
+python3 tools/state.py landmarks --subject "<interest>" --related
 ```
 
 Each line is `MISSING` or `present`, matched by title against every entry in
-`seen_sources.json`. Look up the `MISSING` ones that bear on this topic: all of them
+`seen_sources.json`. `--related` adds landmarks recorded under *other* interests whose
+entry names this one (a line such as "Also relevant to <interest>'s ... sub-area");
+they are tagged `from <other interest>`. Without it, an XR state-of-the-art run missed
+the researcher's own XR attack-detection paper, filed under their Applied ML
+interest. Look up the `MISSING` ones that bear on this topic: all of them
 when the topic is the interest as a whole, otherwise those whose title or sub-area
 group (shown in brackets) fits it.
 

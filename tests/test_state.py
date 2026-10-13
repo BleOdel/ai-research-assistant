@@ -431,7 +431,11 @@ LANDMARK_PROFILE = """# Researcher Profile
 
 ### Applied ML
 - **Why tracked:** test
-- **Known landmark works (if any):** none yet.
+- **Known landmark works (if any):**
+  - Detecting framerate attacks on user experience in virtual reality. Also relevant
+    to XR Security's perceptual-attacks sub-area.
+  - An unrelated anomaly detection paper on network telemetry
+- **Expertise level:** expert
 
 ## Depth Calibration
 """
@@ -482,9 +486,25 @@ class LandmarkTests(StateFixture):
         self.assertIn("5 landmark work(s) for 'XR Security': 4 in seen_sources.json, 1 missing", out)
         self.assertLess(out.index("MISSING  LookUnlock"), out.index("present"))
 
+    def test_related_adds_other_interests_landmarks_that_name_this_one(self):
+        self.assertEqual(len(self.landmarks()), 5)  # without --related: own list only
+        result = self.run_state("landmarks", "--subject", "XR Security", "--related", "--json")
+        found = json.loads(result.stdout)["landmarks"]
+        self.assertEqual(len(found), 6)
+        self.assertEqual((found[-1]["interest"], found[-1]["match"]), ("Applied ML", None))
+        self.assertTrue(found[-1]["text"].startswith("Detecting framerate attacks"))
+        out = self.run_state("landmarks", "--subject", "XR Security", "--related").stdout
+        self.assertIn("[from Applied ML]", out)
+
     def test_interest_without_landmarks(self):
+        profile = self.root / ".claude/skills/research-assistant/01-researcher-profile.md"
+        profile.write_text(LANDMARK_PROFILE.split("- **Known landmark works (if any):**\n  - Detecting")[0]
+                           + "- **Known landmark works (if any):** none yet.\n\n## Depth Calibration\n")
         self.assertEqual(self.landmarks("Applied ML"), [])
         self.assertIn("none -", self.run_state("landmarks", "--subject", "Applied ML").stdout)
+
+    def test_interest_whose_landmarks_name_no_other(self):
+        self.assertEqual(len(self.landmarks("Applied ML")), 2)
 
     def test_unknown_subject_is_refused(self):
         self.assertRefused(self.run_state("landmarks", "--subject", "XR"), "BAD_ARG")

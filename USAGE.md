@@ -469,7 +469,7 @@ python3 tools/state.py check --fix-derived   # recompute stale scores/verdicts, 
 python3 tools/state.py score --relevance 90 --rigor 82 --impact 45 --recency 100
 python3 tools/state.py unmerged --subject "<interest>" --bib reports/<topic>/references.bib
                                         # scored Core/Supporting, never cited by the report
-python3 tools/state.py landmarks --subject "<interest>"    # profile landmarks not in the corpus
+python3 tools/state.py landmarks --subject "<interest>" --related   # profile landmarks not in the corpus
 python3 tools/state.py candidates --subject "<interest>"   # which /rank scores /synthesize can reuse
 ```
 
