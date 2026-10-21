@@ -121,6 +121,23 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(r["paper_labs"]["empty"], [])
 
 
+class ConfirmedSplitTests(unittest.TestCase):
+    """The researcher's confirmed lab split of the 104 library papers cited in the
+    XR state-of-the-art report (2026-10-21), as an anonymised author graph of the
+    whole 307-paper library - labs are classified across the library, so the
+    fixture needs all of it. A change to the weights or the community detection
+    that regroups these papers has to be re-checked with the researcher."""
+
+    def test_confirmed_xr_lab_split_is_reproduced(self):
+        fixture = json.loads((REPO_ROOT / "tests" / "fixtures" / "kg_labs_xr.json").read_text())
+        result = kg_labs.classify_labs(fixture["papers"])
+        groups = {}
+        for pid in fixture["report_papers"]:
+            groups.setdefault(result["paper_primary"][pid], set()).add(pid)
+        self.assertEqual(sorted(sorted(g) for g in groups.values()),
+                         sorted(sorted(g) for g in fixture["expected_groups"]))
+
+
 class CliTests(unittest.TestCase):
     """The CLI the lab-acceptance checkpoint uses: classify the whole cached
     library, print one report's papers."""
