@@ -46,7 +46,9 @@ ROOT = state.ROOT
 TEMPLATE = ROOT / "graph" / "template.html"
 PAGE = ROOT / "graph" / "index.html"
 FULLTEXT = ROOT / "research" / "fulltext"
+VENDOR = ROOT / "graph" / "vendor"
 SLOT = "[GRAPH_JSON]"
+VENDOR_TAG = re.compile(r'<script data-vendor="([\w.-]+)"></script>')
 
 # Plain words for the page. The internal names (ranked, synthesized, ...) mean
 # nothing to a reader who has not read state.py.
@@ -389,13 +391,28 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     }
 
 
-def render(data: dict, template: str) -> str:
-    """TEMPLATE with DATA in its one slot. Every "<" becomes \\u003c, so no
-    string in the data can end the script element."""
+def render(data: dict, template: str, vendor: dict[str, str] | None = None) -> str:
+    """TEMPLATE with DATA in its one slot and each <script data-vendor="NAME"> filled
+    with graph/vendor/NAME (or VENDOR[NAME]), so the page is one offline file.
+    Every "<" in the data becomes \\u003c and every "</script" in vendored code
+    "<\\/script", so neither can end its script element early."""
     if template.count(SLOT) != 1:
         raise ValueError(f"template must contain {SLOT} exactly once")
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
-    return template.replace(SLOT, payload)
+
+    def inline(m: re.Match) -> str:
+        name = m.group(1)
+        if vendor is not None and name in vendor:
+            code = vendor[name]
+        elif (VENDOR / name).is_file():
+            code = (VENDOR / name).read_text(encoding="utf-8")
+        else:
+            raise ValueError(f"vendored script {name} not found in {VENDOR}")
+        code = re.sub(r"</(script)", r"<\\/\1", code, flags=re.I).replace("<!--", "<\\!--")
+        return f"<script>{code}</script>"
+
+    # The slot is filled first: vendored code is never searched for it.
+    return VENDOR_TAG.sub(inline, template.replace(SLOT, payload))
 
 
 def extract_data(html: str) -> dict:

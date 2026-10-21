@@ -1,5 +1,969 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Library graph</title></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library graph</title>
+<!--
+  Template for tools/knowledge_graph.py. The builder injects the library's data into the
+  one data slot below and inlines the two vendored renderers (graph/vendor/), so the
+  built page is a single file that opens from file:// and loads nothing from the
+  network. Design rule: information and data clarity first - every encoding is
+  explained in the legend, status is shown in plain words, every count opens the list
+  of the items it counts, and the list view is always one click away.
+-->
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb; --plane: #f9f9f7; --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68;
+  --hair: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --focus: #2a78d6;
+  --gap: #d03b3b; --new: #0b0b0b; --uncat: #898781;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface: #1a1a19; --plane: #0d0d0d; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #a3a29b;
+    --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
+    --gap: #e66767; --new: #f0efec; --uncat: #898781;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --plane: #0d0d0d; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #a3a29b;
+  --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
+  --gap: #e66767; --new: #f0efec; --uncat: #898781;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--plane); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--ink-2); }
+button[aria-pressed="true"] { border-color: var(--focus); box-shadow: inset 0 0 0 1px var(--focus); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+a { color: var(--focus); }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+#app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: 290px minmax(0, 1fr) 350px; height: 100vh; }
+#topbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hair); background: var(--surface); }
+#topbar h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; white-space: nowrap; }
+#views { display: flex; gap: 4px; }
+#search-wrap { position: relative; flex: 1 1 200px; min-width: 160px; max-width: 360px; }
+#search { width: 100%; padding: 4px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); }
+#since-wrap { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+#since { border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); padding: 3px 6px; }
+#drawer, #detail { overflow: auto; background: var(--surface); padding: 12px 14px; }
+#drawer { border-right: 1px solid var(--hair); }
+#detail { border-left: 1px solid var(--hair); }
+#center { position: relative; min-width: 0; overflow: hidden; }
+#graph { position: absolute; inset: 0; }
+h2 { font-size: 14px; margin: 14px 0 6px; }
+h2:first-child { margin-top: 0; }
+#legend .row, .facet label { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.sw { flex: none; width: 12px; height: 12px; display: inline-block; }
+.sw.dot { border-radius: 50%; }
+.sw.cube { border-radius: 1px; }
+.sw.diamond { transform: rotate(45deg) scale(0.8); }
+.sw.ring { border-radius: 50%; border: 2px solid var(--new); background: transparent; }
+.sw.line { height: 2px; width: 16px; }
+.facet { border-top: 1px solid var(--hair); padding: 6px 0; }
+.facet summary { cursor: pointer; font-weight: 600; }
+.facet label { font-size: 13px; cursor: pointer; }
+.facet .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.facet input[type=number] { width: 72px; border: 1px solid var(--axis); border-radius: 4px; background: var(--plane); padding: 2px 4px; }
+#trail { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 10px; font-size: 12.5px; }
+#trail button { padding: 1px 6px; font-size: 12.5px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#detail h3 { font-size: 15px; margin: 4px 0 6px; }
+#detail dl { display: grid; grid-template-columns: 112px 1fr; gap: 3px 8px; margin: 8px 0; font-size: 13px; }
+#detail dt { color: var(--muted); }
+#detail dd { margin: 0; overflow-wrap: anywhere; }
+#detail ul { padding-left: 18px; margin: 4px 0; }
+#detail li { margin: 3px 0; }
+.tag { display: inline-block; border: 1px solid var(--axis); border-radius: 999px; padding: 0 8px; margin: 2px 4px 2px 0; font-size: 12px; }
+.tag.warn { border-color: var(--gap); }
+.linkbtn { background: none; border: none; padding: 0; color: var(--focus); text-decoration: underline; cursor: pointer; text-align: left; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+#summary { position: absolute; top: 12px; left: 12px; right: 12px; max-width: 640px; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px var(--ring); }
+#summary p { margin: 0 0 6px; }
+#viewnote { position: absolute; left: 12px; bottom: 10px; z-index: 2; max-width: 560px; background: var(--surface); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
+#listview { position: absolute; inset: 0; z-index: 4; background: var(--surface); overflow: auto; padding: 12px 14px; }
+#listview[hidden], #summary[hidden] { display: none; }
+#listview table { border-collapse: collapse; width: 100%; font-size: 13px; }
+#listview th, #listview td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+#listview th button { border: none; background: none; padding: 0; font-weight: 600; }
+#listview td.num { font-variant-numeric: tabular-nums; }
+#listview tbody tr { cursor: pointer; }
+#listview tbody tr:hover { background: var(--plane); }
+#export-menu { position: relative; }
+#export-list { position: absolute; right: 0; top: 110%; z-index: 6; background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px; display: grid; gap: 4px; min-width: 210px; }
+#export-list[hidden] { display: none; }
+.toggle-panels { display: none; }
+@media (max-width: 1000px) {
+  #app { grid-template-columns: minmax(0, 1fr); }
+  #drawer, #detail { position: fixed; top: 52px; bottom: 0; z-index: 5; width: min(340px, 92vw); box-shadow: 0 4px 20px var(--ring); }
+  #drawer { left: 0; } #detail { right: 0; }
+  #drawer.closed, #detail.closed { display: none; }
+  .toggle-panels { display: inline-block; }
+}
+</style>
+</head>
 <body>
+<div id="app">
+  <header id="topbar">
+    <h1>Library graph</h1>
+    <nav id="views" aria-label="Views">
+      <button data-view="library" title="Key 1">1 Library</button>
+      <button data-view="groups" title="Key 2">2 Research groups</button>
+      <button data-view="timeline" title="Key 3">3 Timeline</button>
+      <button data-view="gaps" title="Key 4">4 Gaps</button>
+    </nav>
+    <button id="dims" title="Switch between a 3D and a flat 2D layout">2D</button>
+    <div id="search-wrap">
+      <input id="search" type="search" list="search-options" placeholder="Search titles, authors, labs, sub-areas (/)" aria-label="Search the library" autocomplete="off">
+      <datalist id="search-options"></datalist>
+    </div>
+    <label id="since-wrap" class="small">New since <input id="since" type="date" aria-label="Count items first seen on or after this date as new"></label>
+    <button id="list-toggle" title="A sortable table of exactly what the graph shows">List view</button>
+    <div id="export-menu">
+      <button id="export-toggle" aria-expanded="false">Export</button>
+      <div id="export-list" hidden>
+        <button data-export="md">Reading list (Markdown)</button>
+        <button data-export="csv">Reading list (CSV)</button>
+        <button data-export="png">Picture of the graph (PNG)</button>
+      </div>
+    </div>
+    <button class="toggle-panels" data-panel="drawer">Filters</button>
+    <button class="toggle-panels" data-panel="detail">Details</button>
+  </header>
+  <aside id="drawer" aria-label="Legend and filters">
+    <h2>How to read this view</h2>
+    <div id="legend"></div>
+    <h2>Filters</h2>
+    <p class="small muted" id="filter-status"></p>
+    <div id="filters"></div>
+  </aside>
+  <main id="center">
+    <div id="graph" aria-label="Interactive graph of the library"></div>
+    <section id="summary" aria-live="polite"></section>
+    <div id="viewnote"></div>
+    <section id="listview" hidden aria-label="List of the items shown"></section>
+  </main>
+  <aside id="detail" aria-label="Details">
+    <nav id="trail" aria-label="Recently viewed"></nav>
+    <div id="detail-body"></div>
+  </aside>
+</div>
 <script id="data" type="application/json">[GRAPH_JSON]</script>
-</body></html>
+<script data-vendor="three.min.js"></script>
+<script data-vendor="3d-force-graph.min.js"></script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = (s) => document.querySelector(s);
+const byId = new Map(D.nodes.map((n) => [n.id, n]));
+const labById = new Map(D.labs.map((l) => [l.id, l]));
+const ITEMS = D.nodes.filter((n) => n.type === "paper" || n.type === "web");
+const INTERESTS = D.interests.map((i) => i.name);
+const VIEWS = ["library", "groups", "timeline", "gaps"];
+const VIEW_NAMES = { library: "Library", groups: "Research groups", timeline: "Timeline", gaps: "Gaps" };
+const STATUS_ORDER = ["Used in a report", "Scored, not yet used in a report", "Found, not yet scored",
+  "Abstract could not be retrieved", "Judged off-topic at triage"];
+const STATUS_OPACITY = { "Used in a report": 1, "Scored, not yet used in a report": 0.6,
+  "Found, not yet scored": 0.35, "Abstract could not be retrieved": 0.2, "Judged off-topic at triage": 0.25 };
+const WEB_STATUS = "Web source (scored on the web rubric)";
+const KIND_NAMES = { thin: "Thin sub-area", stale: "No recent work", no_defence: "Attacks with no defence",
+  unused: "Scored but never cited", missing_landmark: "Missing landmark works", report: "Open question from a report" };
+
+/* ---------- small helpers: every string from the data goes in as text, never HTML ---------- */
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+    else if (k === "class") e.className = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : String(k));
+  return e;
+}
+function safeHref(u) {
+  if (typeof u !== "string") return null;
+  if (/^https?:\/\//i.test(u) || u.startsWith("../")) return u;
+  return null;
+}
+function link(text, url) {
+  const h = safeHref(url);
+  return h ? el("a", { href: h, target: "_blank", rel: "noopener noreferrer" }, text) : text;
+}
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function isDark() { return css("color-scheme") === "dark" || css("--surface") === "#1a1a19"; }
+function plural(n, one, many) { return n + " " + (n === 1 ? one : (many || one + "s")); }
+function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+/* ---------- colour = research interest, in every view ---------- */
+function interestOf(n) { return n.interest || "Uncategorized"; }
+function interestColor(name) {
+  const i = INTERESTS.indexOf(name);
+  return i < 0 ? css("--uncat") : css("--s" + ((i % 8) + 1));
+}
+function nodeColor(n) {
+  if (n.type === "gap") return css("--gap");
+  if (n.type === "report" || n.type === "lab" || n.type === "year") return css("--ink-2");
+  if (n.type === "interest") return interestColor(n.label);
+  if (n.type === "subarea") return interestColor(n.interest);
+  if (n.statusLabel === "Abstract could not be retrieved") return css("--uncat");
+  return interestColor(interestOf(n));
+}
+
+/* ---------- state ---------- */
+const FACETS = [
+  ["interest", "Research interest", (n) => [interestOf(n)]],
+  ["subarea", "Sub-area", (n) => (n.subareas && n.subareas.length ? n.subareas : ["Not assigned to a sub-area"])],
+  ["type", "Kind of source", (n) => [n.type === "web" ? "Web source (not peer-reviewed)" : "Paper"]],
+  ["status", "Status", (n) => [n.type === "web" ? WEB_STATUS : n.statusLabel]],
+  ["tier", "Verdict / tier", (n) => [(n.type === "web" ? n.tier : n.verdict) || "Not scored"]],
+  ["evidence", "Evidence read", (n) => [n.type === "web" ? "Web page read" : n.evidenceLabel]],
+  ["disclosure", "Disclosure", (n) => [n.type === "web" ? "Not applicable (web)" : (n.disclosure || "Not recorded")]],
+  ["contribution", "Contribution", (n) => [n.type === "web" ? "Not applicable (web)" : (n.contribution || "Not yet labelled")]],
+];
+const S = {
+  view: "library", focus: null, since: D.meta.newSince, dims: 3, highlight: null, highlightWhy: "",
+  filters: { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false },
+  current: null, trail: [], trailPos: -1, listIds: null, listWhy: "", listOpen: false, sort: ["year", -1],
+};
+function isNew(n) {
+  return (n.type === "paper" || n.type === "web") && !n.hiddenByDefault && (n.firstSeen || "") >= S.since;
+}
+function passes(n, skip) {
+  const f = S.filters;
+  if (n.hiddenByDefault && !f.offTopic) return false;
+  if (f.newOnly && !isNew(n)) return false;
+  if (n.year == null) { if (!f.undated) return false; }
+  else {
+    if (f.yearMin != null && n.year < f.yearMin) return false;
+    if (f.yearMax != null && n.year > f.yearMax) return false;
+  }
+  for (const [key, , get] of FACETS) {
+    if (key === skip) continue;
+    const set = f.sets[key];
+    if (set && set.size && !get(n).some((v) => set.has(v))) return false;
+  }
+  return true;
+}
+let VISIBLE = new Set();
+function recomputeVisible() { VISIBLE = new Set(ITEMS.filter((n) => passes(n)).map((n) => n.id)); }
+
+/* ---------- graph data per view ---------- */
+const EDGES_BY_VIEW = {
+  library: new Set(["subarea", "interest", "web_subarea", "report"]),
+  groups: new Set(["collab"]),
+  timeline: new Set(["cites"]),
+  gaps: new Set(["subarea", "interest", "web_subarea", "gap_subarea", "gap_report", "gap_interest"]),
+};
+const posCache = {};
+function viewGraph(view) {
+  const keep = new Set(VISIBLE);
+  let extra = [];
+  if (view === "library") D.nodes.forEach((n) => { if (["interest", "subarea", "report"].includes(n.type)) keep.add(n.id); });
+  if (view === "gaps") D.nodes.forEach((n) => { if (["interest", "subarea", "report", "gap"].includes(n.type)) keep.add(n.id); });
+  if (view === "groups") ITEMS.forEach((n) => { if (n.type === "web") keep.delete(n.id); });
+  const links = D.edges.filter((e) => EDGES_BY_VIEW[view].has(e.type) && keep.has(e.source) && keep.has(e.target))
+    .map((e) => ({ source: e.source, target: e.target, type: e.type }));
+  if (view === "groups") {
+    for (const lab of D.labs) {
+      const members = lab.papers.filter((p) => keep.has(p));
+      if (members.length < 2) continue;
+      const id = "lab:" + lab.id;
+      extra.push({ id, type: "lab", label: lab.name + (lab.institution ? ", " + lab.institution : ""), lab: lab.id });
+      members.forEach((p) => links.push({ source: id, target: p, type: "labmember" }));
+    }
+  }
+  if (view === "timeline") {
+    const years = ITEMS.filter((n) => keep.has(n.id) && n.year != null).map((n) => n.year);
+    const lo = years.length ? Math.min(...years) : 2020, hi = years.length ? Math.max(...years) : 2026;
+    TL.lo = lo; TL.hi = hi;
+    for (let y = lo; y <= hi; y++) extra.push({ id: "year:" + y, type: "year", label: String(y), fx: tlx(y), fy: -170, fz: 0 });
+    extra.push({ id: "year:undated", type: "year", label: "Undated", fx: tlx(null), fy: -170, fz: 0 });
+  }
+  const nodes = [...keep].map((id) => byId.get(id)).filter(Boolean).map((n) => {
+    const c = posCache[view] && posCache[view][n.id];
+    const o = Object.assign({}, n, c || {});
+    if (view === "timeline" && (n.type === "paper" || n.type === "web")) o.fx = tlx(n.year);
+    return o;
+  });
+  return { nodes: nodes.concat(extra), links };
+}
+const TL = { lo: 2020, hi: 2026, step: 60 };
+function tlx(year) { return year == null ? (TL.lo - 2.5 - (TL.lo + TL.hi) / 2) * TL.step : (year - (TL.lo + TL.hi) / 2) * TL.step; }
+
+/* ---------- 3D objects ---------- */
+const GEO = {};
+function geo(kind, r) {
+  const key = kind + r;
+  if (!GEO[key]) {
+    GEO[key] = kind === "sphere" ? new THREE.SphereGeometry(r, 16, 12)
+      : kind === "cube" ? new THREE.BoxGeometry(r * 1.6, r * 1.6, r * 1.6)
+      : kind === "diamond" ? new THREE.OctahedronGeometry(r)
+      : kind === "slab" ? new THREE.BoxGeometry(r * 1.4, r * 1.9, r * 0.35)
+      : new THREE.TorusGeometry(r, r * 0.12, 6, 28);
+  }
+  return GEO[key];
+}
+const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const SPRITES = new Map();
+function textSprite(text, color, px) {
+  const key = text + "|" + color + "|" + px;
+  if (SPRITES.has(key)) return SPRITES.get(key).clone();
+  const pad = 6, font = px + "px system-ui, -apple-system, Segoe UI, sans-serif";
+  const c = document.createElement("canvas"), g = c.getContext("2d");
+  g.font = font;
+  const shown = text.length > 60 ? text.slice(0, 57) + "…" : text;
+  c.width = Math.ceil(g.measureText(shown).width) + pad * 2; c.height = px + pad * 2;
+  g.font = font; g.fillStyle = css("--surface"); g.globalAlpha = 0.85; g.fillRect(0, 0, c.width, c.height);
+  g.globalAlpha = 1; g.fillStyle = color; g.textBaseline = "middle"; g.fillText(shown, pad, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
+  s.scale.set(c.width / 4, c.height / 4, 1);
+  SPRITES.set(key, s);
+  return s.clone();
+}
+function size(n) {
+  if (n.type === "paper") return n.score == null ? 2.2 : 1.6 + (n.score / 100) * 3.4;
+  if (n.type === "web") return 2.4;
+  if (n.type === "subarea") return 4.5;
+  if (n.type === "interest") return 7;
+  if (n.type === "gap") return 4.5;
+  if (n.type === "report") return 5;
+  if (n.type === "lab") return 2.5;
+  return 1;
+}
+function baseOpacity(n) {
+  if (n.type === "paper") return STATUS_OPACITY[n.statusLabel] ?? 0.6;
+  if (n.type === "web") return 0.85;
+  return 1;
+}
+function buildObject(n) {
+  const grp = new THREE.Group();
+  grp.userData.mats = [];
+  const lit = isLit(n.id);
+  const op = (base) => (lit ? base : Math.min(base, 0.07));
+  if (n.type === "year") {
+    const sp = textSprite(n.label, css("--ink-2"), 30);
+    sp.scale.multiplyScalar(2.2);
+    grp.add(sp);
+    return grp;
+  }
+  const r = size(n);
+  const shape = n.type === "web" ? "cube" : n.type === "gap" ? "diamond" : n.type === "report" ? "slab" : "sphere";
+  if (n.type !== "lab") {
+    const mat = new THREE.MeshLambertMaterial({ color: nodeColor(n), transparent: true, opacity: op(baseOpacity(n)) });
+    grp.add(new THREE.Mesh(geo(shape, r), mat));
+    grp.userData.mats.push([mat, baseOpacity(n)]);
+  }
+  if (n.type === "paper" || n.type === "web") {
+    /* An invisible, larger sphere: the click target is bigger than the mark. */
+    grp.add(new THREE.Mesh(geo("sphere", r + 3.5), HIT_MAT));
+  }
+  if (isNew(n)) {
+    const ringMat = new THREE.MeshBasicMaterial({ color: css("--new"), transparent: true, opacity: op(0.9) });
+    const ring = new THREE.Mesh(geo("ring", r + 1.6), ringMat);
+    grp.add(ring); grp.userData.mats.push([ringMat, 0.9]);
+  }
+  if (n.type === "paper" && n.evidenceLabel === "Read in full") {
+    const capMat = new THREE.MeshBasicMaterial({ color: css("--ink"), transparent: true, opacity: op(1) });
+    const cap = new THREE.Mesh(geo("sphere", 0.8), capMat);
+    cap.position.set(0, r + 1.1, 0);
+    grp.add(cap); grp.userData.mats.push([capMat, 1]);
+  }
+  /* Hubs, labs and reports are always labelled; a paper or web source only when it is
+     the focus, so titles never pile up. Dimmed nodes lose their label. */
+  const labelled = lit && (n.type === "interest" || n.type === "subarea" || n.type === "lab" || n.type === "report"
+    || n.id === S.focus);
+  if (labelled) {
+    const txt = n.type === "paper" || n.type === "web" ? (n.title || n.label) : n.label;
+    const sp = textSprite(txt, css("--ink"), n.type === "interest" ? 34 : 26);
+    sp.position.set(0, r + 5, 0);
+    grp.add(sp); grp.userData.sprite = sp;
+  }
+  return grp;
+}
+
+/* ---------- renderer ---------- */
+const box = $("#graph");
+const G = ForceGraph3D({ rendererConfig: { preserveDrawingBuffer: true, antialias: true } })(box)
+  .backgroundColor(css("--surface"))
+  .showNavInfo(false)
+  .nodeId("id")
+  .nodeThreeObject(buildObject)
+  .nodeLabel(hoverLabel)
+  .linkColor(linkColor)
+  .linkOpacity(0.55)
+  .linkWidth(0)
+  .linkDirectionalArrowLength((l) => (l.type === "cites" ? 3.2 : 0))
+  .linkDirectionalArrowRelPos(0.92)
+  .linkDirectionalArrowColor(linkColor)
+  .enableNodeDrag(false)
+  .warmupTicks(80)
+  .cooldownTime(4000)
+  .onNodeClick((n) => { if (n.type === "year") return; if (n.type === "lab") return select("lab:" + n.lab); select(n.id); })
+  .onBackgroundClick(() => clearFocus());
+function fitCanvas() { G.width(box.clientWidth).height(box.clientHeight); }
+new ResizeObserver(fitCanvas).observe(box);
+
+function hoverLabel(n) {
+  if (n.type === "year") return "";
+  const kind = n.type === "paper" ? "Paper" : n.type === "web" ? "Web source, not peer-reviewed"
+    : n.type === "subarea" ? "Sub-area" : n.type === "interest" ? "Research interest"
+    : n.type === "gap" ? (KIND_NAMES[n.kind] || "Gap") : n.type === "report" ? "Report" : "Lab";
+  const title = n.type === "paper" || n.type === "web" ? n.title : n.label;
+  const bits = [n.year, n.type === "paper" ? n.statusLabel : null, isNew(n) ? "New since " + S.since : null].filter(Boolean);
+  return '<div style="max-width:320px;background:' + css("--surface") + ";color:" + css("--ink") +
+    ";border:1px solid " + css("--axis") + ';border-radius:6px;padding:6px 8px;font:13px system-ui">' +
+    "<b>" + esc(title) + "</b><br><span style=\"color:" + css("--muted") + '">' + esc(kind) +
+    (bits.length ? " · " + esc(bits.join(" · ")) : "") + "</span></div>";
+}
+function linkColor(l) {
+  const s = typeof l.source === "object" ? l.source.id : l.source;
+  const t = typeof l.target === "object" ? l.target.id : l.target;
+  const dim = (S.focus || S.highlight) && !(isLit(s) && isLit(t));
+  let c = l.type.startsWith("gap") ? css("--gap") : css("--axis");
+  if (l.type === "cites") c = S.focus || S.highlight ? css("--ink-2") : css("--axis");
+  if (l.type === "collab") c = css("--muted");
+  return dim ? hexA(c, 0.06) : c;
+}
+function hexA(hex, a) {
+  const h = hex.replace("#", "");
+  const v = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
+  return "rgba(" + parseInt(v.slice(0, 2), 16) + "," + parseInt(v.slice(2, 4), 16) + "," + parseInt(v.slice(4, 6), 16) + "," + a + ")";
+}
+
+/* ---------- focus, highlight, styles ---------- */
+let FOCUS_NEIGHBOURS = new Set();
+function isLit(id) {
+  if (S.highlight) {
+    if (id.startsWith("lab:")) { const lab = labById.get(id.slice(4)); return !!lab && lab.papers.some((p) => S.highlight.has(p)); }
+    return S.highlight.has(id) || id.startsWith("year:");
+  }
+  if (S.focus) return id === S.focus || FOCUS_NEIGHBOURS.has(id) || id.startsWith("year:");
+  return true;
+}
+function computeNeighbours(links) {
+  FOCUS_NEIGHBOURS = new Set();
+  if (!S.focus) return;
+  for (const l of links || G.graphData().links) {
+    const s = typeof l.source === "object" ? l.source.id : l.source;
+    const t = typeof l.target === "object" ? l.target.id : l.target;
+    if (s === S.focus) FOCUS_NEIGHBOURS.add(t);
+    if (t === S.focus) FOCUS_NEIGHBOURS.add(s);
+  }
+}
+/* The renderer ignores a property set to the same function, so each refresh passes new
+   wrappers to force every node and link to be rebuilt with the current focus. */
+function refreshObjects() {
+  G.nodeThreeObject((n) => buildObject(n)).linkColor((l) => linkColor(l)).linkDirectionalArrowColor((l) => linkColor(l));
+}
+
+/* ---------- navigation: select, trail, hash ---------- */
+function select(id, fromTrail) {
+  const isLab = id.startsWith("lab:");
+  if (!isLab && !byId.has(id)) return;
+  S.focus = isLab ? null : id;
+  S.highlight = isLab ? new Set(labById.get(id.slice(4)).papers.concat(labById.get(id.slice(4)).bridges)) : null;
+  S.highlightWhy = isLab ? labById.get(id.slice(4)).name : "";
+  S.current = id;
+  if (fromTrail && !S.trail.includes(id)) { S.trail.push(id); S.trailPos = S.trail.length - 1; }
+  if (!fromTrail) {
+    S.trail = S.trail.slice(0, S.trailPos + 1).filter((x) => x !== id);
+    S.trail.push(id);
+    if (S.trail.length > 10) S.trail = S.trail.slice(-10);
+    S.trailPos = S.trail.length - 1;
+  }
+  computeNeighbours();
+  refreshObjects();
+  renderDetail(id);
+  renderTrail();
+  writeHash(true);
+  if (isLab) zoomToHighlight();
+  else {
+    const n = G.graphData().nodes.find((x) => x.id === id);
+    if (n && n.x != null) {
+      const d = 90, r = Math.hypot(n.x, n.y, n.z || 0) || 1;
+      G.cameraPosition({ x: n.x * (1 + d / r), y: n.y * (1 + d / r), z: (n.z || 0) * (1 + d / r) + (S.dims === 2 ? d : 0) }, n, 700);
+    }
+  }
+  if (window.matchMedia("(max-width: 1000px)").matches) $("#detail").classList.remove("closed");
+}
+function highlightSet(ids, why) {
+  S.focus = null; S.highlight = new Set(ids); S.highlightWhy = why;
+  computeNeighbours(); refreshObjects(); renderDetailHeaderNote(); zoomToHighlight();
+}
+function zoomToHighlight() {
+  const has = G.graphData().nodes.some((n) => S.highlight && S.highlight.has(n.id) && n.x != null);
+  if (has) G.zoomToFit(700, 80, (n) => S.highlight.has(n.id));
+}
+function clearFocus() {
+  if (!S.focus && !S.highlight) return;
+  S.focus = null; S.highlight = null; S.highlightWhy = ""; S.current = null;
+  computeNeighbours(); refreshObjects(); renderDetail(null); writeHash(true);
+}
+function renderTrail() {
+  const t = $("#trail"); t.replaceChildren();
+  if (!S.trail.length) return;
+  t.append(el("button", { title: "Back (Left arrow)", "aria-label": "Back", disabled: S.trailPos <= 0, on: { click: () => moveTrail(-1) } }, "←"),
+    el("button", { title: "Forward (Right arrow)", "aria-label": "Forward", disabled: S.trailPos >= S.trail.length - 1, on: { click: () => moveTrail(1) } }, "→"));
+  S.trail.forEach((id, i) => {
+    const n = byId.get(id), lab = id.startsWith("lab:") ? labById.get(id.slice(4)) : null;
+    const name = lab ? lab.name : n ? (n.title || n.label) : id;
+    t.append(el("button", { "aria-current": i === S.trailPos ? "true" : null, title: name,
+      style: i === S.trailPos ? "border-color:var(--focus)" : null, on: { click: () => { S.trailPos = i; select(id, true); } } }, name));
+  });
+}
+function moveTrail(step) {
+  const i = S.trailPos + step;
+  if (i < 0 || i >= S.trail.length) return;
+  S.trailPos = i; select(S.trail[i], true);
+}
+function writeHash(push) {
+  const f = S.filters, sets = {};
+  for (const [k, v] of Object.entries(f.sets)) if (v.size) sets[k] = [...v];
+  const state = { v: S.view, f: S.current,
+    s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic } };
+  const h = "#" + new URLSearchParams({ view: state.v, focus: state.f || "", since: state.s, dims: state.d,
+    filters: JSON.stringify(state.flt) }).toString();
+  if (h === location.hash) return;
+  if (push) history.pushState(null, "", h); else history.replaceState(null, "", h);
+}
+function readHash() {
+  if (!location.hash) return false;
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (VIEWS.includes(p.get("view"))) S.view = p.get("view");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(p.get("since") || "")) S.since = p.get("since");
+  S.dims = p.get("dims") === "2" ? 2 : 3;
+  try {
+    const flt = JSON.parse(p.get("filters") || "{}");
+    S.filters.sets = {};
+    for (const [k, v] of Object.entries(flt.sets || {})) if (Array.isArray(v)) S.filters.sets[k] = new Set(v.map(String));
+    S.filters.yearMin = Number.isInteger(flt.yMin) ? flt.yMin : null;
+    S.filters.yearMax = Number.isInteger(flt.yMax) ? flt.yMax : null;
+    S.filters.undated = flt.u !== false; S.filters.newOnly = !!flt.n; S.filters.offTopic = !!flt.o;
+  } catch (e) { /* a hand-edited hash: keep the defaults */ }
+  const focus = p.get("focus");
+  return focus || null;
+}
+
+/* ---------- views ---------- */
+const VIEW_NOTES = {
+  library: "Every paper and web source sits next to the sub-areas it is labelled with. Rings mark what is new since the date in the top bar.",
+  groups: "Papers cluster around their research group: the lab of the paper's senior (last) author. Grey lines join papers from different labs that share an author. Web sources have no author data and are not shown here.",
+  timeline: "Left to right is publication year; undated items sit in their own lane on the far left. Arrows point from a paper to the library papers it cites.",
+  gaps: "Red diamonds are gaps: open questions from your reports and computed gaps, each with the rule that produced it. Click one to see its rule and the items behind it.",
+};
+function setView(view, keepCamera) {
+  savePositions();
+  S.view = view;
+  document.querySelectorAll("#views button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+  $("#viewnote").textContent = VIEW_NOTES[view];
+  G.d3Force("charge").strength(view === "groups" ? -18 : view === "timeline" ? -14 : -30);
+  G.d3Force("link").distance((l) => (l.type === "labmember" ? 12 : l.type === "interest" ? 60 : l.type === "cites" ? 40 : 28));
+  const data = viewGraph(view);
+  computeNeighbours(data.links);
+  G.graphData(data);
+  renderLegend();
+  if (!keepCamera) {
+    FIT_PENDING = true;
+    /* Years run left to right, so the timeline is seen face-on. */
+    if (view === "timeline") G.cameraPosition({ x: 0, y: 0, z: 900 }, { x: 0, y: 0, z: 0 }, 0);
+    setTimeout(fitCamera, 600); /* the layout's own stop can come late, or never in a hidden tab */
+  }
+  writeHash(false);
+}
+let FIT_PENDING = true;
+function fitCamera(attempt) {
+  if (!FIT_PENDING || S.focus || S.highlight) return;
+  /* Wait until the layout has spread out: fitting a graph still collapsed at the origin
+     puts the camera inside it. */
+  const b = G.getGraphBbox();
+  const span = b ? Math.max(b.x[1] - b.x[0], b.y[1] - b.y[0]) : 0;
+  if (span < 60 && (attempt || 0) < 15) { setTimeout(() => fitCamera((attempt || 0) + 1), 400); return; }
+  FIT_PENDING = false;
+  const anyNew = G.graphData().nodes.some((n) => isNew(n));
+  const ms = document.hidden ? 0 : 700; /* animations need frames a hidden tab does not get */
+  if (S.view === "library" && anyNew) G.zoomToFit(ms, 60, (n) => isNew(n) || n.type === "interest");
+  else G.zoomToFit(ms, 40);
+}
+G.onEngineStop(() => { savePositions(); fitCamera(); });
+function savePositions() {
+  const data = G.graphData();
+  if (!data || !data.nodes) return;
+  const c = posCache[S.view] = posCache[S.view] || {};
+  for (const n of data.nodes) if (n.x != null && n.type !== "year") c[n.id] = { x: n.x, y: n.y, z: n.z };
+}
+function refreshData() {
+  recomputeVisible();
+  savePositions();
+  const data = viewGraph(S.view);
+  computeNeighbours(data.links);
+  G.graphData(data);
+  renderFilters(); renderLegend();
+  if (S.listOpen) renderList();
+  writeHash(false);
+}
+
+/* ---------- legend ---------- */
+function swatch(cls, color, extra) { return el("span", { class: "sw " + cls, style: (color ? "background:" + color + ";" : "") + (extra || ""), "aria-hidden": "true" }); }
+function countBtn(ids, why, text) {
+  return el("button", { class: "linkbtn", title: "Open these " + ids.length + " in the list", on: { click: () => openList(ids, why) } }, text == null ? String(ids.length) : text);
+}
+function renderLegend() {
+  const L = $("#legend"); L.replaceChildren();
+  const visible = ITEMS.filter((n) => VISIBLE.has(n.id) && !(S.view === "groups" && n.type === "web"));
+  L.append(el("p", { class: "small" }, "Colour is the research interest, in every view:"));
+  for (const name of INTERESTS.concat(visible.some((n) => interestOf(n) === "Uncategorized") ? ["Uncategorized"] : [])) {
+    const ids = visible.filter((n) => interestOf(n) === name).map((n) => n.id);
+    L.append(el("div", { class: "row" }, swatch("dot", interestColor(name)), el("span", {}, name), el("span", { class: "count muted", style: "margin-left:auto" }, countBtn(ids, name))));
+  }
+  const rows = [
+    [swatch("dot", css("--ink-2")), "Paper. Bigger = higher overall score"],
+    [swatch("cube", css("--ink-2")), "Web source, not peer-reviewed"],
+    [swatch("ring"), "New since " + S.since],
+    [swatch("dot", css("--ink"), "width:6px;height:6px;margin:0 3px"), "Read in full (small dot on top)"],
+  ];
+  if (S.view === "library" || S.view === "gaps") rows.push([swatch("dot", css("--ink-2"), "width:16px;height:16px"), "Sub-area or interest (labelled hub)"], [swatch("cube", css("--ink-2"), "width:9px;height:13px"), "Report"]);
+  if (S.view === "gaps") rows.push([swatch("diamond", css("--gap")), "Gap: click for its rule"]);
+  if (S.view === "groups") rows.push([swatch("line", css("--axis")), "Paper belongs to the labelled lab"], [swatch("line", css("--muted")), "Papers from different labs sharing an author"]);
+  if (S.view === "timeline") rows.push([swatch("line", css("--ink-2")), "Cites (arrow points to the cited paper, library only)"]);
+  for (const [sw, text] of rows) L.append(el("div", { class: "row" }, sw, el("span", {}, text)));
+  L.append(el("p", { class: "small", style: "margin:10px 0 4px" }, "How solid a paper looks shows its status:"));
+  for (const s of STATUS_ORDER) {
+    if (s === "Judged off-topic at triage" && !S.filters.offTopic) continue;
+    const ids = visible.filter((n) => n.statusLabel === s).map((n) => n.id);
+    L.append(el("div", { class: "row" }, swatch("dot", css("--ink-2"), "opacity:" + STATUS_OPACITY[s]), el("span", {}, s), el("span", { class: "count muted", style: "margin-left:auto" }, countBtn(ids, s))));
+  }
+  if (S.view === "groups") {
+    const labs = D.labs.map((l) => ({ l, n: l.papers.filter((p) => VISIBLE.has(p)).length })).filter((x) => x.n > 1).sort((a, b) => b.n - a.n);
+    L.append(el("h2", {}, "Labs with more than one paper (" + labs.length + ")"));
+    L.append(el("p", { class: "small muted" }, "A lab is a group of authors who publish together, weighted towards senior (last) authors and shared institutions. Click one to highlight its papers."));
+    const ul = el("ul", { style: "padding-left:16px;margin:4px 0" });
+    for (const { l, n } of labs) ul.append(el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("lab:" + l.id) } }, l.name + (l.institution ? ", " + l.institution : "")), " ", el("span", { class: "muted" }, "(" + n + ")"), l.matchedByName ? el("span", { class: "muted small" }, " · some authors matched by name") : null));
+    L.append(ul);
+  }
+  if (S.view === "gaps") {
+    const gaps = D.nodes.filter((n) => n.type === "gap");
+    L.append(el("h2", {}, "Gaps (" + gaps.length + ")"));
+    const ul = el("ul", { style: "padding-left:16px;margin:4px 0" });
+    for (const g of gaps) ul.append(el("li", { class: "small" }, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text), el("div", { class: "muted" }, "Rule: " + g.rule)));
+    L.append(ul);
+    const th = D.meta.thresholds;
+    L.append(el("p", { class: "small muted" }, "Computed rules: thin = fewer than " + th.thinBelow + " scored papers in a sub-area; no recent work = no paper in the last " + th.staleYears + " years; attacks with no defence = " + th.noDefenceMinAttacks + " or more attack papers and no defence. Sub-areas are only checked once their papers carry sub-area labels."));
+  }
+}
+
+/* ---------- filters ---------- */
+function renderFilters() {
+  const F = $("#filters"); F.replaceChildren();
+  const shown = ITEMS.filter((n) => VISIBLE.has(n.id));
+  $("#filter-status").replaceChildren("Showing ", countBtn(shown.map((n) => n.id), "Everything the filters let through"), " of " + plural(ITEMS.filter((n) => !n.hiddenByDefault || S.filters.offTopic).length, "item") + ". ",
+    el("button", { class: "linkbtn", on: { click: resetFilters } }, "Reset filters"));
+  const toggles = el("div", { class: "facet" });
+  const tg = (label, key) => el("label", {}, el("input", { type: "checkbox", checked: S.filters[key], on: { change: (e) => { S.filters[key] = e.target.checked; refreshData(); } } }), label);
+  toggles.append(tg("Only items new since " + S.since, "newOnly"), tg("Show papers judged off-topic at triage", "offTopic"));
+  F.append(toggles);
+  const years = ITEMS.filter((n) => n.year != null).map((n) => n.year);
+  const yr = el("details", { class: "facet", open: true }, el("summary", {}, "Publication year"));
+  const num = (key, ph) => el("input", { type: "number", placeholder: ph, value: S.filters[key] ?? "", "aria-label": key === "yearMin" ? "From year" : "To year",
+    on: { change: (e) => { const v = parseInt(e.target.value, 10); S.filters[key] = Number.isInteger(v) ? v : null; refreshData(); } } });
+  const undatedCount = ITEMS.filter((n) => n.year == null && passes(n, null) || (n.year == null && !S.filters.undated)).length;
+  yr.append(el("label", {}, "From ", num("yearMin", years.length ? Math.min(...years) : ""), " to ", num("yearMax", years.length ? Math.max(...years) : "")),
+    el("label", {}, el("input", { type: "checkbox", checked: S.filters.undated, on: { change: (e) => { S.filters.undated = e.target.checked; refreshData(); } } }),
+      "Include undated items", el("span", { class: "count" }, String(ITEMS.filter((n) => n.year == null && (!n.hiddenByDefault || S.filters.offTopic)).length))));
+  F.append(yr);
+  for (const [key, title, get] of FACETS) {
+    const counts = new Map();
+    for (const n of ITEMS) {
+      if (!passes(n, key)) continue;
+      for (const v of get(n)) counts.set(v, (counts.get(v) || []).concat(n.id));
+    }
+    const set = S.filters.sets[key] || new Set();
+    for (const v of set) if (!counts.has(v)) counts.set(v, []);
+    const values = [...counts.keys()].sort((a, b) => (key === "status" ? STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b) : 0) || counts.get(b).length - counts.get(a).length || String(a).localeCompare(String(b)));
+    const det = el("details", { class: "facet", open: set.size > 0 || key === "interest" }, el("summary", {}, title + (set.size ? " (" + set.size + " selected)" : "")));
+    for (const v of values) {
+      det.append(el("label", {}, el("input", { type: "checkbox", checked: set.has(v), on: { change: (e) => {
+        const s = S.filters.sets[key] = S.filters.sets[key] || new Set();
+        if (e.target.checked) s.add(v); else s.delete(v);
+        refreshData();
+      } } }), el("span", {}, v), el("span", { class: "count" }, countBtn(counts.get(v), title + ": " + v))));
+    }
+    F.append(det);
+  }
+}
+function resetFilters() {
+  S.filters = { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false };
+  refreshData();
+}
+
+/* ---------- detail panel ---------- */
+function dl(pairs) {
+  const d = el("dl");
+  for (const [k, v] of pairs) if (v != null && v !== "" && !(Array.isArray(v) && !v.length)) d.append(el("dt", {}, k), el("dd", {}, v));
+  return d;
+}
+function itemList(ids, max) {
+  const ul = el("ul");
+  ids.slice(0, max || 12).forEach((id) => {
+    const n = byId.get(id);
+    if (n) ul.append(el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(id) } }, n.title || n.label), n.year ? el("span", { class: "muted" }, " (" + n.year + ")") : null));
+  });
+  if (ids.length > (max || 12)) ul.append(el("li", {}, countBtn(ids, "", "All " + ids.length + " in the list")));
+  return ul;
+}
+function renderDetailHeaderNote() {
+  const body = $("#detail-body");
+  const note = body.querySelector(".hl-note");
+  if (note) note.remove();
+  if (S.highlight) body.prepend(el("p", { class: "hl-note small" }, "Highlighted: " + S.highlightWhy + " (" + S.highlight.size + "). ", el("button", { class: "linkbtn", on: { click: clearFocus } }, "Clear (Esc)")));
+}
+function renderDetail(id) {
+  const B = $("#detail-body"); B.replaceChildren();
+  if (!id) { B.append(overview()); return; }
+  if (id.startsWith("lab:")) { B.append(labDetail(labById.get(id.slice(4)))); renderDetailHeaderNote(); return; }
+  const n = byId.get(id);
+  if (n.type === "paper") B.append(paperDetail(n));
+  else if (n.type === "web") B.append(webDetail(n));
+  else if (n.type === "gap") B.append(gapDetail(n));
+  else if (n.type === "subarea" || n.type === "interest") B.append(hubDetail(n));
+  else if (n.type === "report") B.append(reportDetail(n));
+  B.append(el("p", { class: "small muted" }, "Esc or a click on empty space leaves focus."));
+}
+function overview() {
+  const c = D.meta.counts;
+  return el("div", {}, el("h3", {}, "Your library"),
+    el("p", {}, D.meta.summary),
+    dl([["Papers", countBtn(ITEMS.filter((n) => n.type === "paper").map((n) => n.id), "All papers")],
+      ["Web sources", countBtn(ITEMS.filter((n) => n.type === "web").map((n) => n.id), "All web sources")],
+      ["New", countBtn(ITEMS.filter(isNew).map((n) => n.id), "New since " + S.since)],
+      ["Labs (2+ papers)", String(c.labs)], ["Gaps", String(c.gaps)], ["Built", D.meta.built]]),
+    el("p", { class: "small muted" }, "Click any shape for its details. Every number is a link to the items it counts."),
+    D.meta.synthetic ? el("p", { class: "tag warn" }, "Made-up library for testing - nothing here is real") : null);
+}
+function labsOf(n) {
+  return (n.labs || []).map((lid, i) => {
+    const lab = labById.get(lid);
+    return el("div", {}, el("button", { class: "linkbtn", on: { click: () => select("lab:" + lid) } }, lab.name + (lab.institution ? ", " + lab.institution : "")), i === 0 ? el("span", { class: "muted" }, " (senior author's lab)") : el("span", { class: "muted" }, " (co-author's lab)"));
+  });
+}
+function paperDetail(n) {
+  const labmates = n.primaryLab ? labById.get(n.primaryLab).papers.filter((p) => p !== n.id) : [];
+  const lineage = lineageOf(n.id);
+  return el("div", {},
+    el("div", {}, el("span", { class: "tag" }, "Paper"), isNew(n) ? el("span", { class: "tag" }, "New since " + S.since) : null, n.hiddenByDefault ? el("span", { class: "tag warn" }, "Judged off-topic at triage") : null),
+    el("h3", {}, n.title),
+    el("p", { class: "small" }, (n.authors || []).slice(0, 8).join(", ") + ((n.authors || []).length > 8 ? " and " + ((n.authors.length) - 8) + " more" : "")),
+    dl([["Year", n.year == null ? "Undated" : String(n.year)], ["Venue", n.venue],
+      ["Status", n.statusLabel], ["Verdict", n.verdict ? n.verdict + (n.score != null ? " (score " + n.score + " of 100)" : "") : "Not scored"],
+      ["Evidence read", n.evidenceLabel], ["Disclosure", n.disclosure || "Not recorded"],
+      ["Contribution", n.contribution || "Not yet labelled"], ["Interest", interestOf(n)],
+      ["Sub-areas", n.subareas && n.subareas.length ? n.subareas.join("; ") : "Not assigned to a sub-area"],
+      ["First seen", n.firstSeen],
+      ["Lab", n.labs && n.labs.length ? labsOf(n) : "No author data"],
+      ["Cites", n.citesIn ? countBtn(lineage.up, "Library papers this one cites", plural(n.citesIn, "library paper")) : "No library papers"],
+      ["Cited by", n.citedByIn ? countBtn(lineage.down, "Library papers citing this one", plural(n.citedByIn, "library paper")) : "No library papers"],
+      ["Links", [link("Source", n.url), n.pdf ? " · " : null, n.pdf ? link("Saved PDF", n.pdf) : null]]]),
+    n.matchedByName ? el("p", { class: "small muted" }, "Some authors were matched to the library by name only, so their lab may be wrong.") : null,
+    n.reports && n.reports.length ? el("div", {}, el("h2", {}, "Used in"), el("ul", {}, n.reports.map((r) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("report:" + r.slug) } }, r.title), el("div", { class: "small muted" }, r.sections.join("; ")))))) : null,
+    el("div", { class: "actions" },
+      labmates.length ? el("button", { on: { click: () => highlightSet([n.id, ...labmates], "papers from " + labById.get(n.primaryLab).name) } }, "Show labmates (" + labmates.length + ")") : null,
+      lineage.up.length + lineage.down.length ? el("button", { on: { click: () => highlightSet([n.id, ...lineage.all], "what this paper cites and what cites it, in the library") } }, "Show lineage (" + lineage.all.length + ")") : null));
+}
+function lineageOf(id) {
+  /* Direct citations both ways, within the library - kept to one step so every count is exact. */
+  const up = [], down = [];
+  for (const e of D.edges) if (e.type === "cites") { if (e.source === id) up.push(e.target); if (e.target === id) down.push(e.source); }
+  return { up, down, all: [...new Set(up.concat(down))] };
+}
+function webDetail(n) {
+  return el("div", {}, el("div", {}, el("span", { class: "tag warn" }, n.kindLabel), isNew(n) ? el("span", { class: "tag" }, "New since " + S.since) : null),
+    el("h3", {}, n.title),
+    dl([["Site", n.site], ["Date", n.date || "Undated"], ["Tier", n.tier ? n.tier + (n.score != null ? " (score " + n.score + " of 100, web rubric)" : "") : null],
+      ["Independence", n.independence], ["Kind", n.contentType], ["Interest", interestOf(n)],
+      ["Sub-areas", n.subareas && n.subareas.length ? n.subareas.join("; ") : "Not assigned to a sub-area"],
+      ["Caveat", n.caveat], ["First seen", n.firstSeen], ["Link", link("Open page", n.url)]]),
+    el("p", { class: "small muted" }, "Web sources are scored on a separate rubric and are never cited in a report as peer-reviewed work."));
+}
+function hubDetail(n) {
+  const isInterest = n.type === "interest";
+  const members = isInterest ? ITEMS.filter((x) => interestOf(x) === n.label) : ITEMS.filter((x) => D.edges.some((e) => e.source === x.id && e.target === n.id));
+  const vis = members.filter((x) => VISIBLE.has(x.id));
+  const gaps = D.nodes.filter((g) => g.type === "gap" && D.edges.some((e) => e.source === g.id && e.target === n.id));
+  const papers = vis.filter((x) => x.type === "paper"), web = vis.filter((x) => x.type === "web");
+  return el("div", {}, el("span", { class: "tag" }, isInterest ? "Research interest" : n.kind === "profile" ? "Sub-area (from your profile)" : "Unassigned"),
+    el("h3", {}, n.label), n.detail ? el("p", { class: "small muted" }, n.detail) : null,
+    n.kind === "stale" ? el("p", { class: "small" }, "These items carry a sub-area label that is no longer in your profile. /graph lists them so they can be relabelled.") : null,
+    dl([["Papers shown", countBtn(papers.map((x) => x.id), n.label + ": papers")], ["Web sources", countBtn(web.map((x) => x.id), n.label + ": web sources")],
+      ["New", countBtn(vis.filter(isNew).map((x) => x.id), n.label + ": new since " + S.since)],
+      ["Used in a report", countBtn(papers.filter((x) => x.statusLabel === "Used in a report").map((x) => x.id), n.label + ": used in a report")],
+      ["Hidden by filters", String(members.length - vis.length)]]),
+    gaps.length ? el("div", {}, el("h2", {}, "Gaps here"), el("ul", {}, gaps.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text), el("div", { class: "small muted" }, "Rule: " + g.rule))))) : null,
+    el("h2", {}, "Newest here"), itemList(papers.concat(web).sort((a, b) => (b.year || 0) - (a.year || 0)).map((x) => x.id), 8));
+}
+function gapDetail(g) {
+  return el("div", {}, el("span", { class: "tag warn" }, KIND_NAMES[g.kind] || "Gap"),
+    el("h3", {}, g.text),
+    dl([["Why it is a gap", g.rule], ["Interest", g.interest], ["Sub-area", g.subarea],
+      ["From report", g.report ? el("button", { class: "linkbtn", on: { click: () => select("report:" + g.report) } }, byId.get("report:" + g.report).title) : null]]),
+    g.detail && g.detail.length ? el("div", {}, el("h2", {}, "Landmark works not in the library"), el("ul", {}, g.detail.map((t) => el("li", { class: "small" }, t)))) : null,
+    g.items && g.items.length ? el("div", {}, el("h2", {}, (g.kind === "report" ? "Papers the question cites" : "Items behind this gap") + " (" + g.items.length + ")"), itemList(g.items, 12),
+      el("div", { class: "actions" }, el("button", { on: { click: () => highlightSet(g.items, g.text) } }, "Highlight them"))) : null);
+}
+function reportDetail(r) {
+  const cited = ITEMS.filter((n) => (n.reports || []).some((x) => x.slug === r.slug)).map((n) => n.id);
+  const qs = D.nodes.filter((g) => g.type === "gap" && g.report === r.slug);
+  return el("div", {}, el("span", { class: "tag" }, "Report"), el("h3", {}, r.title),
+    dl([["Library papers cited", countBtn(cited, "Cited in " + r.title)], ["Open questions", String(qs.length)], ["PDF", r.pdf ? link("Open report", r.pdf) : "Not compiled"]]),
+    el("div", { class: "actions" }, el("button", { on: { click: () => highlightSet(cited, "papers cited in " + r.title) } }, "Highlight its papers")),
+    qs.length ? el("div", {}, el("h2", {}, "Open questions"), el("ul", {}, qs.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text))))) : null);
+}
+function labDetail(l) {
+  const named = l.authors.filter((a) => a.matchedByName).length;
+  return el("div", {}, el("span", { class: "tag" }, "Lab"), el("h3", {}, l.name + (l.institution ? ", " + l.institution : "")),
+    el("p", { class: "small muted" }, "Named after " + l.senior + ". A lab is a group of authors who publish together, found from OpenAlex author records."),
+    named ? el("p", { class: "small" }, plural(named, "author") + " matched by name only, which can merge two people with the same name.") : null,
+    dl([["Papers (senior author here)", countBtn(l.papers, l.name + ": papers")], ["Bridges (co-author here)", countBtn(l.bridges, l.name + ": bridge papers")]]),
+    el("h2", {}, "Authors (" + l.authors.length + ")"),
+    el("p", { class: "small" }, l.authors.slice(0, 15).map((a) => a.name + " (" + a.papers + ")" + (a.matchedByName ? "*" : "")).join(", ") + (l.authors.length > 15 ? ", and " + (l.authors.length - 15) + " more" : "")),
+    named ? el("p", { class: "small muted" }, "* matched by name") : null,
+    el("h2", {}, "Papers"), itemList(l.papers, 15));
+}
+
+/* ---------- list view ---------- */
+const COLS = [["title", "Title"], ["authors", "Authors"], ["year", "Year"], ["kind", "Kind"], ["subareas", "Sub-areas"], ["lab", "Lab"], ["status", "Status"], ["tier", "Verdict / tier"]];
+function rowOf(n) {
+  const lab = n.primaryLab ? labById.get(n.primaryLab) : null;
+  return { id: n.id, title: n.title, authors: (n.authors || []).slice(0, 3).join(", ") + ((n.authors || []).length > 3 ? " et al." : ""),
+    year: n.year, kind: n.type === "web" ? "Web (not peer-reviewed)" : "Paper", subareas: (n.subareas || []).join("; "),
+    lab: lab ? lab.name : "", status: n.type === "web" ? "Web source" : n.statusLabel, tier: (n.type === "web" ? n.tier : n.verdict) || "", url: n.url, isNew: isNew(n) };
+}
+function listRows() {
+  const ids = S.listIds ? S.listIds : ITEMS.filter((n) => VISIBLE.has(n.id)).map((n) => n.id);
+  const rows = ids.map((id) => byId.get(id)).filter((n) => n && (n.type === "paper" || n.type === "web")).map(rowOf);
+  const [k, dir] = S.sort;
+  rows.sort((a, b) => { const x = a[k] ?? "", y = b[k] ?? ""; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  return rows;
+}
+function openList(ids, why) { S.listIds = ids; S.listWhy = why; S.listOpen = true; renderList(); }
+function renderList() {
+  const V = $("#listview"); V.hidden = !S.listOpen;
+  $("#list-toggle").setAttribute("aria-pressed", String(S.listOpen));
+  if (!S.listOpen) return;
+  const rows = listRows();
+  V.replaceChildren(el("div", { class: "actions" },
+    el("strong", {}, plural(rows.length, "item") + (S.listIds ? " - " + (S.listWhy || "selected") : " - everything the graph shows")),
+    S.listIds ? el("button", { on: { click: () => { S.listIds = null; renderList(); } } }, "Show everything the graph shows") : null,
+    el("button", { on: { click: () => highlightSet(rows.map((r) => r.id), S.listWhy || "the listed items") } }, "Highlight these in the graph"),
+    el("button", { on: { click: closeList } }, "Back to the graph (Esc)")));
+  const thead = el("tr", {}, COLS.map(([k, label]) => el("th", { "aria-sort": S.sort[0] === k ? (S.sort[1] > 0 ? "ascending" : "descending") : "none" },
+    el("button", { on: { click: () => { S.sort = [k, S.sort[0] === k ? -S.sort[1] : 1]; renderList(); } } }, label + (S.sort[0] === k ? (S.sort[1] > 0 ? " ▲" : " ▼") : "")))));
+  const tbody = el("tbody");
+  for (const r of rows) tbody.append(el("tr", { tabindex: "0", on: { click: () => select(r.id), keydown: (e) => { if (e.key === "Enter") select(r.id); } } },
+    el("td", {}, r.title, r.isNew ? el("span", { class: "tag" }, "new") : null), el("td", {}, r.authors), el("td", { class: "num" }, r.year ?? "Undated"),
+    el("td", {}, r.kind), el("td", {}, r.subareas || "Not assigned"), el("td", {}, r.lab), el("td", {}, r.status), el("td", {}, r.tier)));
+  V.append(el("table", {}, el("thead", {}, thead), tbody));
+}
+function closeList() { S.listOpen = false; S.listIds = null; renderList(); }
+
+/* ---------- export ---------- */
+function download(name, type, text) {
+  const a = el("a", { download: name });
+  a.href = typeof text === "string" && text.startsWith("data:") ? text : URL.createObjectURL(new Blob([text], { type }));
+  document.body.append(a); a.click(); a.remove();
+}
+function exportRows() { return listRows(); }
+function csvCell(v) { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+document.querySelectorAll("[data-export]").forEach((b) => b.addEventListener("click", () => {
+  const rows = exportRows(), kind = b.dataset.export;
+  if (kind === "md") download("reading-list.md", "text/markdown", "# Reading list (" + rows.length + ")\n\n" + rows.map((r) => "- " + (r.authors ? r.authors + " " : "") + "(" + (r.year ?? "n.d.") + "). " + r.title + ". " + r.kind + "; " + r.status + (r.url && safeHref(r.url) ? ". <" + r.url + ">" : "")).join("\n") + "\n");
+  if (kind === "csv") download("reading-list.csv", "text/csv", [["title", "authors", "year", "kind", "sub_areas", "lab", "status", "verdict_or_tier", "url"].join(",")].concat(rows.map((r) => [r.title, r.authors, r.year, r.kind, r.subareas, r.lab, r.status, r.tier, r.url].map(csvCell).join(","))).join("\n") + "\n");
+  if (kind === "png") download("library-graph.png", "image/png", G.renderer().domElement.toDataURL("image/png"));
+  $("#export-list").hidden = true; $("#export-toggle").setAttribute("aria-expanded", "false");
+}));
+$("#export-toggle").addEventListener("click", () => { const l = $("#export-list"); l.hidden = !l.hidden; $("#export-toggle").setAttribute("aria-expanded", String(!l.hidden)); });
+
+/* ---------- search ---------- */
+const SEARCH = [];
+for (const n of D.nodes) {
+  if (n.type === "paper" || n.type === "web") SEARCH.push([n.title, n.id, (n.authors || []).join(" ")]);
+  else if (n.type === "subarea" || n.type === "interest" || n.type === "report") SEARCH.push([n.label, n.id, ""]);
+}
+for (const l of D.labs) if (l.papers.length > 1) SEARCH.push([l.name + (l.institution ? ", " + l.institution : ""), "lab:" + l.id, l.authors.map((a) => a.name).join(" ")]);
+function runSearch(q) {
+  q = q.trim().toLowerCase();
+  if (!q) return [];
+  return SEARCH.filter(([label, , extra]) => (label || "").toLowerCase().includes(q) || extra.toLowerCase().includes(q));
+}
+$("#search").addEventListener("input", (e) => {
+  const hits = runSearch(e.target.value).slice(0, 30);
+  $("#search-options").replaceChildren(...hits.map(([label]) => el("option", { value: label })));
+});
+$("#search").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const q = e.target.value.trim();
+  const exact = SEARCH.find(([label]) => label === q);
+  const hits = exact ? [exact] : runSearch(q);
+  if (!hits.length) return;
+  if (hits.length === 1) return select(hits[0][1]);
+  openList(hits.map((h) => h[1]).filter((id) => byId.has(id) && ["paper", "web"].includes(byId.get(id).type)), "Search: " + q);
+});
+
+/* ---------- top bar, keyboard, theme ---------- */
+document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+$("#dims").addEventListener("click", () => { S.dims = S.dims === 3 ? 2 : 3; applyDims(); writeHash(false); });
+function applyDims() { $("#dims").textContent = S.dims === 3 ? "2D" : "3D"; $("#dims").title = S.dims === 3 ? "Switch to a flat 2D layout" : "Switch to 3D"; G.numDimensions(S.dims); FIT_PENDING = true; }
+$("#list-toggle").addEventListener("click", () => { if (S.listOpen) closeList(); else { S.listIds = null; S.listOpen = true; renderList(); } });
+$("#since").value = S.since;
+$("#since").addEventListener("change", (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { S.since = e.target.value; refreshObjects(); refreshData(); renderDetail(S.focus); } });
+document.querySelectorAll(".toggle-panels").forEach((b) => b.addEventListener("click", () => $("#" + b.dataset.panel).classList.toggle("closed")));
+document.addEventListener("keydown", (e) => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (e.key === "Escape") { if (typing) document.activeElement.blur(); else if (S.listOpen) closeList(); else clearFocus(); return; }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
+  else if (e.key === "ArrowLeft") moveTrail(-1);
+  else if (e.key === "ArrowRight") moveTrail(1);
+  else if (["1", "2", "3", "4"].includes(e.key)) setView(VIEWS[+e.key - 1]);
+});
+window.addEventListener("popstate", () => restoreFromHash());
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { G.backgroundColor(css("--surface")); SPRITES.clear(); refreshObjects(); renderLegend(); });
+
+/* ---------- summary card ---------- */
+function renderSummary() {
+  const card = $("#summary");
+  let dismissed = null;
+  try { dismissed = localStorage.getItem("kg-summary-dismissed"); } catch (e) { /* storage blocked */ }
+  if (dismissed === D.meta.built + D.meta.newSince) { card.hidden = true; return; }
+  const newIds = ITEMS.filter(isNew).map((n) => n.id);
+  card.replaceChildren(el("p", {}, el("strong", {}, "What's new: "), D.meta.summary),
+    el("div", { class: "actions" }, newIds.length ? el("button", { on: { click: () => openList(newIds, "New since " + S.since) } }, "List the " + newIds.length + " new items") : null,
+      el("button", { on: { click: () => { card.hidden = true; try { localStorage.setItem("kg-summary-dismissed", D.meta.built + D.meta.newSince); } catch (e) { /* ignore */ } } } }, "Dismiss")));
+}
+
+/* ---------- start ---------- */
+function restoreFromHash() {
+  const focus = readHash();
+  $("#since").value = S.since;
+  recomputeVisible();
+  applyDims();
+  setView(S.view);
+  renderFilters();
+  if (focus) select(focus, true); else { S.focus = null; S.highlight = null; renderDetail(null); refreshObjects(); }
+}
+if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.add("closed"); $("#detail").classList.add("closed"); }
+recomputeVisible();
+renderSummary();
+restoreFromHash();
+fitCanvas();
+</script>
+</body>
+</html>
