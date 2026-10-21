@@ -790,13 +790,32 @@ function paperDetail(n) {
     n.reports && n.reports.length ? el("div", {}, el("h2", {}, "Used in"), el("ul", {}, n.reports.map((r) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("report:" + r.slug) } }, r.title), el("div", { class: "small muted" }, r.sections.join("; ")))))) : null,
     el("div", { class: "actions" },
       labmates.length ? el("button", { on: { click: () => highlightSet([n.id, ...labmates], "papers from " + labById.get(n.primaryLab).name) } }, "Show labmates (" + labmates.length + ")") : null,
-      lineage.up.length + lineage.down.length ? el("button", { on: { click: () => highlightSet([n.id, ...lineage.all], "what this paper cites and what cites it, in the library") } }, "Show lineage (" + lineage.all.length + ")") : null));
+      lineage.all.length ? el("button", { title: lineage.ancestors.length + " it builds on, " + lineage.descendants.length + " building on it, following citations within the library",
+        on: { click: () => highlightSet([n.id, ...lineage.all], "the citation chain through this paper: " + lineage.ancestors.length + " it builds on, " + lineage.descendants.length + " building on it") } },
+        "Show lineage (" + lineage.ancestors.length + " back, " + lineage.descendants.length + " forward)") : null));
 }
 function lineageOf(id) {
-  /* Direct citations both ways, within the library - kept to one step so every count is exact. */
-  const up = [], down = [];
-  for (const e of D.edges) if (e.type === "cites") { if (e.source === id) up.push(e.target); if (e.target === id) down.push(e.source); }
-  return { up, down, all: [...new Set(up.concat(down))] };
+  /* Citations within the library: direct ones both ways (up, down), and the whole
+     chain - everything this paper cites, transitively (ancestors), and everything that
+     cites it, transitively (descendants). Cycles are walked once. */
+  const out = new Map(), into = new Map();
+  for (const e of D.edges) if (e.type === "cites") {
+    (out.get(e.source) || out.set(e.source, []).get(e.source)).push(e.target);
+    (into.get(e.target) || into.set(e.target, []).get(e.target)).push(e.source);
+  }
+  const walk = (next) => {
+    const seen = new Set(), queue = [...(next.get(id) || [])];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur === id || seen.has(cur)) continue;
+      seen.add(cur);
+      queue.push(...(next.get(cur) || []));
+    }
+    return [...seen];
+  };
+  const ancestors = walk(out), descendants = walk(into);
+  return { up: out.get(id) || [], down: into.get(id) || [], ancestors, descendants,
+    all: [...new Set(ancestors.concat(descendants))] };
 }
 function webDetail(n) {
   return el("div", {}, el("div", {}, el("span", { class: "tag warn" }, n.kindLabel), isNew(n) ? el("span", { class: "tag" }, "New since " + S.since) : null),

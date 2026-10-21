@@ -94,6 +94,22 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got, [{"name": "A"}, None, None, None])
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_lineage_follows_the_whole_chain(self):
+        # a cites b, b cites c, c cites a (a cycle), d cites a, e is unrelated.
+        prelude = """const D = {edges: [
+          {source: "a", target: "b", type: "cites"}, {source: "b", target: "c", type: "cites"},
+          {source: "c", target: "a", type: "cites"}, {source: "d", target: "a", type: "cites"},
+          {source: "e", target: "x", type: "cites"}, {source: "a", target: "h", type: "subarea"}]};"""
+        got = run_js(["lineageOf"], prelude, 'lineageOf("d")')
+        self.assertEqual(sorted(got["up"]), ["a"])
+        self.assertEqual(got["down"], [])
+        self.assertEqual(sorted(got["ancestors"]), ["a", "b", "c"])
+        self.assertEqual(got["descendants"], [])
+        got = run_js(["lineageOf"], prelude, 'lineageOf("b")')
+        self.assertEqual(sorted(got["descendants"]), ["a", "c", "d"])
+        self.assertNotIn("b", got["all"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
