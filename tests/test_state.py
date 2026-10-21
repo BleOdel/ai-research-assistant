@@ -566,6 +566,102 @@ class CandidateTests(StateFixture):
                                           "--max-age", "-1"), "BAD_ARG")
 
 
+SUBAREA_PROFILE = """# Researcher Profile
+
+## Research Interests
+
+### XR Security
+- **Why tracked:** test
+- **Sub-areas of interest:**
+  - Item one (detail that runs
+    onto a second line)
+  - Item two
+- **Known landmark works (if any):**
+  - Some Landmark
+
+### Applied ML
+- **Sub-areas of interest:** a, threat emulation and test beds, and c
+- **Known landmark works (if any):**
+
+### No Subareas
+- **Why tracked:** test
+
+## Depth Calibration
+"""
+
+
+class ClassificationTests(StateFixture):
+    """The knowledge graph's sub-area and contribution labels (subareas,
+    contribution) and the taxonomy they come from: the profile's
+    "Sub-areas of interest" lists."""
+
+    def setUp(self):
+        super().setUp()
+        profile = self.root / ".claude" / "skills" / "research-assistant" / "01-researcher-profile.md"
+        profile.write_text(SUBAREA_PROFILE)
+
+    def subareas(self, *args):
+        result = self.run_state("subareas", *args, "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_profile_subareas_bulleted_and_sentence_forms(self):
+        # A bulleted item's trailing parenthetical is detail, not part of its name.
+        # The sentence form splits on commas only: "threat emulation and test beds"
+        # is one sub-area, and a leading "and " (Oxford comma) is dropped.
+        out = self.subareas()
+        self.assertEqual([s["name"] for s in out["XR Security"]], ["Item one", "Item two"])
+        self.assertEqual(out["XR Security"][0]["detail"],
+                         "detail that runs onto a second line")
+        self.assertEqual([s["name"] for s in out["Applied ML"]],
+                         ["a", "threat emulation and test beds", "c"])
+        self.assertEqual(out["No Subareas"], [])
+
+    def test_subareas_cli_lists_taxonomy(self):
+        out = self.subareas("--subject", "XR Security")
+        self.assertEqual(list(out), ["XR Security"])
+        self.assertRefused(self.run_state("subareas", "--subject", "Nope"), "Nope")
+
+    def test_contribution_enum_enforced(self):
+        self.assertRefused(self.upsert("k1", entry(contribution="attacker")), "contribution")
+        self.assertEqual(self.upsert("k1", entry(contribution="attack")).returncode, 0)
+
+    def test_subareas_must_be_list(self):
+        self.assertRefused(self.upsert("k1", entry(subareas="Item one")), "subareas")
+        self.assertRefused(self.upsert("k1", entry(subareas=[1])), "subareas")
+
+    def test_stale_subarea_is_warning(self):
+        ok = self.upsert("k1", entry(subareas=["Item one", "Retired Area",
+                                               "Applied ML: a", "Applied ML: gone"]))
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        report = json.loads(self.run_state("check", "sources", "--json").stdout)
+        warnings = report["research/seen_sources.json"]["warnings"]
+        stale = [w for w in warnings if "not in the current profile" in w]
+        self.assertEqual(len(stale), 1, warnings)
+        self.assertIn("Retired Area", stale[0])
+        self.assertIn("Applied ML: gone", stale[0])
+        self.assertNotIn("Item one,", stale[0])
+
+    def test_scored_entry_missing_labels_is_a_gap(self):
+        self.upsert("k1", entry(status="ranked"))
+        report = json.loads(self.run_state("check", "sources", "--json").stdout)
+        gaps = report["research/seen_sources.json"]["gaps"]
+        self.assertIn("scored entry missing subareas", gaps)
+        self.assertIn("scored entry missing contribution", gaps)
+
+    def test_web_entry_interest_and_subareas(self):
+        web = {"title": "A Post", "first_seen": "2026-10-01", "status": "included"}
+        ok = self.upsert("w1", {**web, "interest": "XR Security", "subareas": ["Item one"]},
+                         file="web")
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertRefused(self.upsert("w2", {**web, "interest": "Nope"}, file="web"),
+                           "interest")
+        self.assertRefused(self.upsert("w3", {**web, "subareas": "Item one"}, file="web"),
+                           "subareas")
+        report = json.loads(self.run_state("check", "web", "--json").stdout)
+        self.assertEqual(report["blog/seen_web_sources.json"]["errors"], [])
+
+
 class RubricDriftTests(unittest.TestCase):
     """state.py's constants must match the rubric documents they enforce."""
 

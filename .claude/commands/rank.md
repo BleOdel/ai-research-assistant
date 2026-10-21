@@ -55,8 +55,11 @@ agent (a single agent is fine for ≤5 sources). Token-efficiency rules, consist
 
 - Pass each agent everything it needs **inline in the prompt** - the source list
   (title, authors, year, venue, url, source_connector) and the four-dimension rubric
-  extracted from `02-source-evaluation.md` (scoring tables, weighting, thresholds). Do
-  **not** make agents re-read the skill files.
+  extracted from `02-source-evaluation.md` (scoring tables, weighting, thresholds),
+  plus the classification labels: each source's interest's sub-area names from
+  `python3 tools/state.py subareas --subject "<interest>"` and the seven contribution
+  values (`02-source-evaluation.md`, Classification Labels). Do **not** make agents
+  re-read the skill files.
 - Agents fetch each source's full abstract via its connector's `detail` command
   (per that connector's `SKILL.md` - do not guess flags) and score **only from
   actually-fetched content**. If a source's `detail` lookup fails (dead id, connector
@@ -80,6 +83,8 @@ Each agent returns a JSON array, one object per source:
   "rigor_basis": "<venue score, then each method adjustment applied and why, e.g. 'venue 68, +10 released artifact'>",
   "evidence_basis": "abstract" | "fulltext",
   "disclosure": "academic | industry | self-evaluating | vendor-report | unclear",
+  "subareas": ["<sub-area names copied exactly from the list given; [] if none fits>"],
+  "contribution": "attack | defence | measurement | user-study | survey | tool | position",
   "impact_basis": "<which connector's citation data was used, or null>",
   "notes": "1-2 bullets on any non-obvious score, grounded in the fetched abstract"
 }
@@ -121,7 +126,8 @@ python3 tools/state.py batch --file sources --json-file <scratch>/ranked.json
 The input is `{"<key>": {fields}, ...}`; fields merge into the existing entries:
 
 - Scored sources: `"status": "ranked"`, `"scores"`, `"rigor_basis"`, `"disclosure"`,
-  `"evidence_basis"`, `"impact_basis"`, `"rank_date"` (ISO date).
+  `"evidence_basis"`, `"subareas"`, `"contribution"`, `"impact_basis"`, `"rank_date"`
+  (ISO date).
   `evidence_basis` is `"abstract"` for a source scored from its fetched abstract -
   the normal case here - and `"fulltext"` only if the agent actually read the PDF.
   Omit `overall_score` and `verdict` - the helper computes both from `scores`.

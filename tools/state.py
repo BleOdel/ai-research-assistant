@@ -53,6 +53,11 @@ Commands:
       /expand and /setup record landmarks, but discovery only ever ran topic
       queries, so a field-level report found 12 of an interest's 99 landmarks;
       /research looks up the ones listed as missing.
+  subareas [--subject S] [--json]
+      List each Research Interest's "Sub-areas of interest" from the profile:
+      the taxonomy for the `subareas` label on sources and web entries. Scoring
+      agents copy names from here exactly. A bulleted item's trailing
+      parenthetical is its detail, not part of its name. Read-only.
   candidates --subject S [--max-age DAYS] [--json]
       Split subject S's never-synthesized entries (new, skipped, ranked) into
       those whose /rank scoring is fresh and complete - status ranked, every
@@ -110,6 +115,9 @@ STATUSES = ("new", "skipped", "ranked", "unfetchable", "synthesized")
 TRIAGE = ("high", "medium", "low", "unknown")
 EVIDENCE = ("fulltext", "abstract")
 DISCLOSURE = ("academic", "industry", "self-evaluating", "vendor-report", "unclear")
+# What a source contributes, for the knowledge graph's filters and its "attacks
+# with no defence" gap (02-source-evaluation.md, Classification Labels).
+CONTRIBUTIONS = ("attack", "defence", "measurement", "user-study", "survey", "tool", "position")
 CONNECTORS = (
     "arxiv-search", "semantic-scholar-search", "google-scholar-search",
     "openalex-search", "websearch",
@@ -348,6 +356,90 @@ def _scores(entry, dims, problems, allow_insufficient):
                             + (f' or "{INSUFFICIENT}"' if allow_insufficient and key == "impact" else ""))
 
 
+def _labels(entry, problems):
+    subareas = entry.get("subareas")
+    if subareas is not None and not (isinstance(subareas, list)
+                                     and all(isinstance(s, str) for s in subareas)):
+        problems.append("subareas must be a list of strings")
+
+
+SUBAREA_LINE = "- **Sub-areas of interest:**"
+
+
+def _subarea_item(text: str) -> dict:
+    """{"name", "detail"}: a trailing parenthetical is detail, not name."""
+    text = " ".join(text.split())
+    cut = text.find(" (")
+    if cut > 0 and text.endswith(")"):
+        return {"name": text[:cut], "detail": text[cut + 2:-1]}
+    return {"name": text, "detail": None}
+
+
+def subarea_entries(interest: str) -> list[dict]:
+    """INTEREST's "Sub-areas of interest" as [{"name", "detail"}], in order. Takes
+    either a bulleted list (continuation lines joined) or one comma-separated
+    sentence, split on commas only - "threat emulation and test beds" is one
+    sub-area. [] for an unknown interest or one with no such field."""
+    if not PROFILE.exists():
+        return []
+    lines = PROFILE.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index(f"### {interest}") + 1
+    except ValueError:
+        return []
+    items, sentence, inside = [], None, False
+    for line in lines[start:]:
+        if line.startswith(("### ", "## ")):
+            break
+        if line.startswith(SUBAREA_LINE):
+            inside = True
+            rest = line[len(SUBAREA_LINE):].strip()
+            sentence = rest or None
+            continue
+        if not inside:
+            continue
+        if re.match(r"^- \*\*", line) or not line.strip() or not line.startswith(" "):
+            break
+        if sentence is not None:
+            sentence += " " + line.strip()
+        elif re.match(r"^  - ", line):
+            items.append(line.strip()[2:])
+        elif items:
+            items[-1] += " " + line.strip()
+    if sentence is not None:
+        items = [re.sub(r"^and\s+", "", part.strip()) for part in sentence.rstrip(".").split(",")]
+    out = [_subarea_item(i) for i in items if i.strip()]
+    return [s for s in out if s["name"] and not s["name"].lower().startswith(("none", "["))]
+
+
+def profile_subareas(interest: str) -> list[str]:
+    """INTEREST's sub-area names (see subarea_entries)."""
+    return [s["name"] for s in subarea_entries(interest)]
+
+
+def subareas_all() -> dict[str, list[str]]:
+    """Sub-area names keyed by tracked Research Interest."""
+    return {i: profile_subareas(i) for i in tracked_interests() or []}
+
+
+def stale_labels(labels: list, interest: str | None, taxonomy: dict) -> list[str]:
+    """The labels in LABELS that name no sub-area in the current profile. A label is
+    a sub-area of INTEREST, or "<other interest>: <sub-area>" for a cross-interest
+    one."""
+    stale = []
+    for label in labels if isinstance(labels, list) else []:
+        if not isinstance(label, str):
+            continue
+        owner, name = interest, label
+        for other in taxonomy:
+            if label.startswith(other + ": "):
+                owner, name = other, label[len(other) + 2:]
+                break
+        if name not in taxonomy.get(owner, []):
+            stale.append(label)
+    return stale
+
+
 def validate(kind: str, entry: dict, interests: list[str] | None) -> list[str]:
     """Bad values in one entry. Missing optional fields are not problems."""
     problems: list[str] = []
@@ -374,6 +466,12 @@ def validate(kind: str, entry: dict, interests: list[str] | None) -> list[str]:
         _enum(entry, "type", WEB_TYPES, problems)
         _date(entry, "date", problems)
         _scores(entry, WEB_WEIGHTS, problems, allow_insufficient=False)
+        _labels(entry, problems)
+        interest = entry.get("interest")
+        if interest is not None and interests is not None \
+                and interest not in interests + ["Uncategorized"]:
+            problems.append(f"interest={interest!r} is neither a tracked Research Interest "
+                            "nor 'Uncategorized'")
         return problems
 
     _enum(entry, "status", STATUSES, problems, required=True)
@@ -381,6 +479,8 @@ def validate(kind: str, entry: dict, interests: list[str] | None) -> list[str]:
     _enum(entry, "relevance", TRIAGE, problems)
     _enum(entry, "evidence_basis", EVIDENCE, problems)
     _enum(entry, "disclosure", DISCLOSURE, problems)
+    _enum(entry, "contribution", CONTRIBUTIONS, problems)
+    _labels(entry, problems)
     _date(entry, "rank_date", problems)
     _scores(entry, WEIGHTS, problems, allow_insufficient=True)
 
@@ -727,7 +827,7 @@ def candidates(subject: str, max_age: int, today: date | None = None) -> dict:
                                       if entry.get("relevance") else "")
             to_score.append(row)
             continue
-        missing = [f for f in SCORED_FIELDS if not entry.get(f)]
+        missing = [f for f in SCORE_FIELDS if not entry.get(f)]
         rank_date = entry.get("rank_date")
         age = (today - date.fromisoformat(rank_date)).days \
             if isinstance(rank_date, str) and DATE_RE.match(rank_date) else None
@@ -767,7 +867,7 @@ def write_entries(kind: str, path: Path, patches: dict) -> dict:
     """Merge {key: patch} into the file under lock; all-or-nothing."""
     if not isinstance(patches, dict) or not patches:
         raise StateError("expected a non-empty JSON object of entries", "BAD_ARG")
-    interests = tracked_interests() if kind == "sources" else None
+    interests = tracked_interests() if kind in ("sources", "web") else None
     with Lock(path):
         entries = load(kind, path)
         problems, notes = [], []
@@ -794,6 +894,7 @@ def write_entries(kind: str, path: Path, patches: dict) -> dict:
 def check(names: list[str], fix_derived: bool) -> dict:
     report = {}
     interests = tracked_interests()
+    taxonomy = subareas_all()
     for name in names:
         kind, path = resolve_file(name)
         if not path.exists():
@@ -813,13 +914,20 @@ def check(names: list[str], fix_derived: bool) -> dict:
         entries = load(kind, path)
         errors, gaps, warnings = [], {}, []
         for key, entry in entries.items():
-            for problem in validate(kind, entry, interests if kind == "sources" else None):
+            for problem in validate(kind, entry, interests if kind != "tracker" else None):
                 errors.append(f"{key}: {problem}")
             mismatch = derived_mismatch(kind, entry)
             if mismatch:
                 errors.append(f"{key}: {mismatch}")
             if kind == "sources":
                 _gaps(key, entry, gaps, warnings)
+            if kind != "tracker":
+                stale = stale_labels(entry.get("subareas"),
+                                     entry.get("subject" if kind == "sources" else "interest"),
+                                     taxonomy)
+                if stale:
+                    warnings.append(f"{key}: sub-area label(s) not in the current profile: "
+                                    + ", ".join(stale))
         report[str(path.relative_to(ROOT))] = {
             "entries": len(entries), "errors": errors, "gaps": gaps, "warnings": warnings,
         }
@@ -828,7 +936,12 @@ def check(names: list[str], fix_derived: bool) -> dict:
 
 # Every scored entry should carry these; `check` reports each one missing as a gap.
 # /rank's documented output must produce all of them (tests/test_state.py).
-SCORED_FIELDS = ("scores", "evidence_basis", "disclosure", "rigor_basis")
+# `candidates` reuses a /rank score when the SCORE_FIELDS are present: missing
+# labels are added at the next scoring, not a reason to redo the scores, and
+# `subareas: []` (no listed sub-area fits) is a value, not a gap.
+SCORE_FIELDS = ("scores", "evidence_basis", "disclosure", "rigor_basis")
+LABEL_FIELDS = ("subareas", "contribution")
+SCORED_FIELDS = SCORE_FIELDS + LABEL_FIELDS
 
 
 def _gaps(key, entry, gaps, warnings):
@@ -925,6 +1038,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_landmarks.add_argument("--related", action="store_true")
     p_landmarks.add_argument("--json", action="store_true")
 
+    p_subareas = sub.add_parser("subareas")
+    p_subareas.add_argument("--subject")
+    p_subareas.add_argument("--json", action="store_true")
+
     p_candidates = sub.add_parser("candidates")
     p_candidates.add_argument("--subject", required=True)
     p_candidates.add_argument("--max-age", type=int, default=30)
@@ -987,6 +1104,24 @@ def main(argv: list[str]) -> int:
         if args.command == "regen-index":
             print(json.dumps({"ok": True, "file": str(INDEX.relative_to(ROOT)),
                               "entries": regen_index()}))
+            return 0
+
+        if args.command == "subareas":
+            interests = tracked_interests() or []
+            if args.subject is not None and args.subject not in interests:
+                raise StateError(f"subject {args.subject!r} is not a tracked Research Interest",
+                                 "BAD_ARG", [f"tracked: {', '.join(interests)}"])
+            chosen = [args.subject] if args.subject else interests
+            found = {i: subarea_entries(i) for i in chosen}
+            if args.json:
+                print(json.dumps(found, indent=2))
+            else:
+                for interest, subs in found.items():
+                    print(f"{interest} ({len(subs)} sub-areas)")
+                    for s in subs:
+                        print(f"  - {s['name']}" + (f"  ({s['detail']})" if s["detail"] else ""))
+                    if not subs:
+                        print("  (none listed - label sources with [])")
             return 0
 
         if args.command == "unmerged":
