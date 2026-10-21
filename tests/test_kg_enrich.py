@@ -11,9 +11,9 @@ import kg_enrich  # noqa: E402
 kg_enrich.PACE_SECONDS = 0
 
 
-def work(wid, authors=(("A1", "Ann Author", "last"),), refs=()):
-    """A connector `detail --format json` result."""
-    return {"id": f"https://openalex.org/{wid}", "title": "T",
+def work(wid, authors=(("A1", "Ann Author", "last"),), refs=(), title=None):
+    """A connector `detail --format json` result, titled as the fixture entry."""
+    return {"id": f"https://openalex.org/{wid}", "title": title or f"Paper {wid[-1]}",
             "authors": [{"name": n, "authorId": f"https://openalex.org/{a}", "orcid": None,
                          "position": p, "institutions": [{"id": "https://openalex.org/I1",
                                                           "name": "Uni A"}]}
@@ -47,9 +47,9 @@ class EnrichTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.cache = self.dir / "graph_cache.json"
         self.entries = {
-            "10.1000/a": {"title": "A", "status": "ranked"},
-            "10.1000/b": {"title": "B", "status": "synthesized"},
-            "10.1000/c": {"title": "C", "status": "new"},
+            "10.1000/a": {"title": "Paper a", "status": "ranked"},
+            "10.1000/b": {"title": "Paper b", "status": "synthesized"},
+            "10.1000/c": {"title": "Paper c", "status": "new"},
             "https://www.semanticscholar.org/paper/x": {"title": "X", "status": "ranked"},
         }
         self.calls = []
@@ -136,6 +136,22 @@ class EnrichTests(unittest.TestCase):
                     kg_enrich.connector_fetch("10.1000/x")
             finally:
                 subprocess.run = real
+
+    def test_wrong_paper_is_rejected(self):
+        # OpenAlex resolved some arXiv DOIs to a different work. Its authors and
+        # references would put the paper in the wrong lab with the wrong citations.
+        def fetch(lookup):
+            return work("W" + lookup[-1], title="Energy use of code language models")
+        counts = self.run_enrich(fetch)
+        rec = self.cached()["10.1000/a"]
+        self.assertEqual((rec["authors"], rec["referenced"], rec["openalex"]), ([], [], None))
+        self.assertTrue(rec["error"].startswith("title mismatch"), rec["error"])
+        self.assertEqual(counts["errors"], 3)
+        # A subtitle or punctuation difference is the same paper.
+        ok = kg_enrich.enrich({"10.1000/q": {"title": "Heimdall: Eavesdropping in VR", "status": "ranked"}},
+                              lambda _: work("Wq", title="Heimdall -- eavesdropping in VR."),
+                              "2026-10-21", cache=self.cache)
+        self.assertEqual(ok["fetched"], 1)
 
     def test_skipped_entries_are_not_enriched(self):
         self.entries["10.1000/s"] = {"title": "S", "status": "skipped"}

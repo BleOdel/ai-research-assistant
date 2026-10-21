@@ -11,6 +11,10 @@ institutions and each work's referenced_works, so this fetches them once per
 paper through the openalex-search connector's `detail` command (free of the
 search allowance) and keeps them in research/graph_cache.json.
 
+A fetched record is used only when its title matches the library's: OpenAlex
+resolves some arXiv DOIs to a different work, whose authors and references would
+put the paper in the wrong lab. A mismatch is recorded like "not found".
+
 Only papers missing from the cache are fetched, plus papers OpenAlex did not
 know 30 or more days ago. A rate limit or any other connector failure (network
 down, bun missing, a hung call) stops the run with everything fetched so far
@@ -102,7 +106,7 @@ def load_cache(cache: Path = CACHE) -> dict:
 
 
 def _record(work: dict | None, today: str, error: str | None = None) -> dict:
-    if work is None:
+    if work is None or error:
         return {"openalex": None, "authors": [], "referenced": [], "fetched": today,
                 "error": error or "not found"}
     return {
@@ -111,6 +115,7 @@ def _record(work: dict | None, today: str, error: str | None = None) -> dict:
                      "position": a.get("position"), "institutions": a.get("institutions") or []}
                     for a in work.get("authors") or []],
         "referenced": list(work.get("referencedWorks") or []),
+        "title": work.get("title"),
         "fetched": today,
         "error": None,
     }
@@ -161,8 +166,12 @@ def enrich(entries: dict, fetch: Callable[[str], dict | None], today: str,
             counts["failure"] = str(exc)
             break
         else:
-            works[key] = _record(work, today)
-            counts["errors" if work is None else "fetched"] += 1
+            mismatch = None
+            if work is not None and entry.get("title") and \
+                    not state.title_matches(entry["title"], work.get("title") or ""):
+                mismatch = f"title mismatch: OpenAlex returned {str(work.get('title'))[:120]!r}"
+            works[key] = _record(work, today, error=mismatch)
+            counts["errors" if work is None or mismatch else "fetched"] += 1
         state.atomic_write(cache, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return counts
 
