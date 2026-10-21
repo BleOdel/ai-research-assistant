@@ -81,6 +81,12 @@ bun run .agents/skills/openalex-search/cli/src/cli.ts detail <id|doi> [--format 
 `<id|doi>` accepts an OpenAlex work id (`W4391725312`), a bare DOI
 (`10.14722/ndss.2024.24100`), or a full `doi.org`/`openalex.org` URL.
 
+With `--format json` (and in `search` results), each author carries `name`,
+`authorId`, `orcid`, `position` (`first`, `middle`, `last` or `null`) and
+`institutions` (`[{id, name}]`), and each work carries `referencedWorks`, the
+OpenAlex ids of the works it cites. `tools/kg_enrich.py` reads these to group the
+library into research labs and draw citation links in the knowledge graph.
+
 ## Usage examples
 
 ```bash

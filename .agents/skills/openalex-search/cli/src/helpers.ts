@@ -81,10 +81,19 @@ export async function jsonFetch(url: string): Promise<unknown> {
   throw new Error("Request failed after max retries")
 }
 
+export interface OpenAlexInstitution {
+  id: string
+  name: string
+}
+
 export interface OpenAlexAuthor {
   name: string
   authorId: string | null
   orcid: string | null
+  /** "first" | "middle" | "last" from authorships[].author_position; the last
+   * author is usually the senior one, which is how the knowledge graph finds labs. */
+  position: string | null
+  institutions: OpenAlexInstitution[]
 }
 
 export interface OpenAlexWork {
@@ -98,6 +107,8 @@ export interface OpenAlexWork {
   url: string | null
   abstract: string | null
   isOpenAccess: boolean | null
+  /** OpenAlex work ids this work cites (referenced_works). */
+  referencedWorks: string[]
 }
 
 /** OpenAlex stores abstracts as an inverted index (word -> list of positions),
@@ -158,10 +169,23 @@ export function parseOneWork(raw: unknown): OpenAlexWork | null {
       const authorRec = author as Record<string, unknown>
       const name = authorRec.display_name
       if (typeof name !== "string") continue
+      const position = authorship.author_position
+      const institutions: OpenAlexInstitution[] = []
+      if (Array.isArray(authorship.institutions)) {
+        for (const inst of authorship.institutions) {
+          if (typeof inst !== "object" || inst === null) continue
+          const instRec = inst as Record<string, unknown>
+          if (typeof instRec.id === "string" && typeof instRec.display_name === "string") {
+            institutions.push({ id: instRec.id, name: instRec.display_name })
+          }
+        }
+      }
       authors.push({
         name,
         authorId: typeof authorRec.id === "string" ? authorRec.id : null,
         orcid: typeof authorRec.orcid === "string" ? authorRec.orcid : null,
+        position: typeof position === "string" ? position : null,
+        institutions,
       })
     }
   }
@@ -191,6 +215,9 @@ export function parseOneWork(raw: unknown): OpenAlexWork | null {
       typeof r.open_access === "object" && r.open_access !== null
         ? Boolean((r.open_access as Record<string, unknown>).is_oa)
         : null,
+    referencedWorks: Array.isArray(r.referenced_works)
+      ? r.referenced_works.filter((w): w is string => typeof w === "string")
+      : [],
   }
 }
 

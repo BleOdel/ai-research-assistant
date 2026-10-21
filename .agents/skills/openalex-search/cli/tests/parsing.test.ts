@@ -28,6 +28,7 @@ function rawWork(overrides: Partial<Record<string, unknown>> = {}) {
       },
     ],
     open_access: overrides.open_access ?? { is_oa: true, oa_status: "gold" },
+    ...("referenced_works" in overrides ? { referenced_works: overrides.referenced_works } : {}),
     abstract_inverted_index:
       "abstract_inverted_index" in overrides
         ? overrides.abstract_inverted_index
@@ -55,8 +56,8 @@ describe("parseSearchResponse", () => {
   test("authors are extracted from authorships[].author.display_name", () => {
     const { results } = parseSearchResponse({ results: [rawWork()] });
     expect(results[0].authors).toEqual([
-      { name: "Shiqing Luo", authorId: "https://openalex.org/A5081283448", orcid: "https://orcid.org/0000-0002-4169-2555" },
-      { name: "Anh Nguyen", authorId: "https://openalex.org/A5104831694", orcid: null },
+      { name: "Shiqing Luo", authorId: "https://openalex.org/A5081283448", orcid: "https://orcid.org/0000-0002-4169-2555", position: "first", institutions: [] },
+      { name: "Anh Nguyen", authorId: "https://openalex.org/A5104831694", orcid: null, position: "middle", institutions: [] },
     ]);
   });
 
@@ -124,6 +125,31 @@ describe("parseOneWork", () => {
   test("returns null for a malformed response", () => {
     expect(parseOneWork({ notAWork: true })).toBeNull();
     expect(parseOneWork(null)).toBeNull();
+  });
+
+  // The library knowledge graph groups papers into research labs by senior (last)
+  // author and shared institution, and draws citation links from referenced_works.
+  test("keeps author position, institutions and referenced works", () => {
+    const work = parseOneWork(rawWork({
+      authorships: [{
+        author_position: "last",
+        author: { id: "https://openalex.org/A1", display_name: "Senior Author", orcid: null },
+        institutions: [{ id: "https://openalex.org/I1", display_name: "Uni A" }],
+      }],
+      referenced_works: ["https://openalex.org/W2"],
+    }));
+    expect(work!.authors[0].position).toBe("last");
+    expect(work!.authors[0].institutions[0]).toEqual({ id: "https://openalex.org/I1", name: "Uni A" });
+    expect(work!.referencedWorks).toEqual(["https://openalex.org/W2"]);
+  });
+
+  test("defaults position, institutions and referenced works when absent", () => {
+    const work = parseOneWork(rawWork({
+      authorships: [{ author: { id: "https://openalex.org/A1", display_name: "No Position" } }],
+    }));
+    expect(work!.authors[0].position).toBeNull();
+    expect(work!.authors[0].institutions).toEqual([]);
+    expect(work!.referencedWorks).toEqual([]);
   });
 });
 
