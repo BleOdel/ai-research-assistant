@@ -332,13 +332,13 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     for g in gaps:
         g["items"] = [pid(k) for k in g["items"]]
     for r in reports:
-        for i, q in enumerate(r["open_questions"], 1):
+        for q in r["open_questions"]:
             q_hubs = []
             for key in q["keys"]:
                 for h in hubs.for_labels(entries[key].get("subareas"), entries[key].get("subject")):
                     if not h.endswith((UNASSIGNED, STALE)) and h not in q_hubs:
                         q_hubs.append(h)
-            gaps.append({"id": f"report:{r['slug']}:{i}", "kind": "report", "report": r["slug"],
+            gaps.append({"id": f"report:{r['slug']}:{q['id']}", "kind": "report", "report": r["slug"],
                          "interest": None, "subarea": None, "subareas": q_hubs,
                          "items": [pid(k) for k in q["keys"]], "text": q["text"],
                          "rule": f"Open question in report {r['title']}"})

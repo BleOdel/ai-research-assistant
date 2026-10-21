@@ -23,6 +23,7 @@ Stdlib only.
 """
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -175,9 +176,25 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
         if paper_senior[pid] is not None:
             primary_by_comm[community[paper_senior[pid]]].append(pid)
     order = sorted(members, key=lambda c: (-len(primary_by_comm[c]), -len(members[c]), c))
-    lab_id = {c: f"L{i + 1}" for i, c in enumerate(order)}
-    rank = {lab_id[c]: i for i, c in enumerate(order)}
 
+    def head_of(c):
+        """The author a lab is named after (and identified by)."""
+        seniors = Counter(paper_senior[p] for p in primary_by_comm[c])
+        on_papers = Counter(k for p in primary_by_comm[c] for k in paper_authors[p]
+                            if community[k] == c)
+        if seniors and max(seniors.values()) >= 2:
+            return sorted(seniors.items(), key=lambda kv: (-kv[1], -on_papers[kv[0]],
+                                                           display(kv[0])))[0][0]
+        if on_papers:
+            # Every senior author leads one paper: name the lab after whoever is on
+            # most of its papers, not whichever senior sorts first.
+            return sorted(on_papers, key=lambda k: (-on_papers[k], -seniors[k], display(k)))[0]
+        return sorted(members[c], key=lambda k: (-sum(names[k].values()), display(k)))[0]
+
+    heads = {c: head_of(c) for c in order}
+    # Ids end up in bookmarks, so they come from the head author, not from rank.
+    lab_id = {c: "L-" + hashlib.sha1(heads[c].encode()).hexdigest()[:8] for c in order}
+    rank = {lab_id[c]: i for i, c in enumerate(order)}
     paper_primary, paper_labs = {}, {}
     for pid in sorted(papers):
         senior = paper_senior[pid]
@@ -189,18 +206,7 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
     labs, seen_names = [], Counter()
     for c in order:
         lid = lab_id[c]
-        seniors = Counter(paper_senior[p] for p in primary_by_comm[c])
-        on_papers = Counter(k for p in primary_by_comm[c] for k in paper_authors[p]
-                            if community[k] == c)
-        if seniors and max(seniors.values()) >= 2:
-            head = sorted(seniors.items(), key=lambda kv: (-kv[1], -on_papers[kv[0]],
-                                                           display(kv[0])))[0][0]
-        elif on_papers:
-            # Every senior author leads one paper: name the lab after whoever is on
-            # most of its papers, not whichever senior sorts first.
-            head = sorted(on_papers, key=lambda k: (-on_papers[k], -seniors[k], display(k)))[0]
-        else:
-            head = sorted(members[c], key=lambda k: (-sum(names[k].values()), display(k)))[0]
+        head = heads[c]
         surname = display(head).split()[-1] if display(head).split() else head
         institution = (sorted(insts[head].items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
                        if insts[head] else None)

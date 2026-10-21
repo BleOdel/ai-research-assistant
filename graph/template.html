@@ -441,10 +441,14 @@ function hexA(hex, a) {
 }
 
 /* ---------- focus, highlight, styles ---------- */
+/* Every lab lookup goes through here: a bookmark can name a lab this build lacks. */
+function labOf(id) {
+  return typeof id === "string" && id.startsWith("lab:") ? labById.get(id.slice(4)) || null : null;
+}
 let FOCUS_NEIGHBOURS = new Set();
 function isLit(id) {
   if (S.highlight) {
-    if (id.startsWith("lab:")) { const lab = labById.get(id.slice(4)); return !!lab && lab.papers.some((p) => S.highlight.has(p)); }
+    if (id.startsWith("lab:")) { const lab = labOf(id); return !!lab && lab.papers.some((p) => S.highlight.has(p)); }
     return S.highlight.has(id) || id.startsWith("year:");
   }
   if (S.focus) return id === S.focus || FOCUS_NEIGHBOURS.has(id) || id.startsWith("year:");
@@ -468,11 +472,11 @@ function refreshObjects() {
 
 /* ---------- navigation: select, trail, hash ---------- */
 function select(id, fromTrail) {
-  const isLab = id.startsWith("lab:");
+  const lab = labOf(id), isLab = !!lab;
   if (!isLab && !byId.has(id)) return;
   S.focus = isLab ? null : id;
-  S.highlight = isLab ? new Set(labById.get(id.slice(4)).papers.concat(labById.get(id.slice(4)).bridges)) : null;
-  S.highlightWhy = isLab ? labById.get(id.slice(4)).name : "";
+  S.highlight = isLab ? new Set(lab.papers.concat(lab.bridges)) : null;
+  S.highlightWhy = isLab ? lab.name : "";
   S.current = id;
   if (fromTrail && !S.trail.includes(id)) { S.trail.push(id); S.trailPos = S.trail.length - 1; }
   if (!fromTrail) {
@@ -515,7 +519,7 @@ function renderTrail() {
   t.append(el("button", { title: "Back (Left arrow)", "aria-label": "Back", disabled: S.trailPos <= 0, on: { click: () => moveTrail(-1) } }, "←"),
     el("button", { title: "Forward (Right arrow)", "aria-label": "Forward", disabled: S.trailPos >= S.trail.length - 1, on: { click: () => moveTrail(1) } }, "→"));
   S.trail.forEach((id, i) => {
-    const n = byId.get(id), lab = id.startsWith("lab:") ? labById.get(id.slice(4)) : null;
+    const n = byId.get(id), lab = labOf(id);
     const name = lab ? lab.name : n ? (n.title || n.label) : id;
     t.append(el("button", { "aria-current": i === S.trailPos ? "true" : null, title: name,
       style: i === S.trailPos ? "border-color:var(--focus)" : null, on: { click: () => { S.trailPos = i; select(id, true); } } }, name));
@@ -729,8 +733,13 @@ function renderDetailHeaderNote() {
 function renderDetail(id) {
   const B = $("#detail-body"); B.replaceChildren();
   if (!id) { B.append(overview()); return; }
-  if (id.startsWith("lab:")) { B.append(labDetail(labById.get(id.slice(4)))); renderDetailHeaderNote(); return; }
+  if (id.startsWith("lab:")) {
+    const lab = labOf(id);
+    if (lab) { B.append(labDetail(lab)); renderDetailHeaderNote(); } else B.append(overview());
+    return;
+  }
   const n = byId.get(id);
+  if (!n) { B.append(overview()); return; }
   if (n.type === "paper") B.append(paperDetail(n));
   else if (n.type === "web") B.append(webDetail(n));
   else if (n.type === "gap") B.append(gapDetail(n));
@@ -957,7 +966,9 @@ function restoreFromHash() {
   applyDims();
   setView(S.view);
   renderFilters();
-  if (focus) select(focus, true); else { S.focus = null; S.highlight = null; renderDetail(null); refreshObjects(); }
+  S.focus = null; S.highlight = null; S.current = null;
+  if (focus) select(focus, true);
+  if (!S.current) { renderDetail(null); refreshObjects(); } /* no focus, or one this build lacks */
 }
 if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.add("closed"); $("#detail").classList.add("closed"); }
 recomputeVisible();

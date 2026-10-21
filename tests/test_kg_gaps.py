@@ -137,6 +137,14 @@ class ReportIndexTests(unittest.TestCase):
         self.assertEqual(qs[1]["text"],
                          "Nobody has measured bystanders (Kim, 2023; Nobody, 2020).")
 
+    def test_question_ids_survive_edits_around_them(self):
+        first = [q["id"] for q in self.index["open_questions"]]
+        (self.dir / "report.tex").write_text(REPORT.replace(
+            r"\begin{itemize}", "\\begin{itemize}\n  \\item A new first question.", 1))
+        again = kg_gaps.report_index(self.dir, self.entries)["open_questions"]
+        self.assertEqual([q["id"] for q in again[1:]], first)
+        self.assertEqual(len(set(q["id"] for q in again)), 3)
+
     def test_sections_recorded_per_cited_key(self):
         self.assertEqual(self.index["title"], "XR Privacy: A Review")
         self.assertEqual(self.index["slug"], self.dir.name)

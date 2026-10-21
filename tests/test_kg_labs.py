@@ -115,6 +115,17 @@ class ClassifyTests(unittest.TestCase):
         lab = next(l for l in r["labs"] if l["id"] == lab_of(r, "x1"))
         self.assertEqual(lab["name"], "Baggili lab")
 
+    def test_lab_ids_survive_the_library_growing(self):
+        # Ids end up in bookmarks; a new, bigger lab must not renumber the others.
+        before = kg_labs.classify_labs(two_labs())
+        bigger = dict(two_labs())
+        for i in range(5):
+            bigger[f"z{i}"] = [au(f"Z{i}", f"Zed Member{i}", "first"), au("ZS", "Zara Senior", "last")]
+        after = kg_labs.classify_labs(bigger)
+        for pid in ("p1", "p5"):
+            self.assertEqual(lab_of(before, pid), lab_of(after, pid))
+        self.assertNotEqual(lab_of(after, "z0"), lab_of(after, "p1"))
+
     def test_paper_with_no_authors_has_no_lab(self):
         r = kg_labs.classify_labs({"empty": []})
         self.assertIsNone(r["paper_primary"]["empty"])

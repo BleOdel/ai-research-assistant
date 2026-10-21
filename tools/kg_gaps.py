@@ -15,6 +15,7 @@ Two kinds of gap, kept apart because they rest on different evidence:
 Imported by tools/knowledge_graph.py. Reads only; stdlib only.
 """
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -165,6 +166,12 @@ def report_index(report_dir: Path, entries: dict) -> dict:
                         keys.append(to_state[bkey])
             q.update(text=latex_to_text(raw, bib), keys=keys)
         break
+    # Ids end up in bookmarks, so they come from the question's text, not its position.
+    seen = {}
+    for q in questions:
+        base = hashlib.sha1(q["text"].encode()).hexdigest()[:10]
+        seen[base] = seen.get(base, 0) + 1
+        q["id"] = base if seen[base] == 1 else f"{base}-{seen[base]}"
     return {"slug": report_dir.name, "title": title, "cites": cites,
             "open_questions": questions, "cited_ids": cited_ids}
 

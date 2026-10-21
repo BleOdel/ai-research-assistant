@@ -1,3 +1,4 @@
+import json
 import re
 import shutil
 import subprocess
@@ -15,6 +16,24 @@ VENDOR = REPO_ROOT / "graph" / "vendor"
 EMPTY = {"meta": {"counts": {}, "summary": "", "newSince": "2026-10-21", "built": "2026-10-21",
                   "thresholds": {}}, "interests": [], "nodes": [], "edges": [], "gaps": [],
          "labs": []}
+
+
+def page_function(name):
+    """The source of one top-level function in the page script."""
+    m = re.search(rf"^function {name}\(.*?^}}$", TEMPLATE, re.S | re.M)
+    if not m:
+        raise AssertionError(f"function {name} not found in the template")
+    return m.group(0)
+
+
+def run_js(names, prelude, expression):
+    """Evaluate EXPRESSION in node after PRELUDE and the named page functions."""
+    script = prelude + "\n" + "\n".join(page_function(n) for n in names) + \
+        f"\nconsole.log(JSON.stringify({expression}));"
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
 
 
 class TemplateTests(unittest.TestCase):
@@ -64,6 +83,15 @@ class TemplateTests(unittest.TestCase):
             vendor={"x.js": 'var s = "</script><b>";'})
         self.assertNotIn('"</script><b>"', page)
         self.assertIn('"<\\/script><b>"', page)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_unknown_lab_id_is_not_a_crash(self):
+        # A bookmark or hand-edited address can name a lab the current build does
+        # not have; every lookup goes through labOf(), which answers null.
+        self.assertNotIn("labById.get(id.slice(4))", TEMPLATE.replace(page_function("labOf"), ""))
+        got = run_js(["labOf"], 'const labById = new Map([["L-1", {name: "A"}]]);',
+                     '[labOf("lab:L-1"), labOf("lab:L-nope"), labOf("paper:x"), labOf(null)]')
+        self.assertEqual(got, [{"name": "A"}, None, None, None])
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_page_script_parses(self):
