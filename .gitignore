@@ -33,6 +33,13 @@ blog/*
 !blog/README.md
 !blog/template.html
 
+# The library knowledge graph (tools/knowledge_graph.py): the built page holds every
+# title in the library, so only the template, vendored renderer and README are tracked.
+graph/*
+!graph/template.html
+!graph/vendor/
+!graph/README.md
+
 # Personal identity/background documents — the folder structure and README stay
 # tracked, but real CV/LinkedIn/publication files never should.
 documents/cv/**

@@ -64,6 +64,7 @@ REQUIRED_IGNORE_RULES = [
     "blog/*",
     "!blog/README.md",
     "!blog/template.html",
+    "graph/*",
     "documents/cv/**",
     "documents/linkedin/**",
     "documents/publications/**",
