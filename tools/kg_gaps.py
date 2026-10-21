@@ -139,7 +139,7 @@ def report_index(report_dir: Path, entries: dict) -> dict:
 
     questions = []
     for heading, start, end in sections:
-        if not heading.startswith("Open Questions"):
+        if "open questions" not in heading.lower():  # as check_report finds the section
             continue
         body, depth, current = tex[start:end], 0, None
         for m in LIST_TOKEN.finditer(body):

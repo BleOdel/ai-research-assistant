@@ -242,6 +242,11 @@ class BuildTests(GraphFixture):
                          "../research/fulltext/doi-10.1000-A.pdf")
         self.assertIsNone(self.node(data, "paper:10.1000/b")["pdf"])
 
+    def test_stale_cutoff_year_in_meta(self):
+        data = self.build()
+        year = int(data["meta"]["built"][:4])
+        self.assertEqual(data["meta"]["thresholds"]["staleFrom"], year - 2)
+
     def test_summary_omits_zero_clauses(self):
         data = self.build()
         self.assertEqual(data["meta"]["summary"],

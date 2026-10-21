@@ -436,7 +436,8 @@ function linkColor(l) {
   const dim = (S.focus || S.highlight) && !(isLit(s) && isLit(t));
   let c = l.type.startsWith("gap") ? css("--gap") : css("--axis");
   if (l.type === "cites") c = S.focus || S.highlight ? css("--ink-2") : css("--axis");
-  if (l.type === "collab") c = css("--muted");
+  if (l.type === "labmember") c = css("--muted"); /* lab membership: solid */
+  if (l.type === "collab") c = css("--hair");     /* across labs: faint */
   return dim ? hexA(c, 0.06) : c;
 }
 function hexA(hex, a) {
@@ -642,7 +643,7 @@ function renderLegend() {
   ];
   if (S.view === "library" || S.view === "gaps") rows.push([swatch("dot", css("--ink-2"), "width:16px;height:16px"), "Sub-area or interest (labelled hub)"], [swatch("cube", css("--ink-2"), "width:9px;height:13px"), "Report"]);
   if (S.view === "gaps") rows.push([swatch("diamond", css("--gap")), "Gap: click for its rule"]);
-  if (S.view === "groups") rows.push([swatch("line", css("--axis")), "Paper belongs to the labelled lab"], [swatch("line", css("--muted")), "Papers from different labs sharing an author"]);
+  if (S.view === "groups") rows.push([swatch("line", css("--muted")), "Paper belongs to the labelled lab"], [swatch("line", css("--hair"), "outline:1px solid var(--axis)"), "Papers from different labs sharing an author (faint)"]);
   if (S.view === "timeline") rows.push([swatch("line", css("--ink-2")), "Cites (arrow points to the cited paper, library only)"]);
   for (const [sw, text] of rows) L.append(el("div", { class: "row" }, sw, el("span", {}, text)));
   L.append(el("p", { class: "small", style: "margin:10px 0 4px" }, "How solid a paper looks shows its status:"));
@@ -666,7 +667,7 @@ function renderLegend() {
     for (const g of gaps) ul.append(el("li", { class: "small" }, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text), el("div", { class: "muted" }, "Rule: " + g.rule)));
     L.append(ul);
     const th = D.meta.thresholds;
-    L.append(el("p", { class: "small muted" }, "Computed rules: thin = fewer than " + th.thinBelow + " scored papers in a sub-area; no recent work = no paper in the last " + th.staleYears + " years; attacks with no defence = " + th.noDefenceMinAttacks + " or more attack papers and no defence. Sub-areas are only checked once their papers carry sub-area labels."));
+    L.append(el("p", { class: "small muted" }, "Computed rules: thin = fewer than " + th.thinBelow + " scored papers in a sub-area; no recent work = no paper from " + th.staleFrom + " or later; attacks with no defence = " + th.noDefenceMinAttacks + " or more attack papers and no defence. Sub-areas are only checked once their papers carry sub-area labels."));
   }
 }
 
@@ -759,7 +760,9 @@ function overview() {
     dl([["Papers", countBtn(ITEMS.filter((n) => n.type === "paper").map((n) => n.id), "All papers")],
       ["Web sources", countBtn(ITEMS.filter((n) => n.type === "web").map((n) => n.id), "All web sources")],
       ["New", countBtn(ITEMS.filter(isNew).map((n) => n.id), "New since " + S.since)],
-      ["Labs (2+ papers)", String(c.labs)], ["Gaps", String(c.gaps)], ["Built", D.meta.built]]),
+      ["Labs (2+ papers)", el("button", { class: "linkbtn", title: "Open the Research groups view, which lists them", on: { click: () => setView("groups") } }, String(c.labs))],
+      ["Gaps", el("button", { class: "linkbtn", title: "Open the Gaps view, which lists them", on: { click: () => setView("gaps") } }, String(c.gaps))],
+      ["Built", D.meta.built]]),
     el("p", { class: "small muted" }, "Click any shape for its details. Every number is a link to the items it counts."),
     D.meta.synthetic ? el("p", { class: "tag warn" }, "Made-up library for testing - nothing here is real") : null);
 }
@@ -840,7 +843,7 @@ function hubDetail(n) {
     dl([["Papers shown", countBtn(papers.map((x) => x.id), n.label + ": papers")], ["Web sources", countBtn(web.map((x) => x.id), n.label + ": web sources")],
       ["New", countBtn(vis.filter(isNew).map((x) => x.id), n.label + ": new since " + S.since)],
       ["Used in a report", countBtn(papers.filter((x) => x.statusLabel === "Used in a report").map((x) => x.id), n.label + ": used in a report")],
-      ["Hidden by filters", String(members.length - vis.length)]]),
+      ["Hidden by filters", countBtn(members.filter((x) => !VISIBLE.has(x.id)).map((x) => x.id), n.label + ": hidden by the current filters")]]),
     gaps.length ? el("div", {}, el("h2", {}, "Gaps here"), el("ul", {}, gaps.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text), el("div", { class: "small muted" }, "Rule: " + g.rule))))) : null,
     el("h2", {}, "Newest here"), itemList(papers.concat(web).sort((a, b) => (b.year || 0) - (a.year || 0)).map((x) => x.id), 8));
 }
@@ -857,7 +860,7 @@ function reportDetail(r) {
   const cited = ITEMS.filter((n) => (n.reports || []).some((x) => x.slug === r.slug)).map((n) => n.id);
   const qs = D.nodes.filter((g) => g.type === "gap" && g.report === r.slug);
   return el("div", {}, el("span", { class: "tag" }, "Report"), el("h3", {}, r.title),
-    dl([["Library papers cited", countBtn(cited, "Cited in " + r.title)], ["Open questions", String(qs.length)], ["PDF", r.pdf ? link("Open report", r.pdf) : "Not compiled"]]),
+    dl([["Library papers cited", countBtn(cited, "Cited in " + r.title)], ["Open questions", el("button", { class: "linkbtn", title: "Highlight them in the Gaps view", on: { click: () => { setView("gaps"); highlightSet(qs.map((g) => g.id), "open questions in " + r.title); } } }, String(qs.length))], ["PDF", r.pdf ? link("Open report", r.pdf) : "Not compiled"]]),
     el("div", { class: "actions" }, el("button", { on: { click: () => highlightSet(cited, "papers cited in " + r.title) } }, "Highlight its papers")),
     qs.length ? el("div", {}, el("h2", {}, "Open questions"), el("ul", {}, qs.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text))))) : null);
 }
@@ -916,7 +919,11 @@ function download(name, type, text) {
   document.body.append(a); a.click(); a.remove();
 }
 function exportRows() { return listRows(); }
-function csvCell(v) { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function csvCell(v) {
+  let s = v == null ? "" : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; /* a spreadsheet would run it as a formula */
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
 document.querySelectorAll("[data-export]").forEach((b) => b.addEventListener("click", () => {
   const rows = exportRows(), kind = b.dataset.export;
   if (kind === "md") download("reading-list.md", "text/markdown", "# Reading list (" + rows.length + ")\n\n" + rows.map((r) => "- " + (r.authors ? r.authors + " " : "") + "(" + (r.year ?? "n.d.") + "). " + r.title + ". " + r.kind + "; " + r.status + (r.url && safeHref(r.url) ? ". <" + r.url + ">" : "")).join("\n") + "\n");

@@ -155,6 +155,12 @@ class ReportIndexTests(unittest.TestCase):
         # a paper is used.
         self.assertNotIn("Evidence Basis", cites["arxiv:2301.00001"])
 
+    def test_open_questions_heading_anywhere_in_title(self):
+        # check_report accepts "Open Questions" anywhere in the heading; so must this.
+        (self.dir / "report.tex").write_text(REPORT.replace(
+            r"\section{Open Questions and Gaps}", r"\section{Gaps and Open Questions}"))
+        self.assertEqual(len(kg_gaps.report_index(self.dir, self.entries)["open_questions"]), 2)
+
     def test_latex_spacing_and_citealp(self):
         bib = {"k": {"author": "Nair, V. and Smith, A. and Lee, B.", "year": "2023"}}
         self.assertEqual(kg_gaps.latex_to_text(r"XR:\ State\\of the Art", bib),

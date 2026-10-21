@@ -229,7 +229,8 @@ picture, with everything new since your last search ringed:
 - **Timeline** (3) - year left to right, undated items in their own lane, arrows for
   citations between your papers.
 - **Gaps** (4) - your reports' open questions, plus computed gaps: fewer than 3 scored
-  papers in a sub-area, no paper in the last 2 years, 3 or more attacks and no defence,
+  papers in a sub-area, no paper from two years before this one or later
+  (2024 or later, in 2026), 3 or more attacks and no defence,
   Core/Supporting papers no report cites, and profile landmarks missing from the
   library. Each gap shows the rule that produced it.
 

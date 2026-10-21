@@ -390,6 +390,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
                        "labs": sum(1 for l in lab_list if len(l["papers"]) > 1),
                        "gaps": len(gaps)},
             "thresholds": {"thinBelow": kg_gaps.THIN_BELOW, "staleYears": kg_gaps.STALE_YEARS,
+                           "staleFrom": int(today[:4]) - kg_gaps.STALE_YEARS,
                            "noDefenceMinAttacks": kg_gaps.NO_DEFENCE_MIN_ATTACKS},
         },
         "interests": [{"name": i, "subareas": s} for i, s in taxonomy.items()],

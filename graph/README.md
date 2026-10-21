@@ -47,7 +47,7 @@ bookmark reopens the same picture.
 `tools/knowledge_graph.py` reads state, the profile, `reports/*/` and
 `research/graph_cache.json` (OpenAlex authorships and references, fetched by
 `tools/kg_enrich.py`), and writes one JSON block into `template.html`. Every `<` in the
-data is written as `<`, so a title cannot break out of the page's script, and the
+data is written as `\u003c`, so a title cannot break out of the page's script, and the
 page builds every element from the data as text, never as HTML.
 
 The two renderers in `vendor/` are inlined into the page; `vendor/LICENSES.md` records

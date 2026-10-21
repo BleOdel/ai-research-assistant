@@ -110,6 +110,36 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("b", got["all"])
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_csv_cells_cannot_become_formulas(self):
+        # Titles come from untrusted pages; a spreadsheet runs a cell starting with
+        # = + - or @ as a formula.
+        got = run_js(["csvCell"], "", '["=HYPERLINK(1)", "+1", "-x", "@SUM(A1)", "plain, comma", 2019, null]'
+                     '.map(csvCell)')
+        self.assertEqual(got, ["'=HYPERLINK(1)", "'+1", "'-x", "'@SUM(A1)", '"plain, comma"', "2019", ""])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_lab_lines_stronger_than_cross_lab_lines(self):
+        # Spec: lab edges solid, collaboration edges faint. Tokens from faint to strong.
+        prelude = ('const S = {focus: null, highlight: null}; function css(n) { return n; } '
+                   'function isLit() { return true; } function hexA(c) { return c; }')
+        got = run_js(["linkColor"], prelude,
+                     '["labmember", "collab"].map((type) => linkColor({type, source: "a", target: "b"}))')
+        strength = ["--hair", "--axis", "--muted", "--ink-2", "--ink"]
+        self.assertGreater(strength.index(got[0]), strength.index(got[1]), got)
+
+    def test_stale_rule_shown_with_its_cutoff_year(self):
+        # "No paper in the last 2 years" misstates the rule, which counts from a
+        # calendar year (2024 or later, in 2026); the page prints that year.
+        self.assertNotIn('in the last " + th.staleYears', TEMPLATE)
+        self.assertIn("th.staleFrom", TEMPLATE)
+
+    def test_overview_counts_are_links(self):
+        overview = page_function("overview")
+        for label in ("Labs (2+ papers)", "Gaps"):
+            row = re.search(rf'\["{re.escape(label)}", (.*?)\]', overview).group(1)
+            self.assertTrue(row.startswith(('el("button"', "countBtn(")), f"{label}: {row[:60]}")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
