@@ -92,6 +92,17 @@ A `vendor-competitive` or `sponsored` source may still be cited - but its
 comparative claims must be attributed in the output ("X's own benchmark reports
 …"), never restated as established fact.
 
+## Classification Labels
+
+Each included source also records its `interest` (the Research Interest it informs,
+or `Uncategorized`) and its `subareas`, named exactly as
+`python3 tools/state.py subareas --subject "<interest>"` prints them, or `[]` when
+none fits. The labels place the source in the library knowledge graph next to the
+papers on the same sub-area, drawn as a different node type marked "not
+peer-reviewed". They are display only: web sources stay out of
+`research/seen_sources.json`. Like every score here, they come from the fetched page,
+never from the title alone.
+
 ## Content Type
 
 Classify each source; the type sets reader expectations more than any score does:

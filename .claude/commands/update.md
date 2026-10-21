@@ -88,7 +88,9 @@ Step 1). A Step 1b candidate's stored score may be `/rank`'s abstract-only triag
 an older `/synthesize` scoring. Carry a `/rank` scoring forward only under
 `02-source-evaluation.md`'s *Reusing a `/rank` Score* (fresh and complete, Relevance
 re-scored against this report's topic); otherwise it is a prior, not a substitute.
-Present one
+Assign each source's `"subareas"` and `"contribution"` labels per
+`02-source-evaluation.md`'s *Classification Labels*, copying sub-area names from
+`python3 tools/state.py subareas --subject "<subject>"`. Present one
 scoring table with Step 1b candidates marked as previously ranked (and their
 `rank_date`), plus a one-line reminder of the report's current headline conclusion,
 and ask:
@@ -232,8 +234,8 @@ or a table caption.
    so a reader can tell "new sources merged" from "formatting brought up to date".
 2. Record merged sources (new and Step 1b alike) in state with one call -
    `python3 tools/state.py batch --file sources --json-file <scratch>/merged.json` -
-   setting `"status": "synthesized"` plus their scoring fields. The helper regenerates
-   `research/papers_by_subject.md` in the same write.
+   setting `"status": "synthesized"` plus their scoring fields, labels included. The
+   helper regenerates `research/papers_by_subject.md` in the same write.
 3. If `research_tracker.csv` exists and has a row for this topic, update it with
    `python3 tools/state.py upsert --file tracker --key <topic_slug> --json '{...}'`: a
    `superseded` or `needs_revision` status returns to `active`, `last_event_date` set,

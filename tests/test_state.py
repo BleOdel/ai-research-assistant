@@ -746,6 +746,25 @@ class RubricDriftTests(unittest.TestCase):
             self.assertIn(f'"{field}"', output.group(1), f"rank.md agent output lacks {field}")
             self.assertIn(f'"{field}"', write.group(1), f"rank.md state write lacks {field}")
 
+    def test_scoring_commands_mention_classification_fields(self):
+        """Every command that scores a source assigns the knowledge graph's labels.
+        A command that scores without them leaves its sources as gaps in `check` and
+        as "unassigned" hubs in the graph."""
+        commands = REPO_ROOT / ".claude" / "commands"
+        for name in ("synthesize.md", "update.md"):
+            text = (commands / name).read_text()
+            for field in state.LABEL_FIELDS:
+                self.assertIn(f'"{field}"', text, f"{name} never writes {field}")
+            self.assertIn("state.py subareas", text, f"{name} never points at the taxonomy")
+        web = (commands / "websearch.md").read_text()
+        block = re.search(r"## Step 5: Update State.*?```json\n(.*?)```", web, re.S)
+        self.assertIsNotNone(block, "websearch.md: Step 5 state-write JSON block not found")
+        for field in ("interest", "subareas"):
+            self.assertIn(f'"{field}"', block.group(1), f"websearch.md state write lacks {field}")
+        self.assertIn("state.py subareas", web)
+        for doc in ("02-source-evaluation.md", "09-web-source-evaluation.md"):
+            self.assertIn("## Classification Labels", (SKILLS / doc).read_text(), doc)
+
 
 if __name__ == "__main__":
     unittest.main()

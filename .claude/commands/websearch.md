@@ -85,7 +85,9 @@ changes the picture, and the page gets harder to read.
 
 Score every fetched source against `09-web-source-evaluation.md`: Relevance (30%),
 Authority (25%), Evidence Quality (25%), Recency (20%). Assign a `type` and a
-mandatory `independence` label.
+mandatory `independence` label, plus the `interest` and `subareas` labels from
+`09-web-source-evaluation.md`'s *Classification Labels* (sub-area names copied from
+`python3 tools/state.py subareas --subject "<interest>"`).
 
 Present the scoring table in chat before building anything:
 
@@ -147,6 +149,7 @@ if any entry is invalid. Each source's fields:
       "title": "...", "site": "...", "author": "... or null",
       "date": "YYYY-MM-DD or null", "type": "...", "independence": "...",
       "first_seen": "YYYY-MM-DD", "topic": "<topic>",
+      "interest": "<Research Interest or Uncategorized>", "subareas": ["..."],
       "scores": { "relevance": 0, "authority": 0, "evidence": 0, "recency": 0 },
       "status": "included | excluded | unfetchable"
     }

@@ -54,7 +54,11 @@ connector's `detail` command per its `SKILL.md`, or `WebFetch` on its URL), then
 all four dimensions (Relevance, Recency, Rigor, Impact) per the framework, and assign
 each source a `disclosure` label. Rigor is now two-part - score venue, then apply the
 method-quality adjustments and record the breakdown in `rigor_basis` so the reader can
-see which half of the score is venue prestige and which is demonstrated method. If several
+see which half of the score is venue prestige and which is demonstrated method. Assign
+each source its classification labels too, `"subareas"` and `"contribution"`, per
+`02-source-evaluation.md`'s *Classification Labels*, copying sub-area names exactly
+from `python3 tools/state.py subareas --subject "<interest>"`. A `reuse` row keeps
+labels it already has, and gets them assigned now if it has none. If several
 candidates in this batch came from `semantic-scholar-search`, space consecutive
 `detail` calls to it at least one second apart - its authenticated quota is a firm
 1 request/second cumulative across all its endpoints (see its `SKILL.md`), not a
@@ -411,7 +415,8 @@ Keep `report.tex`, `references.bib`, and `report.pdf`.
 
 Record the outcome in state with one state-helper call - never by editing the JSON
 directly. For every source scored in Step 1, write its final Step 1 scoring
-(`scores`, `rigor_basis`, `disclosure`, `evidence_basis`) with `"status":
+(`scores`, `rigor_basis`, `disclosure`, `evidence_basis`, `"subareas"`,
+`"contribution"`) with `"status":
 "synthesized"` if the report cites it, or `"status": "ranked"` and `"rank_date"` if it
 does not - a scored source left at `new` is invisible to every later check:
 

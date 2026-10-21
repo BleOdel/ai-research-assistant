@@ -156,6 +156,28 @@ a vendor report claiming an 85% attack success rate with no independent review; 
 label exists so the discipline is systematic rather than dependent on a drafter
 noticing.
 
+## Classification Labels
+
+Every scored source also carries two labels, recorded with its scores. Neither is
+scored. They place the source in the library knowledge graph
+(`tools/knowledge_graph.py`) and drive its gap rules.
+
+- **`subareas`**: one or more of the sub-areas the profile lists for the source's
+  Research Interest. Copy the names exactly from
+  `python3 tools/state.py subareas --subject "<interest>"`. A source that also
+  belongs under another interest's sub-area gets `"<interest>: <sub-area>"` as well.
+  Use `[]` when no listed sub-area fits; the graph shows it as unassigned rather
+  than forcing a fit.
+- **`contribution`**: exactly one of `attack` (a new attack or inference),
+  `defence` (a countermeasure, detector or mitigation), `measurement` (a study of
+  deployed systems or data), `user-study` (people studied directly), `survey`,
+  `tool` (a framework, dataset or benchmark released for others to use) and
+  `position`. Pick what the paper mainly offers: an attack paper that sketches a
+  defence in its discussion is `attack`.
+
+The labels follow the same grounding rule as the scores: they come from the fetched
+abstract or full text, never from the title alone.
+
 ## Corroboration
 
 Scores rate a source. This rates a **claim** - and it is checked at drafting time, not
