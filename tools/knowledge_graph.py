@@ -455,7 +455,7 @@ def check(html: str) -> list[str]:
     return errors
 
 
-def main(argv: list[str]) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--enrich", action="store_true",
                         help="fetch missing OpenAlex authorship first (kg_enrich.py)")
@@ -463,7 +463,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--check", action="store_true", help="lint the built page")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--synthetic", type=int, default=0, metavar="N")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str]) -> int:
+    args = build_parser().parse_args(argv)
 
     if args.check:
         if not PAGE.exists():

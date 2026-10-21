@@ -53,6 +53,12 @@ Synthesize by theme,            -> blog/<topic>/index.html
 attributing contested claims       (filter, sort, expand — offline)
 ```
 
+**The library graph** — `/graph` (and every search command, when it finishes) builds
+`graph/index.html`, an interactive 3D map of your whole library with what is new since
+the last search highlighted: which papers come from the same research groups, how
+sub-areas connect, how the field progressed year by year, and where the gaps are. Web
+sources appear as their own node type, marked not peer-reviewed.
+
 They stay separate because a blog post and a peer-reviewed paper are different kinds
 of evidence: separate state, separate rubrics, separate output. Merging them would
 let an unsourced assertion sit beside a replicated result with nothing marking the
@@ -202,6 +208,15 @@ evidence basis, citation-count divergence). The list below is the summary.
   linted by `tools/check_webscan.py` before it is presented. Kept deliberately
   separate from the academic track so an unreviewed assertion never sits beside a
   replicated result unmarked.
+- **`/graph`** builds the **library knowledge graph**, `graph/index.html`: every paper
+  and web source in one interactive 3D page, new items ringed. Four views: the library
+  by sub-area (from your profile), research groups (labs found from OpenAlex author
+  records, around each paper's senior author), a timeline with citation links, and
+  gaps (your reports' open questions plus computed ones, each showing the rule that
+  produced it). Every encoding is explained in a legend, every count opens the list of
+  what it counts, and a sortable list view shows exactly what the graph shows. The
+  search commands rebuild it as their last step; it is linted by
+  `tools/knowledge_graph.py --check` and works offline.
 - **`/gaps`** reasons across **all** your reports at once, which no other command
   does: it surfaces open questions that recur independently in two or more reports (a
   research-direction signal a single report cannot produce), flags sources already in
@@ -246,6 +261,7 @@ ai-research-assistant/
 │   │   ├── gaps.md                        # /gaps cross-report analysis
 │   │   ├── outcome.md                     # /outcome record what happened to a report
 │   │   ├── update.md                      # /update living-document refresh of a report
+│   │   ├── graph.md                       # /graph build the library knowledge graph
 │   │   └── websearch.md                   # /websearch blog & website scan -> interactive HTML
 │   ├── skills/
 │   │   └── research-assistant/            # Core research skill
@@ -280,6 +296,10 @@ ai-research-assistant/
 ├── blog/                                  # /websearch output — interactive HTML scans
 │   ├── README.md
 │   └── template.html                      # Self-contained report shell (tracked)
+├── graph/                                 # /graph output — the library knowledge graph
+│   ├── README.md
+│   ├── template.html                      # Page shell (tracked); index.html is built and gitignored
+│   └── vendor/                            # three.js + 3d-force-graph, inlined so the page is offline
 ├── research/                              # Discovery state (seen_sources.json, papers_by_subject.md)
 ├── reports/                               # Compiled synthesis reports (per topic), incl. outcome.md logs
 ├── research_tracker.csv                   # /outcome status overview across all reports (gitignored)
@@ -288,6 +308,10 @@ ai-research-assistant/
 │   ├── check_report.py                    # Report linter: sections, bib fields, style, compile; --claims scan
 │   ├── evidence_table.py                  # Generates the Evidence Basis table from references.bib
 │   ├── check_webscan.py                   # /websearch page linter: tokens, data block, schema, state
+│   ├── knowledge_graph.py                 # Builds and lints graph/index.html (the library graph)
+│   ├── kg_enrich.py                       # OpenAlex authorships + references -> research/graph_cache.json
+│   ├── kg_labs.py                         # Research groups from the author graph (Louvain)
+│   ├── kg_gaps.py                         # Report open questions + computed gap rules
 │   ├── lint_skills.py                     # CI lint for skills, commands, settings.json
 │   └── security_guards.py                 # CI guards: permission allowlist, gitignore rules, manifests
 ├── tests/
@@ -296,7 +320,12 @@ ai-research-assistant/
 │   ├── test_check_report.py
 │   ├── test_evidence_table.py
 │   ├── test_check_webscan.py
-│   └── test_web_template.py
+│   ├── test_web_template.py
+│   ├── test_knowledge_graph.py
+│   ├── test_graph_template.py
+│   ├── test_kg_enrich.py
+│   ├── test_kg_labs.py                    # incl. the researcher-confirmed lab split fixture
+│   └── test_kg_gaps.py
 ├── .github/workflows/ci.yml               # CI: LaTeX smoke compile, skill lint, CLI typechecks
 └── SETUP.md                               # Detailed setup guide
 ```

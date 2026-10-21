@@ -300,5 +300,30 @@ class CheckTests(unittest.TestCase):
             knowledge_graph.render({}, "<html>no slot</html>")
 
 
+class DocsDriftTests(unittest.TestCase):
+    """Commands and docs tell agents how to run the graph builder; a flag that does
+    not exist fails the run that follows them."""
+
+    DOCS = [*(REPO_ROOT / ".claude" / "commands").glob("*.md"),
+            *(REPO_ROOT / ".claude" / "skills").rglob("*.md"),
+            REPO_ROOT / "README.md", REPO_ROOT / "USAGE.md", REPO_ROOT / "CLAUDE.md",
+            REPO_ROOT / "graph" / "README.md"]
+
+    def test_documented_invocations_use_real_flags(self):
+        real = {o for a in knowledge_graph.build_parser()._actions for o in a.option_strings}
+        for doc in self.DOCS:
+            for line in doc.read_text().splitlines():
+                if "tools/knowledge_graph.py" not in line:
+                    continue
+                for flag in re.findall(r"(?<![\w-])--[a-z][a-z-]*", line.split("knowledge_graph.py", 1)[1]):
+                    self.assertIn(flag, real, f"{doc.relative_to(REPO_ROOT)}: {line.strip()}")
+
+    def test_every_search_command_refreshes_the_graph(self):
+        commands = REPO_ROOT / ".claude" / "commands"
+        for name in ("research", "rank", "synthesize", "update", "websearch", "graph"):
+            text = (commands / f"{name}.md").read_text()
+            self.assertIn("python3 tools/knowledge_graph.py --enrich", text, name)
+
+
 if __name__ == "__main__":
     unittest.main()

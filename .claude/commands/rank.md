@@ -141,6 +141,20 @@ re-scores them.
 
 The helper regenerates `research/papers_by_subject.md` as part of the same write.
 
+### Refresh the library graph
+
+Rebuild the library knowledge graph (`/graph`) so it shows what this run added:
+
+```bash
+python3 tools/knowledge_graph.py --enrich
+```
+
+It fetches OpenAlex author records for papers new to it, then rebuilds
+`graph/index.html` and prints a one-line "what's new" summary. Quote that line and the
+page path in the presentation below. A rate limit stops the fetch with its progress
+saved and the page still builds; if the build itself fails, say so and carry on - it
+never fails this run.
+
 ---
 
 ## Step 5: Present the Shortlist

@@ -243,6 +243,20 @@ or a table caption.
    sources, revised §4.2") so earlier notes are kept. Do not create the tracker or a
    new row if none exists - that's `/outcome`'s job, so check first.
 
+### Refresh the library graph
+
+Rebuild the library knowledge graph (`/graph`) so it shows what this run added:
+
+```bash
+python3 tools/knowledge_graph.py --enrich
+```
+
+It fetches OpenAlex author records for papers new to it, then rebuilds
+`graph/index.html` and prints a one-line "what's new" summary. Quote that line and the
+page path in the presentation below. A rate limit stops the fetch with its progress
+saved and the page still builds; if the build itself fails, say so and carry on - it
+never fails this run.
+
 ---
 
 ## Step 6: Present the Delta

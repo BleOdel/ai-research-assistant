@@ -71,10 +71,14 @@ access date and flagged in the prose as not peer-reviewed. See
   any `/defend` prep packs and `/outcome` logs
 - `blog/` - Web track: `template.html` (tracked) and one folder per `/websearch`
   scan containing `index.html` + `sources.json`; state in `seen_web_sources.json`
+- `graph/` - The library knowledge graph: `template.html` and `vendor/` (tracked);
+  `index.html` is built by `tools/knowledge_graph.py` and gitignored
 - `tools/` - `state.py` (the only write path for `research/`, `blog/` and tracker
   state - validated, locked, atomic), `check_report.py` (the report linter) and
   `evidence_table.py` (generates a report's Evidence Basis table from its `.bib`),
-  `check_webscan.py` (the `/websearch` page linter), plus CI guards
+  `check_webscan.py` (the `/websearch` page linter), `knowledge_graph.py` (builds
+  and lints the library graph, with `kg_enrich.py`, `kg_labs.py` and `kg_gaps.py`),
+  plus CI guards
 - `.claude/skills/` - AI skill definitions for the research workflow
 - `.agents/skills/` - Source-database CLI tools (arxiv-search,
   semantic-scholar-search, google-scholar-search, openalex-search) plus

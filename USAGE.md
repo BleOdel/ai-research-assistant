@@ -22,6 +22,7 @@ Type these **inside Claude Code**, not in your shell.
 | `/update <topic>` | Refresh an existing report in place, with a dated Revision History |
 | `/defend <topic> [context]` | Stress-test or presentation/viva prep pack + mock Q&A |
 | `/outcome [topic]` | Record what happened to a report after the fact |
+| `/graph [YYYY-MM-DD]` | Build the library knowledge graph: labs, sub-areas, timeline, gaps |
 | `/gaps` | Cross-report: recurring gaps, divergent sources, portfolio health |
 | `/expand` | Enrich your profile from `documents/`, Google Scholar, GitHub |
 | `/add-source` | Generate a new source-database connector |
@@ -211,6 +212,36 @@ that it isn't peer-reviewed.
 
 `/websearch` uses the built-in `WebSearch`, not a connector CLI — deliberately, so
 it costs nothing against your 250-per-month SerpApi quota.
+
+---
+
+## 2c. Your library graph
+
+Every search command ends by rebuilding `graph/index.html`, and `/graph` rebuilds it on
+demand. Open it in a browser: no server, no network. It is the whole library in one
+picture, with everything new since your last search ringed:
+
+- **Library** (key 1) - papers and web sources around the sub-areas in your profile.
+- **Research groups** (2) - papers clustered by lab. A lab is a group of authors who
+  publish together, found from OpenAlex author records and named after its senior
+  (last) author; a paper belongs to its senior author's lab. Labs that rest partly on
+  matching authors by name are flagged.
+- **Timeline** (3) - year left to right, undated items in their own lane, arrows for
+  citations between your papers.
+- **Gaps** (4) - your reports' open questions, plus computed gaps: fewer than 3 scored
+  papers in a sub-area, no paper in the last 2 years, 3 or more attacks and no defence,
+  Core/Supporting papers no report cites, and profile landmarks missing from the
+  library. Each gap shows the rule that produced it.
+
+Colour is the research interest everywhere; shape, size, solidity and rings carry the
+rest, and the legend explains them. Click anything for details; every count opens the
+list of what it counts; **List view** is a sortable table of exactly what is shown and
+exports as a Markdown or CSV reading list. The address bar keeps the view, focus and
+filters, so a bookmark reopens the same picture.
+
+The labels behind it are the `subareas` and `contribution` fields scoring adds to each
+source. `/graph` lists any that are missing or name a sub-area your profile no longer
+has, and offers to relabel them from the abstracts.
 
 ---
 
@@ -514,6 +545,10 @@ blog/
     template.html         interactive report shell (tracked, editable)
     seen_web_sources.json web discovery state
     <topic-slug>/         index.html + sources.json from /websearch
+graph/
+    index.html            the library graph (built, gitignored - it holds your titles)
+    template.html         page shell (tracked)
+research/graph_cache.json OpenAlex author records and references for the graph
 templates/                custom formats from /add-template
 ```
 

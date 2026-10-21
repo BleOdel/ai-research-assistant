@@ -105,6 +105,9 @@ The user may also ask for individual steps without the full workflow:
   equivalent to `/gaps`, which reasons across all reports at once rather than one
 - "Bring this report up to date" / "what's new on this topic since the report" -
   equivalent to `/update`, see `08-living-updates.md`
+- "Show me my library" / "which labs do these papers come from" / "where are the
+  gaps" - equivalent to `/graph`, which builds `graph/index.html` with
+  `python3 tools/knowledge_graph.py --enrich`
 - "What are practitioners writing about X" / "find blogs and websites on X" -
   equivalent to `/websearch`, see `09-web-source-evaluation.md`. This is the
   grey-literature track: separate state, separate rubric, HTML output. Never blend
