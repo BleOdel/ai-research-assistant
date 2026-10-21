@@ -75,6 +75,21 @@ def openalex_lookup_id(state_key: str, entry: dict) -> str | None:
     return None
 
 
+MIN_MAIN_TITLE = 6  # a main title shorter than this ("Survey") says nothing on its own
+
+
+def same_paper(ours: str, theirs: str) -> bool:
+    """Whether OpenAlex's title names the paper the library has. Either the titles
+    match (state.title_matches), or their main titles - the part before the first
+    colon - are identical: OpenAlex sometimes keeps only the main title, or a
+    revised version's subtitle."""
+    if state.title_matches(ours, theirs):
+        return True
+    main = lambda t: state._norm_title(t.split(":", 1)[0])  # noqa: E731
+    a, b = main(ours), main(theirs)
+    return len(a) >= MIN_MAIN_TITLE and a == b and len(a.split()) >= 2
+
+
 def connector_fetch(lookup_id: str) -> dict | None:
     """The connector's parsed work, or None if OpenAlex has no such work."""
     time.sleep(PACE_SECONDS)
@@ -168,7 +183,7 @@ def enrich(entries: dict, fetch: Callable[[str], dict | None], today: str,
         else:
             mismatch = None
             if work is not None and entry.get("title") and \
-                    not state.title_matches(entry["title"], work.get("title") or ""):
+                    not same_paper(entry["title"], work.get("title") or ""):
                 mismatch = f"title mismatch: OpenAlex returned {str(work.get('title'))[:120]!r}"
             works[key] = _record(work, today, error=mismatch)
             counts["errors" if work is None or mismatch else "fetched"] += 1

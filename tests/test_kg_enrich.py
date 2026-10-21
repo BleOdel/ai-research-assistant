@@ -153,6 +153,20 @@ class EnrichTests(unittest.TestCase):
                               "2026-10-21", cache=self.cache)
         self.assertEqual(ok["fetched"], 1)
 
+    def test_same_paper_under_a_variant_title(self):
+        # Seen on the live library: a short OpenAlex title, and the same main title
+        # with a different subtitle (a revised version), are the same paper; a
+        # different main title is not, however close.
+        same = kg_enrich.same_paper
+        self.assertTrue(same("Face-Mic: inferring live speech via AR/VR motion sensors", "Face-Mic"))
+        self.assertTrue(same("Poisoning the Watchtower: Prompt Injection Attacks Against LLM-Based Monitoring",
+                             "Poisoning the Watchtower: Prompt Injection Attacks Against Security Operations"))
+        self.assertFalse(same("AgentDojo: A Dynamic Environment to Evaluate Attacks and Defenses",
+                              "AgentDojo-PROV: A W3C PROV-O Corpus of LLM Agent Executions"))
+        self.assertFalse(same("Evaluating Large Language Models Trained on Code",
+                              "A Direction-Aware Study of LLM-Based Code Translation"))
+        self.assertFalse(same("Survey: Privacy in VR", "Survey: Malware in AR"))  # main part too generic
+
     def test_skipped_entries_are_not_enriched(self):
         self.entries["10.1000/s"] = {"title": "S", "status": "skipped"}
         self.run_enrich(self.fetch_ok)
