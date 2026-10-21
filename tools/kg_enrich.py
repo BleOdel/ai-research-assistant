@@ -11,9 +11,10 @@ institutions and each work's referenced_works, so this fetches them once per
 paper through the openalex-search connector's `detail` command (free of the
 search allowance) and keeps them in research/graph_cache.json.
 
-Only papers missing from the cache are fetched, plus failures older than 30
-days. A rate limit stops the run with everything fetched so far saved; the
-next run carries on. A paper with no DOI, arXiv id or OpenAlex id (one known
+Only papers missing from the cache are fetched, plus papers OpenAlex did not
+know 30 or more days ago. A rate limit or any other connector failure (network
+down, bun missing, a hung call) stops the run with everything fetched so far
+saved and records nothing against the paper; the next run carries on. A paper with no DOI, arXiv id or OpenAlex id (one known
 only by a Semantic Scholar URL) is skipped and falls back to name matching.
 
 Reads research/seen_sources.json; never writes state. Stdlib only.
@@ -36,6 +37,7 @@ CACHE = ROOT / "research" / "graph_cache.json"
 CONNECTOR = ROOT / ".agents" / "skills" / "openalex-search" / "cli" / "src" / "cli.ts"
 RETRY_AFTER_DAYS = 30
 PACE_SECONDS = 0.2
+TIMEOUT_SECONDS = 60
 OPENALEX_WORK = re.compile(r"(?:openalex:|openalex\.org/)(W\d+)", re.I)
 
 
@@ -44,7 +46,8 @@ class RateLimited(Exception):
 
 
 class FetchFailed(Exception):
-    """Any other connector failure: recorded against that paper, run continues."""
+    """Any other connector failure. Transient as far as we can tell: stop the run,
+    record nothing, retry next time."""
 
 
 def openalex_lookup_id(state_key: str, entry: dict) -> str | None:
@@ -71,10 +74,16 @@ def openalex_lookup_id(state_key: str, entry: dict) -> str | None:
 def connector_fetch(lookup_id: str) -> dict | None:
     """The connector's parsed work, or None if OpenAlex has no such work."""
     time.sleep(PACE_SECONDS)
-    proc = subprocess.run(["bun", "run", str(CONNECTOR), "detail", lookup_id, "--format", "json"],
-                          capture_output=True, text=True, cwd=ROOT)
+    try:
+        proc = subprocess.run(["bun", "run", str(CONNECTOR), "detail", lookup_id, "--format", "json"],
+                              capture_output=True, text=True, cwd=ROOT, timeout=TIMEOUT_SECONDS)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise FetchFailed(f"connector could not run: {exc}") from exc
     if proc.returncode == 0:
-        return json.loads(proc.stdout)
+        try:
+            return json.loads(proc.stdout)
+        except json.JSONDecodeError as exc:
+            raise FetchFailed(f"connector printed invalid JSON: {exc}") from exc
     try:
         err = json.loads(proc.stderr.strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
@@ -148,8 +157,9 @@ def enrich(entries: dict, fetch: Callable[[str], dict | None], today: str,
             counts["stopped"] = "rate-limited"
             break
         except FetchFailed as exc:
-            works[key] = _record(None, today, error=str(exc))
-            counts["errors"] += 1
+            counts["stopped"] = "connector-failed"
+            counts["failure"] = str(exc)
+            break
         else:
             works[key] = _record(work, today)
             counts["errors" if work is None else "fetched"] += 1
@@ -172,6 +182,8 @@ def main(argv: list[str]) -> int:
               "no DOI/arXiv/OpenAlex id (matched by name instead)")
         if counts["stopped"] == "rate-limited":
             print("Stopped: OpenAlex rate limit. Progress is saved; run again later.")
+        elif counts["stopped"] == "connector-failed":
+            print(f"Stopped: {counts['failure']}. Progress is saved; run again later.")
         elif counts["stopped"] == "limit":
             print("Stopped at --limit. Run again to continue.")
     return 0

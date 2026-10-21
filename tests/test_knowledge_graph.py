@@ -236,6 +236,24 @@ class BuildTests(GraphFixture):
         data = self.build("--new-since", "2026-12-01")
         self.assertEqual(data["meta"]["summary"], "Nothing new since 2026-12-01.")
 
+    def test_page_builds_when_enrichment_cannot_run(self):
+        # The fixture has no connector and PATH has no bun: enrichment fails, the
+        # page is still built, and the failure is reported.
+        result = subprocess.run([sys.executable, str(self.root / "tools" / "knowledge_graph.py"),
+                                 "--enrich"], capture_output=True, text=True,
+                                env={"PATH": "/nonexistent", "HOME": str(self.root)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("OpenAlex", result.stdout)
+        self.assertEqual(knowledge_graph.check(self.page.read_text()), [])
+
+    def test_unreadable_report_is_skipped_not_fatal(self):
+        bad = self.root / "reports" / "r2"
+        bad.mkdir()
+        (bad / "report.tex").write_text(r"\title{Unbalanced \begin{document}")
+        data = self.build()
+        self.assertIn("report:r1", [n["id"] for n in data["nodes"]])
+        self.assertTrue(any("r2" in w for w in data["meta"]["warnings"]), data["meta"])
+
     def test_synthetic_library_builds(self):
         data = self.build("--synthetic", "60")
         self.assertEqual(sum(1 for n in data["nodes"] if n["type"] == "paper"), 60)

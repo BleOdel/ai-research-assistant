@@ -169,11 +169,22 @@ def report_index(report_dir: Path, entries: dict) -> dict:
             "open_questions": questions, "cited_ids": cited_ids}
 
 
-def report_indexes(reports_dir: Path, entries: dict) -> list[dict]:
+def report_indexes(reports_dir: Path, entries: dict,
+                   warnings: list[str] | None = None) -> list[dict]:
+    """Every report under REPORTS_DIR. One that cannot be read is skipped with a
+    line in WARNINGS, so a half-written report never stops the graph building."""
     if not reports_dir.is_dir():
         return []
-    return [report_index(d, entries) for d in sorted(reports_dir.iterdir())
-            if (d / "report.tex").is_file()]
+    out = []
+    for d in sorted(reports_dir.iterdir()):
+        if not (d / "report.tex").is_file():
+            continue
+        try:
+            out.append(report_index(d, entries))
+        except (ValueError, OSError, UnicodeDecodeError) as exc:
+            if warnings is not None:
+                warnings.append(f"report {d.name} could not be read and is left out: {exc}")
+    return out
 
 
 def _owner(label: str, interest: str, taxonomy: dict) -> tuple[str, str]:

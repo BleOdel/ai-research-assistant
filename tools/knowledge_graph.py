@@ -147,11 +147,13 @@ class Hubs:
 def _library() -> dict:
     entries = state.load("sources", state.FILES["sources"])
     taxonomy = state.subareas_all()
+    warnings: list[str] = []
     return {
+        "warnings": warnings,
         "entries": entries,
         "web": state.load("web", state.FILES["web"]),
         "cache": kg_enrich.load_cache(),
-        "reports": kg_gaps.report_indexes(ROOT / "reports", entries),
+        "reports": kg_gaps.report_indexes(ROOT / "reports", entries, warnings),
         "taxonomy": taxonomy,
         "details": {i: {s["name"]: s["detail"] for s in state.subarea_entries(i)}
                     for i in taxonomy},
@@ -196,7 +198,7 @@ def synthetic_library(n: int, seed: int = 7) -> dict:
                                    "institutions": [{"id": f"I{labs.index(lab)}",
                                                      "name": f"Institute {labs.index(lab)}"}]}
                                   for j, a in enumerate(team)]}
-    return {"entries": entries, "web": {}, "cache": {"works": works}, "reports": [],
+    return {"warnings": [], "entries": entries, "web": {}, "cache": {"works": works}, "reports": [],
             "taxonomy": taxonomy, "details": {}, "landmarks": {}, "pdfs": {}}
 
 
@@ -374,6 +376,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     return {
         "meta": {
             "built": today, "latestDate": latest, "newSince": new_since, "summary": summary,
+            "warnings": lib["warnings"],
             "synthetic": bool(synthetic),
             "counts": {"papers": sum(1 for n in nodes if n["type"] == "paper"),
                        "web": sum(1 for n in nodes if n["type"] == "web"),
@@ -483,13 +486,21 @@ def main(argv: list[str]) -> int:
         print("--new-since must be YYYY-MM-DD", file=sys.stderr)
         return 1
     if args.enrich and not args.synthetic:
-        entries = state.load("sources", state.FILES["sources"])
-        counts = kg_enrich.enrich(entries, kg_enrich.connector_fetch, date.today().isoformat())
+        # Enrichment is an improvement, never a precondition: whatever goes wrong,
+        # the page is still built from what is cached.
+        try:
+            entries = state.load("sources", state.FILES["sources"])
+            counts = kg_enrich.enrich(entries, kg_enrich.connector_fetch,
+                                      date.today().isoformat())
+            note = {"rate-limited": " (stopped: rate limit; run again later)",
+                    "connector-failed": f" (stopped: {counts.get('failure')}; run again later)"
+                    }.get(counts["stopped"], "")
+            line = (f"OpenAlex: {counts['fetched']} fetched, {counts['cached']} cached, "
+                    f"{counts['errors']} not found, {counts['skipped_no_id']} without an id{note}")
+        except Exception as exc:  # noqa: BLE001 - see above
+            line = f"OpenAlex: enrichment failed ({exc}); building from the cache"
         if not args.json:
-            print(f"OpenAlex: {counts['fetched']} fetched, {counts['cached']} cached, "
-                  f"{counts['errors']} not found, {counts['skipped_no_id']} without an id"
-                  + (" (stopped: rate limit; run again later)"
-                     if counts["stopped"] == "rate-limited" else ""))
+            print(line)
     data = build(new_since=args.new_since, synthetic=args.synthetic)
     html = render(data, TEMPLATE.read_text(encoding="utf-8"))
     state.atomic_write(PAGE, html)
@@ -502,6 +513,8 @@ def main(argv: list[str]) -> int:
         print(data["meta"]["summary"])
         print(f"{c['papers']} papers, {c['web']} web sources, {c['labs']} labs with more than "
               f"one paper, {c['gaps']} gaps -> {path}")
+        for w in data["meta"]["warnings"]:
+            print(f"WARNING {w}")
     return 0
 
 

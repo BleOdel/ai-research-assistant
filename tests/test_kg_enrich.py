@@ -8,6 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import kg_enrich  # noqa: E402
+kg_enrich.PACE_SECONDS = 0
 
 
 def work(wid, authors=(("A1", "Ann Author", "last"),), refs=()):
@@ -105,6 +106,36 @@ class EnrichTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
         self.run_enrich(self.fetch_ok, today="2026-11-20")
         self.assertEqual(len(self.calls), 3)
+
+    def test_transient_failure_stops_and_is_retried_next_run(self):
+        # A network outage is not a fact about the paper: nothing is recorded, the
+        # run stops (every later call would fail too), and the next run retries.
+        def down(lookup):
+            self.calls.append(lookup)
+            raise kg_enrich.FetchFailed("DETAIL_FAILED: network down")
+        counts = self.run_enrich(down)
+        self.assertEqual((counts["stopped"], len(self.calls)), ("connector-failed", 1))
+        self.assertFalse(self.cache.exists() and self.cached())
+        self.calls.clear()
+        self.run_enrich(self.fetch_ok)
+        self.assertEqual(len(self.calls), 3)
+
+    def test_connector_fetch_turns_local_failures_into_fetchfailed(self):
+        import subprocess
+        real = subprocess.run
+        cases = [FileNotFoundError("bun"), subprocess.TimeoutExpired("bun", 60),
+                 subprocess.CompletedProcess([], 0, stdout="not json", stderr="")]
+        for case in cases:
+            def fake(*a, **kw):
+                if isinstance(case, BaseException):
+                    raise case
+                return case
+            subprocess.run = fake
+            try:
+                with self.assertRaises(kg_enrich.FetchFailed, msg=repr(case)):
+                    kg_enrich.connector_fetch("10.1000/x")
+            finally:
+                subprocess.run = real
 
     def test_skipped_entries_are_not_enriched(self):
         self.entries["10.1000/s"] = {"title": "S", "status": "skipped"}
