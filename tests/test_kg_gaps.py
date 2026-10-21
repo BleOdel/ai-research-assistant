@@ -155,6 +155,20 @@ class ReportIndexTests(unittest.TestCase):
         # a paper is used.
         self.assertNotIn("Evidence Basis", cites["arxiv:2301.00001"])
 
+    def test_refs_and_nested_lists_read_as_text(self):
+        # Seen on the live reports: "Section sec:adaptive" and a stray "itemize".
+        tex = REPORT.replace(r"\section{Side Channels}", r"\section{Side Channels}\label{sec:side}")
+        tex = tex.replace(r"Nobody has measured", r"See Section~\ref{sec:side}. \begin{itemize} \item One \end{itemize} Nobody has measured")
+        (self.dir / "report.tex").write_text(tex)
+        text = kg_gaps.report_index(self.dir, self.entries)["open_questions"][1]["text"]
+        self.assertTrue(text.startswith("See Section Side Channels. One Nobody"), text)
+        self.assertNotIn("itemize", text)
+
+    def test_zero_papers_reads_naturally(self):
+        gaps = kg_gaps.computed_gaps({"a": paper("Auth")}, 2026, TAXONOMY)
+        forensics = next(g for g in gaps if g["subarea"] == "Forensics" and g["kind"] == "thin")
+        self.assertEqual(forensics["text"], "No scored papers on Forensics")
+
     def test_open_questions_heading_anywhere_in_title(self):
         # check_report accepts "Open Questions" anywhere in the heading; so must this.
         (self.dir / "report.tex").write_text(REPORT.replace(

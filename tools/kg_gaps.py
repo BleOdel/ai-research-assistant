@@ -53,8 +53,9 @@ def _author_label(fields: dict | None, key: str) -> tuple[str, str]:
     return name, plain(fields.get("year") or "n.d.")
 
 
-def latex_to_text(tex: str, bib: dict) -> str:
-    """Readable plain text: citations become author-year, markup is dropped."""
+def latex_to_text(tex: str, bib: dict, labels: dict | None = None) -> str:
+    """Readable plain text: citations become author-year, a \\ref becomes the title
+    of the section it points to (LABELS), list environments and markup are dropped."""
     def cite(m):
         command, keys = m.group(1), [k.strip() for k in m.group(2).split(",") if k.strip()]
         labels = [_author_label(bib.get(k), k) for k in keys]
@@ -71,6 +72,10 @@ def latex_to_text(tex: str, bib: dict) -> str:
         return "(" + "; ".join(f"{n}, {y}" for n, y in labels) + ")"
 
     text = CITE.sub(cite, tex)
+    text = re.sub(r"\\(?:auto|c|C|name)?ref\*?\{([^}]*)\}",
+                  lambda m: (labels or {}).get(m.group(1), ""), text)
+    text = re.sub(r"\\(?:begin|end)\{[^}]*\}", " ", text)
+    text = re.sub(r"\\item\b(?:\[[^\]]*\])?", " ", text)
     text = text.replace("\\\\", " ").replace("\\ ", " ")  # line break, control space
     text = text.replace("\\%", "%").replace("\\&", "&").replace("\\_", "_").replace("\\$", "$")
     text = text.replace("\\ldots", "…").replace("---", "—").replace("--", "–")
@@ -106,6 +111,14 @@ def report_index(report_dir: Path, entries: dict) -> dict:
         hits = sorted(index[i] for i in ids if i in index)
         if hits:
             to_state[bkey] = hits[0]
+
+    # \label{} right after a heading names that heading, for \ref{} in the text.
+    labels = {}
+    for m in HEADING.finditer(tex):
+        heading, end = _balanced(tex, m.end() - 1)
+        lab = re.match(r"\s*\\label\{([^}]*)\}", tex[end:])
+        if lab:
+            labels[lab.group(1)] = latex_to_text(heading, bib)
 
     title_match = re.search(r"\\title\{", tex)
     title = report_dir.name
@@ -164,7 +177,7 @@ def report_index(report_dir: Path, entries: dict) -> dict:
                 for bkey in (k.strip() for k in cm.group(2).split(",")):
                     if bkey in to_state and to_state[bkey] not in keys:
                         keys.append(to_state[bkey])
-            q.update(text=latex_to_text(raw, bib), keys=keys)
+            q.update(text=latex_to_text(raw, bib, labels), keys=keys)
         break
     # Ids end up in bookmarks, so they come from the question's text, not its position.
     seen = {}
@@ -230,8 +243,8 @@ def computed_gaps(entries: dict, current_year: int, taxonomy: dict[str, list[str
         if len(keys) < THIN_BELOW:
             gaps.append({"id": f"thin:{where}", "kind": "thin", "interest": interest,
                          "subarea": sub, "items": keys,
-                         "text": f"Only {len(keys)} scored paper{'s' if len(keys) != 1 else ''} "
-                                 f"on {sub}",
+                         "text": (f"No scored papers on {sub}" if not keys else
+                                  f"Only {len(keys)} scored paper{'s' if len(keys) != 1 else ''} on {sub}"),
                          "rule": f"Fewer than {THIN_BELOW} scored papers in this sub-area"})
         years = [entries[k]["year"] for k in keys if isinstance(entries[k].get("year"), int)]
         if years and max(years) < cutoff:
