@@ -95,6 +95,21 @@ class ClassifyTests(unittest.TestCase):
         r = kg_labs.classify_labs(papers)
         self.assertEqual(lab_of(r, "id1"), lab_of(r, "name1"))
 
+    def test_joined_author_flagged_only_where_matched_by_name(self):
+        # Zoe is identified by OpenAlex on id1 and only by name on name1. The doubt
+        # belongs to name1, whose senior author (Quinn) was matched by name; id1 and
+        # Zoe's OpenAlex record are not in doubt. A name-matched co-author does not
+        # flag a paper: its lab is decided by the senior author alone.
+        papers = {"id1": [au("Z1", "Zoe Zed", "first"), au("Q9", "Quinn Q", "last")],
+                  "name1": [{"name": "Z. Zed"}, {"name": "Quinn Q"}]}
+        r = kg_labs.classify_labs(papers)
+        self.assertEqual(r["paper_named"], {"id1": False, "name1": True})
+        lab = next(l for l in r["labs"] if l["id"] == lab_of(r, "id1"))
+        self.assertEqual(lab["named_papers"], 1)
+        self.assertFalse(next(a for a in lab["authors"] if a["key"].endswith("Z1"))["matched_by_name"])
+        mixed = kg_labs.classify_labs({"m": [{"name": "No Id"}, au("S1", "Sen Ior", "last")]})
+        self.assertEqual(mixed["paper_named"], {"m": False})
+
     def test_deterministic(self):
         first = kg_labs.classify_labs(two_labs())
         second = kg_labs.classify_labs(dict(reversed(list(two_labs().items()))))

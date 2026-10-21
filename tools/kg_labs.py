@@ -134,15 +134,21 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
     by_name, names, insts = set(), defaultdict(Counter), defaultdict(Counter)
     paper_authors, paper_senior = {}, {}
     weights = defaultdict(float)
+    # Doubt sits with the authorship, not the person. A paper's lab is its senior
+    # author's, so a paper is flagged when its senior author was matched by name; an
+    # author is flagged only when no OpenAlex id was ever found for them.
+    paper_named = {}
     for pid in sorted(papers):
         authors = [a for a in papers[pid] if a.get("name") or a.get("authorId")]
-        keys, inst_ids = [], []
+        keys, inst_ids, named_at = [], [], []
         for a in authors:
             key, named = author_key(a)
-            if named and len(ids_by_name.get(key, ())) == 1:
-                key = next(iter(ids_by_name[key]))
+            named_at.append(named)
             if named:
-                by_name.add(key)
+                if len(ids_by_name.get(key, ())) == 1:
+                    key = next(iter(ids_by_name[key]))
+                else:
+                    by_name.add(key)
             keys.append(key)
             inst_ids.append({i["id"] for i in a.get("institutions") or [] if i.get("id")})
             names[key][a.get("name") or key] += 1
@@ -150,6 +156,7 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
                 if i.get("name"):
                     insts[key][i["name"]] += 1
         senior = keys[_senior_index(authors)] if keys else None
+        paper_named[pid] = bool(keys) and named_at[_senior_index(authors)]
         paper_senior[pid] = senior
         paper_authors[pid] = list(dict.fromkeys(keys))
         for i in range(len(keys)):
@@ -222,10 +229,11 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
                                                                     display(k)))],
             "papers": primary_by_comm[c],
             "bridges": [p for p in sorted(papers) if lid in paper_labs[p][1:]],
-            "matched_by_name": any(k in by_name for k in members[c]),
+            "named_papers": sum(paper_named[p] for p in primary_by_comm[c]),
+            "matched_by_name": any(paper_named[p] for p in primary_by_comm[c]),
         })
     return {"author_lab": {k: lab_id[community[k]] for k in all_keys}, "labs": labs,
-            "paper_primary": paper_primary, "paper_labs": paper_labs,
+            "paper_primary": paper_primary, "paper_labs": paper_labs, "paper_named": paper_named,
             "paper_authors": paper_authors}
 
 
@@ -299,8 +307,8 @@ def main(argv: list[str]) -> int:
           f"(classified across the whole library of {len(result['paper_primary'])}).\n")
     for lab in labs:
         where = f", {lab['institution']}" if lab["institution"] else ""
-        named = sum(a["matched_by_name"] for a in lab["authors"])
-        flag = f"  [{named} author(s) matched by name]" if named else ""
+        flag = (f"  [{lab['named_papers']} paper(s) with authors matched by name]"
+                if lab["named_papers"] else "")
         print(f"{lab['id']}  {lab['name']}{where} - {len(lab['papers'])} paper(s){flag}")
         core = [a["name"] for a in lab["authors"][:6]]
         print(f"    authors: {', '.join(core)}"

@@ -651,7 +651,7 @@ function renderLegend() {
     L.append(el("h2", {}, "Labs with more than one paper (" + labs.length + ")"));
     L.append(el("p", { class: "small muted" }, "A lab is a group of authors who publish together, weighted towards senior (last) authors and shared institutions. Click one to highlight its papers."));
     const ul = el("ul", { style: "padding-left:16px;margin:4px 0" });
-    for (const { l, n } of labs) ul.append(el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("lab:" + l.id) } }, l.name + (l.institution ? ", " + l.institution : "")), " ", el("span", { class: "muted" }, "(" + n + ")"), l.matchedByName ? el("span", { class: "muted small" }, " · some authors matched by name") : null));
+    for (const { l, n } of labs) ul.append(el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("lab:" + l.id) } }, l.name + (l.institution ? ", " + l.institution : "")), " ", el("span", { class: "muted" }, "(" + n + ")"), l.namedPapers ? el("span", { class: "muted small" }, " · " + plural(l.namedPapers, "paper") + " with authors matched by name") : null));
     L.append(ul);
   }
   if (S.view === "gaps") {
@@ -836,10 +836,10 @@ function reportDetail(r) {
     qs.length ? el("div", {}, el("h2", {}, "Open questions"), el("ul", {}, qs.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text))))) : null);
 }
 function labDetail(l) {
-  const named = l.authors.filter((a) => a.matchedByName).length;
+  const named = l.authors.filter((a) => a.matchedByName).length; /* no OpenAlex id found anywhere */
   return el("div", {}, el("span", { class: "tag" }, "Lab"), el("h3", {}, l.name + (l.institution ? ", " + l.institution : "")),
     el("p", { class: "small muted" }, "Named after " + l.senior + ". A lab is a group of authors who publish together, found from OpenAlex author records."),
-    named ? el("p", { class: "small" }, plural(named, "author") + " matched by name only, which can merge two people with the same name.") : null,
+    l.namedPapers ? el("p", { class: "small" }, plural(l.namedPapers, "paper") + " here had no OpenAlex record, so their authors were matched by name, which can merge two people with the same name.") : null,
     dl([["Papers (senior author here)", countBtn(l.papers, l.name + ": papers")], ["Bridges (co-author here)", countBtn(l.bridges, l.name + ": bridge papers")]]),
     el("h2", {}, "Authors (" + l.authors.length + ")"),
     el("p", { class: "small" }, l.authors.slice(0, 15).map((a) => a.name + " (" + a.papers + ")" + (a.matchedByName ? "*" : "")).join(", ") + (l.authors.length > 15 ? ", and " + (l.authors.length - 15) + " more" : "")),

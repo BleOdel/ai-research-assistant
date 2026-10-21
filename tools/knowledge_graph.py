@@ -242,7 +242,6 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     hubs = Hubs(taxonomy, lib["details"])
 
     labs = kg_labs.classify_labs(kg_labs.library_papers(entries, cache))
-    named = {a["key"] for lab in labs["labs"] for a in lab["authors"] if a["matched_by_name"]}
     pid = lambda key: f"paper:{key}"  # noqa: E731
 
     reports = lib["reports"]
@@ -284,7 +283,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
             "isNew": status != "skipped" and (e.get("first_seen") or "") >= new_since,
             "primaryLab": labs["paper_primary"].get(key),
             "labs": labs["paper_labs"].get(key, []),
-            "matchedByName": bool(set(labs["paper_authors"].get(key, [])) & named),
+            "matchedByName": labs["paper_named"].get(key, False),
             "reports": used_in.get(key, []),
             "citesIn": cites_out[key], "citedByIn": cited_by[key],
         }
@@ -367,7 +366,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
         n.pop("_hubs", None)
 
     lab_list = [{"id": l["id"], "name": l["name"], "institution": l["institution"],
-                 "senior": l["senior"], "matchedByName": l["matched_by_name"],
+                 "senior": l["senior"], "namedPapers": l["named_papers"],
                  "authors": [{"name": a["name"], "papers": a["papers"],
                               "matchedByName": a["matched_by_name"]} for a in l["authors"]],
                  "papers": [pid(p) for p in l["papers"]],
