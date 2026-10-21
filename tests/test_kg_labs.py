@@ -106,6 +106,15 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual((lab["name"], lab["institution"]), ("Beta lab", "UniB"))
         self.assertEqual(sorted(lab["papers"]), ["p4", "p5", "p6"])
 
+    def test_lab_name_tie_goes_to_the_author_on_most_papers(self):
+        # Two papers, two different seniors (one each); Bea is on both, so the lab
+        # is hers, not whichever senior sorts first alphabetically.
+        papers = {"x1": [au("BB", "Bea Baggili", "middle"), au("AY", "Ann Yarr", "last")],
+                  "x2": [au("BB", "Bea Baggili", "middle"), au("CB", "Cy Breit", "last")]}
+        r = kg_labs.classify_labs(papers)
+        lab = next(l for l in r["labs"] if l["id"] == lab_of(r, "x1"))
+        self.assertEqual(lab["name"], "Baggili lab")
+
     def test_paper_with_no_authors_has_no_lab(self):
         r = kg_labs.classify_labs({"empty": []})
         self.assertIsNone(r["paper_primary"]["empty"])

@@ -190,8 +190,15 @@ def classify_labs(papers: dict[str, list[dict]]) -> dict:
     for c in order:
         lid = lab_id[c]
         seniors = Counter(paper_senior[p] for p in primary_by_comm[c])
-        if seniors:
-            head = sorted(seniors.items(), key=lambda kv: (-kv[1], display(kv[0])))[0][0]
+        on_papers = Counter(k for p in primary_by_comm[c] for k in paper_authors[p]
+                            if community[k] == c)
+        if seniors and max(seniors.values()) >= 2:
+            head = sorted(seniors.items(), key=lambda kv: (-kv[1], -on_papers[kv[0]],
+                                                           display(kv[0])))[0][0]
+        elif on_papers:
+            # Every senior author leads one paper: name the lab after whoever is on
+            # most of its papers, not whichever senior sorts first.
+            head = sorted(on_papers, key=lambda k: (-on_papers[k], -seniors[k], display(k)))[0]
         else:
             head = sorted(members[c], key=lambda k: (-sum(names[k].values()), display(k)))[0]
         surname = display(head).split()[-1] if display(head).split() else head
@@ -286,7 +293,8 @@ def main(argv: list[str]) -> int:
           f"(classified across the whole library of {len(result['paper_primary'])}).\n")
     for lab in labs:
         where = f", {lab['institution']}" if lab["institution"] else ""
-        flag = "  [includes authors matched by name]" if lab["matched_by_name"] else ""
+        named = sum(a["matched_by_name"] for a in lab["authors"])
+        flag = f"  [{named} author(s) matched by name]" if named else ""
         print(f"{lab['id']}  {lab['name']}{where} - {len(lab['papers'])} paper(s){flag}")
         core = [a["name"] for a in lab["authors"][:6]]
         print(f"    authors: {', '.join(core)}"
