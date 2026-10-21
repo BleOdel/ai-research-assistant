@@ -49,6 +49,8 @@ SOURCES = {
     "10.1000/d": paper(title="Unlabelled ML", subject="Applied ML", first_seen="2026-10-20",
                        year=None, authors=["Dee Different"]),
     "10.1000/e": paper(title="Could not fetch", status="unfetchable"),
+    "10.1000/f": paper(title="Fits nothing listed", subareas=[], contribution="survey",
+                       authors=["Fay Other"]),
 }
 
 WEB = {
@@ -153,8 +155,20 @@ class BuildTests(GraphFixture):
                          "XR Security: unassigned (label no longer in profile)")
         self.assertIn({"source": "paper:10.1000/b", "target": hub, "type": "subarea"},
                       data["edges"])
-        self.assertIn({"source": "paper:10.1000/d", "target": "subarea:Applied ML:__unassigned",
+    def test_not_yet_labelled_is_not_the_same_as_fits_nothing(self):
+        # No `subareas` field yet (e.g. straight after /research) is "not yet
+        # labelled"; a scored `[]` means no profile sub-area fits - a taxonomy signal.
+        data = self.build()
+        self.assertIn({"source": "paper:10.1000/d", "target": "subarea:Applied ML:__unlabelled",
                        "type": "subarea"}, data["edges"])
+        self.assertEqual(self.node(data, "subarea:Applied ML:__unlabelled")["label"],
+                         "Applied ML: not yet labelled")
+        self.assertIn({"source": "paper:10.1000/f", "target": "subarea:XR Security:__unassigned",
+                       "type": "subarea"}, data["edges"])
+        self.assertEqual(self.node(data, "subarea:XR Security:__unassigned")["label"],
+                         "XR Security: fits no listed sub-area")
+        self.assertIsNone(self.node(data, "paper:10.1000/d")["subareas"])
+        self.assertEqual(self.node(data, "paper:10.1000/f")["subareas"], [])
         self.assertEqual(self.node(data, "subarea:XR Security:Auth")["detail"],
                          "knowledge-based and biometric")
 

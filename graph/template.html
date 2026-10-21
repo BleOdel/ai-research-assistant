@@ -205,6 +205,11 @@ function esc(s) { const d = document.createElement("div"); d.textContent = s == 
 
 /* ---------- colour = research interest, in every view ---------- */
 function interestOf(n) { return n.interest || "Uncategorized"; }
+/* null = never labelled; [] = labelled, and no profile sub-area fits. */
+function subareaText(n) {
+  if (n.subareas == null) return "Not yet labelled";
+  return n.subareas.length ? n.subareas.join("; ") : "Fits no listed sub-area";
+}
 function interestColor(name) {
   const i = INTERESTS.indexOf(name);
   return i < 0 ? css("--uncat") : css("--s" + ((i % 8) + 1));
@@ -221,7 +226,7 @@ function nodeColor(n) {
 /* ---------- state ---------- */
 const FACETS = [
   ["interest", "Research interest", (n) => [interestOf(n)]],
-  ["subarea", "Sub-area", (n) => (n.subareas && n.subareas.length ? n.subareas : ["Not assigned to a sub-area"])],
+  ["subarea", "Sub-area", (n) => (n.subareas && n.subareas.length ? n.subareas : [subareaText(n)])],
   ["type", "Kind of source", (n) => [n.type === "web" ? "Web source (not peer-reviewed)" : "Paper"]],
   ["status", "Status", (n) => [n.type === "web" ? WEB_STATUS : n.statusLabel]],
   ["tier", "Verdict / tier", (n) => [(n.type === "web" ? n.tier : n.verdict) || "Not scored"]],
@@ -775,7 +780,7 @@ function paperDetail(n) {
       ["Status", n.statusLabel], ["Verdict", n.verdict ? n.verdict + (n.score != null ? " (score " + n.score + " of 100)" : "") : "Not scored"],
       ["Evidence read", n.evidenceLabel], ["Disclosure", n.disclosure || "Not recorded"],
       ["Contribution", n.contribution || "Not yet labelled"], ["Interest", interestOf(n)],
-      ["Sub-areas", n.subareas && n.subareas.length ? n.subareas.join("; ") : "Not assigned to a sub-area"],
+      ["Sub-areas", subareaText(n)],
       ["First seen", n.firstSeen],
       ["Lab", n.labs && n.labs.length ? labsOf(n) : "No author data"],
       ["Cites", n.citesIn ? countBtn(lineage.up, "Library papers this one cites", plural(n.citesIn, "library paper")) : "No library papers"],
@@ -798,7 +803,7 @@ function webDetail(n) {
     el("h3", {}, n.title),
     dl([["Site", n.site], ["Date", n.date || "Undated"], ["Tier", n.tier ? n.tier + (n.score != null ? " (score " + n.score + " of 100, web rubric)" : "") : null],
       ["Independence", n.independence], ["Kind", n.contentType], ["Interest", interestOf(n)],
-      ["Sub-areas", n.subareas && n.subareas.length ? n.subareas.join("; ") : "Not assigned to a sub-area"],
+      ["Sub-areas", subareaText(n)],
       ["Caveat", n.caveat], ["First seen", n.firstSeen], ["Link", link("Open page", n.url)]]),
     el("p", { class: "small muted" }, "Web sources are scored on a separate rubric and are never cited in a report as peer-reviewed work."));
 }
@@ -808,9 +813,11 @@ function hubDetail(n) {
   const vis = members.filter((x) => VISIBLE.has(x.id));
   const gaps = D.nodes.filter((g) => g.type === "gap" && D.edges.some((e) => e.source === g.id && e.target === n.id));
   const papers = vis.filter((x) => x.type === "paper"), web = vis.filter((x) => x.type === "web");
-  return el("div", {}, el("span", { class: "tag" }, isInterest ? "Research interest" : n.kind === "profile" ? "Sub-area (from your profile)" : "Unassigned"),
+  return el("div", {}, el("span", { class: "tag" }, isInterest ? "Research interest" : { profile: "Sub-area (from your profile)", unlabelled: "Not yet labelled", unassigned: "Fits no listed sub-area", stale: "Label no longer in your profile" }[n.kind]),
     el("h3", {}, n.label), n.detail ? el("p", { class: "small muted" }, n.detail) : null,
     n.kind === "stale" ? el("p", { class: "small" }, "These items carry a sub-area label that is no longer in your profile. /graph lists them so they can be relabelled.") : null,
+    n.kind === "unlabelled" ? el("p", { class: "small" }, "These have no sub-area labels yet. /rank, /synthesize and /update add them when they score a source; /graph lists any still missing.") : null,
+    n.kind === "unassigned" ? el("p", { class: "small" }, "These were scored and no sub-area in your profile fits them. Many here can mean your profile is missing a sub-area.") : null,
     dl([["Papers shown", countBtn(papers.map((x) => x.id), n.label + ": papers")], ["Web sources", countBtn(web.map((x) => x.id), n.label + ": web sources")],
       ["New", countBtn(vis.filter(isNew).map((x) => x.id), n.label + ": new since " + S.since)],
       ["Used in a report", countBtn(papers.filter((x) => x.statusLabel === "Used in a report").map((x) => x.id), n.label + ": used in a report")],
@@ -852,7 +859,7 @@ const COLS = [["title", "Title"], ["authors", "Authors"], ["year", "Year"], ["ki
 function rowOf(n) {
   const lab = n.primaryLab ? labById.get(n.primaryLab) : null;
   return { id: n.id, title: n.title, authors: (n.authors || []).slice(0, 3).join(", ") + ((n.authors || []).length > 3 ? " et al." : ""),
-    year: n.year, kind: n.type === "web" ? "Web (not peer-reviewed)" : "Paper", subareas: (n.subareas || []).join("; "),
+    year: n.year, kind: n.type === "web" ? "Web (not peer-reviewed)" : "Paper", subareas: subareaText(n),
     lab: lab ? lab.name : "", status: n.type === "web" ? "Web source" : n.statusLabel, tier: (n.type === "web" ? n.tier : n.verdict) || "", url: n.url, isNew: isNew(n) };
 }
 function listRows() {
@@ -878,7 +885,7 @@ function renderList() {
   const tbody = el("tbody");
   for (const r of rows) tbody.append(el("tr", { tabindex: "0", on: { click: () => select(r.id), keydown: (e) => { if (e.key === "Enter") select(r.id); } } },
     el("td", {}, r.title, r.isNew ? el("span", { class: "tag" }, "new") : null), el("td", {}, r.authors), el("td", { class: "num" }, r.year ?? "Undated"),
-    el("td", {}, r.kind), el("td", {}, r.subareas || "Not assigned"), el("td", {}, r.lab), el("td", {}, r.status), el("td", {}, r.tier)));
+    el("td", {}, r.kind), el("td", {}, r.subareas), el("td", {}, r.lab), el("td", {}, r.status), el("td", {}, r.tier)));
   V.append(el("table", {}, el("thead", {}, thead), tbody));
 }
 function closeList() { S.listOpen = false; S.listIds = null; renderList(); }

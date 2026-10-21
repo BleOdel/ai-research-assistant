@@ -62,7 +62,11 @@ STATUS_LABELS = {
 EVIDENCE_LABELS = {"fulltext": "Read in full", "abstract": "Abstract only"}
 NOT_ASSESSED = "Not yet assessed"
 WEB_KIND = "Web source, not peer-reviewed"
-UNASSIGNED, STALE = "__unassigned", "__stale"
+# Three kinds of "no profile sub-area": never labelled yet (e.g. straight after
+# /research), labelled [] because nothing in the profile fits (a taxonomy signal),
+# and labelled with a sub-area the profile no longer lists.
+UNLABELLED, UNASSIGNED, STALE = "__unlabelled", "__unassigned", "__stale"
+NOT_A_SUBAREA = (UNLABELLED, UNASSIGNED, STALE)
 DATA_BLOCK = re.compile(r'<script id="data" type="application/json">(.*?)</script>', re.S)
 EXTERNAL = [re.compile(r"""\b(?:src|href)\s*=\s*["']?\s*(?:https?:)?//""", re.I),
             re.compile(r"""url\(\s*["']?\s*(?:https?:)?//""", re.I),
@@ -129,8 +133,11 @@ class Hubs:
 
     def for_labels(self, labels, interest: str | None) -> list[str]:
         interest = interest or "Uncategorized"
-        if not isinstance(labels, list) or not labels:
-            return [self._hub(interest, UNASSIGNED, f"{interest}: unassigned", "unassigned")]
+        if not isinstance(labels, list):
+            return [self._hub(interest, UNLABELLED, f"{interest}: not yet labelled", "unlabelled")]
+        if not labels:
+            return [self._hub(interest, UNASSIGNED, f"{interest}: fits no listed sub-area",
+                              "unassigned")]
         out = []
         for label in labels:
             owner, name = kg_gaps._owner(label, interest, self.taxonomy)
@@ -212,7 +219,7 @@ def _summary(new_nodes: list[dict], new_since: str, interests: list[str],
     for interest, count in sorted(by_interest.items(),
                                   key=lambda kv: (-kv[1], order.get(kv[0], 99), kv[0])):
         subs = Counter(h for n in new_nodes if (n.get("interest") or "Uncategorized") == interest
-                       for h in n.get("_hubs", []) if not h.endswith((UNASSIGNED, STALE)))
+                       for h in n.get("_hubs", []) if not h.endswith(NOT_A_SUBAREA))
         top = ""
         if subs:
             hub, k = sorted(subs.items(), key=lambda kv: (-kv[1], kv[0]))[0]
@@ -273,7 +280,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
             "title": e.get("title") or key, "authors": authors or e.get("authors") or [],
             "year": _year(e), "venue": e.get("venue"), "url": e.get("url"),
             "pdf": _pdf_for(key, e, lib["pdfs"]),
-            "interest": e.get("subject"), "subareas": e.get("subareas") or [],
+            "interest": e.get("subject"), "subareas": e.get("subareas"),
             "contribution": e.get("contribution"),
             "statusLabel": STATUS_LABELS.get(status, status or "Unknown"),
             "hiddenByDefault": status == "skipped",
@@ -303,7 +310,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
             "date": w.get("date"), "year": _year(w), "tier": w.get("tier"),
             "score": w.get("overall_score"), "independence": w.get("independence"),
             "contentType": w.get("type"), "caveat": w.get("caveat") or w.get("note"),
-            "interest": w.get("interest"), "subareas": w.get("subareas") or [],
+            "interest": w.get("interest"), "subareas": w.get("subareas"),
             "firstSeen": w.get("first_seen"), "isNew": (w.get("first_seen") or "") >= new_since,
             "kindLabel": WEB_KIND,
         }
@@ -335,7 +342,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
             q_hubs = []
             for key in q["keys"]:
                 for h in hubs.for_labels(entries[key].get("subareas"), entries[key].get("subject")):
-                    if not h.endswith((UNASSIGNED, STALE)) and h not in q_hubs:
+                    if not h.endswith(NOT_A_SUBAREA) and h not in q_hubs:
                         q_hubs.append(h)
             gaps.append({"id": f"report:{r['slug']}:{q['id']}", "kind": "report", "report": r["slug"],
                          "interest": None, "subarea": None, "subareas": q_hubs,
