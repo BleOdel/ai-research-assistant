@@ -90,6 +90,7 @@ h2:first-child { margin-top: 0; }
 #summary p { margin: 0 0 6px; }
 #navtools { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 2px 10px var(--ring); touch-action: none; user-select: none; }
 #navtools button { min-width: 32px; padding: 3px 8px; }
+#navtools .icon { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 #navtools .sep { width: 1px; align-self: stretch; background: var(--hair); margin: 0 2px; }
 #nav-grip { cursor: grab; border: none; background: none; color: var(--muted); font-size: 16px; padding: 2px 4px; min-width: 0; }
 #nav-grip:active { cursor: grabbing; }
@@ -158,8 +159,8 @@ h2:first-child { margin-top: 0; }
     <div id="viewnote"></div>
     <div id="navtools" role="toolbar" aria-label="Zoom and move the graph">
       <button id="nav-grip" title="Drag to move this toolbar; or focus it and use the arrow keys" aria-label="Move this toolbar">&#10303;</button>
-      <button id="nav-zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
-      <button id="nav-zoom-out" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>
+      <button id="nav-zoom-in" title="Zoom in (+)" aria-label="Zoom in"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="5"/><line x1="10.6" y1="10.6" x2="15" y2="15"/><line x1="4.5" y1="7" x2="9.5" y2="7"/><line x1="7" y1="4.5" x2="7" y2="9.5"/></svg></button>
+      <button id="nav-zoom-out" title="Zoom out (-)" aria-label="Zoom out"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="5"/><line x1="10.6" y1="10.6" x2="15" y2="15"/><line x1="4.5" y1="7" x2="9.5" y2="7"/></svg></button>
       <button id="nav-fit" title="Show everything (0)">Fit</button>
       <span class="sep" aria-hidden="true"></span>
       <button id="nav-rotate" aria-pressed="true" title="Dragging the graph turns it">&#8635; Rotate</button>

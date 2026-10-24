@@ -157,6 +157,17 @@ class TemplateTests(unittest.TestCase):
         for key in ('"+"', '"="', '"-"', '"0"', '"h"'):
             self.assertIn(key, keys, key)
 
+    def test_zoom_buttons_are_magnifying_glasses(self):
+        # Researcher, 2026-10-24: a magnifying glass (with + or -) for zoom in and out.
+        for button, label in (("nav-zoom-in", "Zoom in"), ("nav-zoom-out", "Zoom out")):
+            m = re.search(rf'<button id="{button}"[^>]*>(.*?)</button>', TEMPLATE, re.S)
+            self.assertIsNotNone(m, button)
+            tag = re.search(rf'<button id="{button}"[^>]*>', TEMPLATE).group(0)
+            self.assertIn(f'aria-label="{label}"', tag)
+            self.assertIn("<svg", m.group(1), button)
+            self.assertIn("<circle", m.group(1), button)  # the lens
+            self.assertIn('aria-hidden="true"', m.group(1), button)
+
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_double_click_detection(self):
         got = run_js(["clickKind"], "", """(() => {
