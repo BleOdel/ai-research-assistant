@@ -88,7 +88,14 @@ h2:first-child { margin-top: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 #summary { position: absolute; top: 12px; left: 12px; right: 12px; max-width: 640px; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px var(--ring); }
 #summary p { margin: 0 0 6px; }
-#viewnote { position: absolute; left: 12px; bottom: 10px; z-index: 2; max-width: 560px; background: var(--surface); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
+#navtools { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 2px 10px var(--ring); touch-action: none; user-select: none; }
+#navtools button { min-width: 32px; padding: 3px 8px; }
+#navtools .sep { width: 1px; align-self: stretch; background: var(--hair); margin: 0 2px; }
+#nav-grip { cursor: grab; border: none; background: none; color: var(--muted); font-size: 16px; padding: 2px 4px; min-width: 0; }
+#nav-grip:active { cursor: grabbing; }
+#graph.pan-mode canvas { cursor: grab; }
+#graph.pan-mode canvas:active { cursor: grabbing; }
+#viewnote { position: absolute; left: 12px; bottom: 10px; z-index: 2; max-width: min(560px, calc(100% - 24px)); background: var(--surface); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
 #listview { position: absolute; inset: 0; z-index: 4; background: var(--surface); overflow: auto; padding: 12px 14px; }
 #listview[hidden], #summary[hidden] { display: none; }
 #listview table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -149,6 +156,15 @@ h2:first-child { margin-top: 0; }
     <div id="graph" aria-label="Interactive graph of the library"></div>
     <section id="summary" aria-live="polite"></section>
     <div id="viewnote"></div>
+    <div id="navtools" role="toolbar" aria-label="Zoom and move the graph">
+      <button id="nav-grip" title="Drag to move this toolbar; or focus it and use the arrow keys" aria-label="Move this toolbar">&#10303;</button>
+      <button id="nav-zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button id="nav-zoom-out" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>
+      <button id="nav-fit" title="Show everything (0)">Fit</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="nav-rotate" aria-pressed="true" title="Dragging the graph turns it">&#8635; Rotate</button>
+      <button id="nav-pan" aria-pressed="false" title="Dragging the graph moves it (H)">&#9995; Move</button>
+    </div>
     <section id="listview" hidden aria-label="List of the items shown"></section>
   </main>
   <aside id="detail" aria-label="Details">
@@ -413,8 +429,8 @@ const G = ForceGraph3D({ rendererConfig: { preserveDrawingBuffer: true, antialia
   .enableNodeDrag(false)
   .warmupTicks(80)
   .cooldownTime(4000)
-  .onNodeClick((n) => { if (n.type === "year") return; if (n.type === "lab") return select("lab:" + n.lab); select(n.id); })
-  .onBackgroundClick(() => clearFocus());
+  .onNodeClick((n) => onNodeClicked(n))
+  .onBackgroundClick(() => onBackgroundClicked());
 function fitCanvas() { G.width(box.clientWidth).height(box.clientHeight); }
 new ResizeObserver(fitCanvas).observe(box);
 
@@ -496,23 +512,124 @@ function select(id, fromTrail) {
   renderDetail(id);
   renderTrail();
   writeHash(true);
-  if (isLab) zoomToHighlight();
-  else {
-    const n = G.graphData().nodes.find((x) => x.id === id);
-    if (n && n.x != null) {
-      const d = 90, r = Math.hypot(n.x, n.y, n.z || 0) || 1;
-      G.cameraPosition({ x: n.x * (1 + d / r), y: n.y * (1 + d / r), z: (n.z || 0) * (1 + d / r) + (S.dims === 2 ? d : 0) }, n, 700);
-    }
-  }
+  /* The camera stays put: zooming is the researcher's call (double-click, toolbar,
+     or the panel's "Zoom to it"). */
   if (window.matchMedia("(max-width: 1000px)").matches) $("#detail").classList.remove("closed");
 }
 function highlightSet(ids, why) {
   S.focus = null; S.highlight = new Set(ids); S.highlightWhy = why;
-  computeNeighbours(); refreshObjects(); renderDetailHeaderNote(); zoomToHighlight();
+  computeNeighbours(); refreshObjects(); renderDetailHeaderNote();
 }
 function zoomToHighlight() {
   const has = G.graphData().nodes.some((n) => S.highlight && S.highlight.has(n.id) && n.x != null);
-  if (has) G.zoomToFit(700, 80, (n) => S.highlight.has(n.id));
+  if (!has) return;
+  if (!ZOOMED) ZOOMED = { id: null, back: camState() };
+  G.zoomToFit(animMs(700), 80, (n) => S.highlight.has(n.id));
+}
+
+/* ---------- navigation: toolbar, double-click zoom, hand mode ---------- */
+/* Whether this click completes a double-click on the same thing (id), within ms. */
+function clickKind(last, id, t, within = 350) {
+  const double = !!last && last.id === id && t - last.t <= within;
+  return { double, last: double ? null : { id, t } };
+}
+/* The camera position FACTOR times as far from TARGET, along the same line. */
+function zoomStep(pos, target, factor) {
+  return { x: target.x + (pos.x - target.x) * factor, y: target.y + (pos.y - target.y) * factor,
+    z: target.z + (pos.z - target.z) * factor };
+}
+/* Keep a W x H toolbar inside the graph area, 4px from every edge. */
+function clampToolbar(x, y, w, h, W, H) {
+  const m = 4;
+  return { x: Math.min(Math.max(x, m), Math.max(m, W - w - m)), y: Math.min(Math.max(y, m), Math.max(m, H - h - m)) };
+}
+function animMs(ms) { return document.hidden ? 0 : ms; }
+function camState() {
+  const c = G.camera().position, t = G.controls().target;
+  return { pos: { x: c.x, y: c.y, z: c.z }, target: { x: t.x, y: t.y, z: t.z } };
+}
+let ZOOMED = null;     /* {id, back: camera to return to} while zoomed in */
+let LAST_CLICK = null;
+function zoomBy(factor) {
+  const s = camState();
+  G.cameraPosition(zoomStep(s.pos, s.target, factor), s.target, animMs(250));
+}
+function zoomToNode(id) {
+  const n = G.graphData().nodes.find((x) => x.id === id);
+  if (!n || n.x == null) return;
+  const s = camState();
+  if (!ZOOMED) ZOOMED = { id, back: s }; else ZOOMED.id = id;
+  const dx = s.pos.x - s.target.x, dy = s.pos.y - s.target.y, dz = s.pos.z - s.target.z;
+  const len = Math.hypot(dx, dy, dz) || 1, d = 70;
+  const at = { x: n.x, y: n.y, z: n.z || 0 };
+  G.cameraPosition({ x: at.x + dx / len * d, y: at.y + dy / len * d, z: at.z + dz / len * d }, at, animMs(700));
+}
+function zoomBack() {
+  if (!ZOOMED) return;
+  const b = ZOOMED.back;
+  ZOOMED = null;
+  G.cameraPosition(b.pos, b.target, animMs(700));
+}
+function fitAll() { ZOOMED = null; G.zoomToFit(animMs(500), 40); }
+function onNodeClicked(n) {
+  const k = clickKind(LAST_CLICK, n.id, performance.now());
+  LAST_CLICK = k.last;
+  if (k.double) { if (ZOOMED) zoomBack(); else zoomToNode(n.id); return; }
+  if (n.type === "year") return;
+  select(n.type === "lab" ? "lab:" + n.lab : n.id);
+}
+function onBackgroundClicked() {
+  const k = clickKind(LAST_CLICK, "", performance.now());
+  LAST_CLICK = k.last;
+  if (k.double) { zoomBack(); return; }
+  clearFocus();
+}
+function setNavMode(mode) {
+  S.nav = mode;
+  const c = G.controls(), M = THREE.MOUSE;
+  if (c && c.mouseButtons) {
+    c.mouseButtons = mode === "pan" ? { LEFT: M.PAN, MIDDLE: M.DOLLY, RIGHT: M.ROTATE }
+      : { LEFT: M.ROTATE, MIDDLE: M.DOLLY, RIGHT: M.PAN };
+  }
+  box.classList.toggle("pan-mode", mode === "pan");
+  $("#nav-pan").setAttribute("aria-pressed", String(mode === "pan"));
+  $("#nav-rotate").setAttribute("aria-pressed", String(mode !== "pan"));
+}
+/* The toolbar can be dragged by its grip (or moved with the arrow keys on the
+   grip), stays inside the graph area, and remembers where it was put. */
+function placeToolbar(x, y, save) {
+  const tb = $("#navtools"), area = $("#center");
+  const p = clampToolbar(x, y, tb.offsetWidth, tb.offsetHeight, area.clientWidth, area.clientHeight);
+  tb.style.left = p.x + "px"; tb.style.top = p.y + "px";
+  if (save) { try { localStorage.setItem("kg-navtools", JSON.stringify(p)); } catch (e) { /* storage blocked */ } }
+}
+function initToolbar() {
+  const tb = $("#navtools"), area = $("#center"), grip = $("#nav-grip");
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("kg-navtools") || "null"); } catch (e) { /* storage blocked */ }
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) placeToolbar(saved.x, saved.y, false);
+  /* Default: bottom right, just above the view note, so neither hides the other. */
+  else placeToolbar(area.clientWidth - tb.offsetWidth - 12, $("#viewnote").offsetTop - tb.offsetHeight - 8, false);
+  let drag = null;
+  grip.addEventListener("pointerdown", (e) => {
+    drag = { dx: e.clientX - tb.offsetLeft, dy: e.clientY - tb.offsetTop };
+    grip.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  grip.addEventListener("pointermove", (e) => { if (drag) placeToolbar(e.clientX - drag.dx, e.clientY - drag.dy, false); });
+  grip.addEventListener("pointerup", () => { if (drag) { drag = null; placeToolbar(tb.offsetLeft, tb.offsetTop, true); } });
+  grip.addEventListener("keydown", (e) => {
+    const step = e.shiftKey ? 64 : 16;
+    const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (!moves[e.key]) return;
+    e.preventDefault(); e.stopPropagation();
+    placeToolbar(tb.offsetLeft + moves[e.key][0], tb.offsetTop + moves[e.key][1], true);
+  });
+  new ResizeObserver(() => placeToolbar(tb.offsetLeft, tb.offsetTop, false)).observe(area);
+  $("#nav-zoom-in").addEventListener("click", () => zoomBy(0.7));
+  $("#nav-zoom-out").addEventListener("click", () => zoomBy(1 / 0.7));
+  $("#nav-fit").addEventListener("click", fitAll);
+  $("#nav-rotate").addEventListener("click", () => setNavMode("rotate"));
+  $("#nav-pan").addEventListener("click", () => setNavMode("pan"));
 }
 function clearFocus() {
   if (!S.focus && !S.highlight) return;
@@ -575,7 +692,7 @@ function setView(view, keepCamera) {
   savePositions();
   S.view = view;
   document.querySelectorAll("#views button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
-  $("#viewnote").textContent = VIEW_NOTES[view];
+  $("#viewnote").textContent = VIEW_NOTES[view] + " Double-click a shape to zoom to it; double-click again to go back.";
   G.d3Force("charge").strength(view === "groups" ? -18 : view === "timeline" ? -14 : -30);
   G.d3Force("link").distance((l) => (l.type === "labmember" ? 12 : l.type === "interest" ? 60 : l.type === "cites" ? 40 : 28));
   const data = viewGraph(view);
@@ -734,7 +851,7 @@ function renderDetailHeaderNote() {
   const body = $("#detail-body");
   const note = body.querySelector(".hl-note");
   if (note) note.remove();
-  if (S.highlight) body.prepend(el("p", { class: "hl-note small" }, "Highlighted: " + S.highlightWhy + " (" + S.highlight.size + "). ", el("button", { class: "linkbtn", on: { click: clearFocus } }, "Clear (Esc)")));
+  if (S.highlight) body.prepend(el("p", { class: "hl-note small" }, "Highlighted: " + S.highlightWhy + " (" + S.highlight.size + "). ", el("button", { class: "linkbtn", on: { click: zoomToHighlight } }, "Zoom to these"), " · ", el("button", { class: "linkbtn", on: { click: clearFocus } }, "Clear (Esc)")));
 }
 function renderDetail(id) {
   const B = $("#detail-body"); B.replaceChildren();
@@ -751,7 +868,8 @@ function renderDetail(id) {
   else if (n.type === "gap") B.append(gapDetail(n));
   else if (n.type === "subarea" || n.type === "interest") B.append(hubDetail(n));
   else if (n.type === "report") B.append(reportDetail(n));
-  B.append(el("p", { class: "small muted" }, "Esc or a click on empty space leaves focus."));
+  B.append(el("div", { class: "actions" }, el("button", { title: "Same as double-clicking it in the graph", on: { click: () => zoomToNode(id) } }, "Zoom to it")),
+    el("p", { class: "small muted" }, "Esc or a click on empty space leaves focus."));
 }
 function overview() {
   const c = D.meta.counts;
@@ -967,7 +1085,7 @@ $("#list-toggle").addEventListener("click", () => { if (S.listOpen) closeList();
 $("#since").value = S.since;
 $("#since").addEventListener("change", (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { S.since = e.target.value; refreshObjects(); refreshData(); renderDetail(S.focus); } });
 document.querySelectorAll(".toggle-panels").forEach((b) => b.addEventListener("click", () => $("#" + b.dataset.panel).classList.toggle("closed")));
-document.addEventListener("keydown", (e) => {
+function onKey(e) {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if (e.key === "Escape") { if (typing) document.activeElement.blur(); else if (S.listOpen) closeList(); else clearFocus(); return; }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -975,7 +1093,12 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowLeft") moveTrail(-1);
   else if (e.key === "ArrowRight") moveTrail(1);
   else if (["1", "2", "3", "4"].includes(e.key)) setView(VIEWS[+e.key - 1]);
-});
+  else if (e.key === "+" || e.key === "=") zoomBy(0.7);
+  else if (e.key === "-" || e.key === "_") zoomBy(1 / 0.7);
+  else if (e.key === "0") fitAll();
+  else if (e.key.toLowerCase() === "h") setNavMode(S.nav === "pan" ? "rotate" : "pan");
+}
+document.addEventListener("keydown", onKey);
 window.addEventListener("popstate", () => restoreFromHash());
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { G.backgroundColor(css("--surface")); SPRITES.clear(); refreshObjects(); renderLegend(); });
 
@@ -1007,6 +1130,8 @@ if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.a
 recomputeVisible();
 renderSummary();
 restoreFromHash();
+initToolbar();      /* after the view note has its text, so it can sit above it */
+setNavMode("rotate");
 fitCanvas();
 </script>
 </body>

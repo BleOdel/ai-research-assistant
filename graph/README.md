@@ -38,7 +38,11 @@ count is a link to the list of items it counts, and **List view** shows exactly 
 the graph shows as a sortable table. The list exports as a Markdown or CSV reading
 list.
 
-Click anything for its details; Esc leaves focus; Left and Right walk the trail of
+Click anything for its details; the camera stays where it is. Double-click a shape to
+zoom to it, and double-click again (on it or on empty space) to go back. The floating
+toolbar - drag it by its grip, or focus the grip and use the arrow keys - zooms in and
+out (`+`/`-`), fits everything (`0`), and switches dragging between turning the graph
+and moving it with a hand (`H`). Esc leaves focus; Left and Right walk the trail of
 recently viewed items. The address bar records the view, focus, filters and date, so a
 bookmark reopens the same picture.
 

@@ -139,6 +139,48 @@ class TemplateTests(unittest.TestCase):
             row = re.search(rf'\["{re.escape(label)}", (.*?)\]', overview).group(1)
             self.assertTrue(row.startswith(('el("button"', "countBtn(")), f"{label}: {row[:60]}")
 
+    def test_selecting_never_moves_the_camera(self):
+        # Researcher, 2026-10-24: a click that zooms on its own is not user friendly.
+        # Single click selects; the camera moves only on double-click, the toolbar,
+        # or the panel's "Zoom to it" button.
+        for name in ("select", "highlightSet"):
+            body = page_function(name)
+            self.assertNotIn("cameraPosition", body, name)
+            self.assertNotIn("zoomToFit", body, name)
+            self.assertNotIn("zoomToHighlight()", body, name)
+
+    def test_navigation_toolbar_present(self):
+        for region in ("navtools", "nav-grip", "nav-zoom-in", "nav-zoom-out", "nav-fit",
+                       "nav-rotate", "nav-pan"):
+            self.assertRegex(TEMPLATE, rf'id="{region}"', region)
+        keys = page_function("onKey")
+        for key in ('"+"', '"="', '"-"', '"0"', '"h"'):
+            self.assertIn(key, keys, key)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_double_click_detection(self):
+        got = run_js(["clickKind"], "", """(() => {
+          const a = clickKind(null, "n1", 1000);
+          const b = clickKind(a.last, "n1", 1250);         // same node, quick: double
+          const c = clickKind(b.last, "n1", 1400);         // third click starts afresh
+          const d = clickKind(c.last, "n2", 1500);         // other node: single
+          const e = clickKind(d.last, "n2", 2000);         // too slow: single
+          return [a.double, b.double, c.double, d.double, e.double];
+        })()""")
+        self.assertEqual(got, [False, True, False, False, False])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_zoom_step_moves_along_the_view_line(self):
+        got = run_js(["zoomStep"], "", '[zoomStep({x: 0, y: 0, z: 100}, {x: 0, y: 0, z: 0}, 0.5), '
+                     'zoomStep({x: 10, y: 0, z: 0}, {x: 0, y: 0, z: 0}, 2)]')
+        self.assertEqual(got, [{"x": 0, "y": 0, "z": 50}, {"x": 20, "y": 0, "z": 0}])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_toolbar_stays_inside_the_graph(self):
+        got = run_js(["clampToolbar"], "", '[clampToolbar(-50, 900, 200, 40, 800, 600), '
+                     'clampToolbar(100, 100, 200, 40, 800, 600), clampToolbar(700, 10, 200, 40, 800, 600)]')
+        self.assertEqual(got, [{"x": 4, "y": 556}, {"x": 100, "y": 100}, {"x": 596, "y": 10}])
+
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]

@@ -235,7 +235,10 @@ picture, with everything new since your last search ringed:
   library. Each gap shows the rule that produced it.
 
 Colour is the research interest everywhere; shape, size, solidity and rings carry the
-rest, and the legend explains them. Click anything for details; every count opens the
+rest, and the legend explains them. Click anything for details (the camera stays put);
+double-click to zoom to it and again to go back. A floating toolbar you can drag anywhere
+zooms in and out, fits everything, and switches dragging between rotating the graph and
+moving it with a hand. Every count opens the
 list of what it counts; **List view** is a sortable table of exactly what is shown and
 exports as a Markdown or CSV reading list. The address bar keeps the view, focus and
 filters, so a bookmark reopens the same picture.
