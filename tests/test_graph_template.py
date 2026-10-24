@@ -224,6 +224,52 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("hidden by the current filters", page_function("renderNodeCard"))
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_long_names_are_shortened_on_the_graph(self):
+        # Researcher, 2026-10-24: less text on the graph. Full names stay in the
+        # hover tooltip and the card.
+        got = run_js(["shortLabel"], "", '[shortLabel("Control / monitoring"), '
+                     'shortLabel("XR/Immersive Systems Security & Privacy: not yet labelled"), '
+                     'shortLabel("Supercalifragilisticexpialidocious-and-then-some-more-letters")]')
+        self.assertEqual(got[0], "Control / monitoring")
+        self.assertTrue(got[1].endswith("…") and len(got[1]) <= 33, got[1])
+        self.assertFalse(got[1][:-1].endswith(" "), got[1])  # cut at a word, no dangling space
+        self.assertTrue(got[2].endswith("…") and len(got[2]) <= 33, got[2])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_graph_labels_stay_distinct_when_shortened(self):
+        # Shortening made an interest hub and its "not yet labelled" and "fits no
+        # listed sub-area" hubs all read "XR/Immersive Systems Security…".
+        interest = "XR/Immersive Systems Security & Privacy"
+        got = run_js(["graphLabel", "shortLabel"], "", f"""[
+          graphLabel({{type: "interest", label: "{interest}"}}),
+          graphLabel({{type: "subarea", kind: "unlabelled", label: "{interest}: not yet labelled"}}),
+          graphLabel({{type: "subarea", kind: "unassigned", label: "{interest}: fits no listed sub-area"}}),
+          graphLabel({{type: "subarea", kind: "stale", label: "{interest}: unassigned (label no longer in profile)"}}),
+          graphLabel({{type: "subarea", kind: "profile", label: "Eye-tracking privacy & differential privacy"}}),
+          graphLabel({{type: "paper", title: "A paper", label: "A paper"}})]""")
+        self.assertEqual(len(set(got[:4])), 4, got)
+        self.assertEqual(got[1:4], ["Not yet labelled", "Fits no listed sub-area", "Label not in profile"])
+        self.assertEqual(got[5], "A paper")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_hub_labels_appear_when_close_or_focused(self):
+        prelude = 'const S = {focus: null}; let FOCUS_NEIGHBOURS = new Set();'
+        got = run_js(["labelVisible"], prelude, """[
+          labelVisible({id: "i", type: "interest"}, 5000),
+          labelVisible({id: "s", type: "subarea"}, 5000),
+          labelVisible({id: "s", type: "subarea"}, 200),
+          labelVisible({id: "r", type: "report"}, 5000),
+          labelVisible({id: "y", type: "year"}, 5000),
+          labelVisible({id: "p", type: "paper"}, 100),
+          (() => { S.focus = "s"; return labelVisible({id: "s", type: "subarea"}, 5000); })(),
+          (() => { S.focus = "p"; FOCUS_NEIGHBOURS = new Set(["s"]); return labelVisible({id: "s", type: "subarea"}, 5000); })(),
+          labelVisible({id: "p", type: "paper"}, 5000)]""")
+        self.assertEqual(got, [True, False, True, False, True, False, True, True, True])
+        # Interest names stay readable at any zoom: a constant on-screen size.
+        self.assertIn("sizeAttenuation: !fixed", page_function("textSprite"))
+        self.assertIn('n.type === "interest" ? 34 : 26, n.type === "interest")', page_function("buildObject"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_double_click_detection(self):
         got = run_js(["clickKind"], "", """(() => {
           const a = clickKind(null, "n1", 1000);

@@ -371,8 +371,9 @@ function geo(kind, r) {
 }
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 const SPRITES = new Map();
-function textSprite(text, color, px) {
-  const key = text + "|" + color + "|" + px;
+/* FIXED keeps the label the same size on screen at any zoom (used for interest names). */
+function textSprite(text, color, px, fixed = false) {
+  const key = text + "|" + color + "|" + px + "|" + fixed;
   if (SPRITES.has(key)) return SPRITES.get(key).clone();
   const pad = 6, font = px + "px system-ui, -apple-system, Segoe UI, sans-serif";
   const c = document.createElement("canvas"), g = c.getContext("2d");
@@ -382,10 +383,47 @@ function textSprite(text, color, px) {
   g.font = font; g.fillStyle = css("--surface"); g.globalAlpha = 0.85; g.fillRect(0, 0, c.width, c.height);
   g.globalAlpha = 1; g.fillStyle = color; g.textBaseline = "middle"; g.fillText(shown, pad, c.height / 2);
   const tex = new THREE.CanvasTexture(c);
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
-  s.scale.set(c.width / 4, c.height / 4, 1);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true,
+    sizeAttenuation: !fixed }));
+  if (fixed) s.scale.set(c.width / c.height * 0.032, 0.032, 1); /* 3.2% of the view's height */
+  else s.scale.set(c.width / 4, c.height / 4, 1);
   SPRITES.set(key, s);
   return s.clone();
+}
+/* A name short enough to sit on the graph: cut at a word, no trailing punctuation. */
+function shortLabel(text, max = 32) {
+  const s = String(text == null ? "" : text);
+  if (s.length <= max) return s;
+  let cut = s.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  if (space > max / 2) cut = cut.slice(0, space);
+  return cut.replace(/[\s&:,;\/\u2013-]+$/, "") + "…";
+}
+/* The text drawn on the graph for a node. The "no sub-area" hubs say what they are
+   (their colour already gives the interest), so shortening never makes two read alike. */
+function graphLabel(n) {
+  const special = { unlabelled: "Not yet labelled", unassigned: "Fits no listed sub-area", stale: "Label not in profile" };
+  if (n.type === "subarea" && special[n.kind]) return special[n.kind];
+  return shortLabel(n.type === "paper" || n.type === "web" ? (n.title || n.label) : n.label);
+}
+/* Interest names and year labels always show; sub-area, report and lab names when
+   the camera is within NEAR of them; anything focused, or next to the focus, always. */
+function labelVisible(n, dist, near = 350) {
+  if (n.type === "interest" || n.type === "year") return true;
+  if (S.focus && (n.id === S.focus || FOCUS_NEIGHBOURS.has(n.id))) return true;
+  if (n.type === "paper" || n.type === "web" || n.type === "gap") return false;
+  return dist < near;
+}
+function camDistance(n) {
+  if (n.x == null || typeof G === "undefined") return Infinity;
+  const c = G.camera().position;
+  return Math.hypot(c.x - n.x, c.y - n.y, c.z - (n.z || 0));
+}
+function updateLabels() {
+  for (const n of G.graphData().nodes) {
+    const sp = n.__threeObj && n.__threeObj.userData.sprite;
+    if (sp) sp.visible = isLit(n.id) && labelVisible(n, camDistance(n));
+  }
 }
 function size(n) {
   if (n.type === "paper") return n.score == null ? 2.2 : 1.6 + (n.score / 100) * 3.4;
@@ -435,14 +473,16 @@ function buildObject(n) {
     cap.position.set(0, r + 1.1, 0);
     grp.add(cap); grp.userData.mats.push([capMat, 1]);
   }
-  /* Hubs, labs and reports are always labelled; a paper or web source only when it is
-     the focus, so titles never pile up. Dimmed nodes lose their label. */
+  /* Hubs, labs and reports carry a label, and the focused paper; whether it shows is
+     labelVisible's call, redone as the camera moves (updateLabels). Names are
+     shortened on the graph; the full name is in the tooltip and the card. */
   const labelled = lit && (n.type === "interest" || n.type === "subarea" || n.type === "lab" || n.type === "report"
     || n.id === S.focus);
   if (labelled) {
-    const txt = n.type === "paper" || n.type === "web" ? (n.title || n.label) : n.label;
-    const sp = textSprite(txt, css("--ink"), n.type === "interest" ? 34 : 26);
+    const txt = graphLabel(n);
+    const sp = textSprite(txt, css("--ink"), n.type === "interest" ? 34 : 26, n.type === "interest");
     sp.position.set(0, r + 5, 0);
+    sp.visible = labelVisible(n, camDistance(n));
     grp.add(sp); grp.userData.sprite = sp;
   }
   return grp;
@@ -465,9 +505,11 @@ const G = ForceGraph3D({ rendererConfig: { preserveDrawingBuffer: true, antialia
   .enableNodeDrag(false)
   .warmupTicks(80)
   .cooldownTime(4000)
+  .onEngineTick(() => updateLabels())
   .onNodeClick((n) => onNodeClicked(n))
   .onBackgroundClick(() => onBackgroundClicked());
 function fitCanvas() { G.width(box.clientWidth).height(box.clientHeight); }
+G.controls().addEventListener("change", updateLabels); /* zooming in reveals names */
 new ResizeObserver(fitCanvas).observe(box);
 
 function hoverLabel(n) {
@@ -565,6 +607,7 @@ function zoomToHighlight() {
   if (!has) return;
   if (!ZOOMED) ZOOMED = { id: null, back: camState() };
   G.zoomToFit(animMs(700), 80, (n) => S.highlight.has(n.id));
+  afterCamera(animMs(700));
 }
 
 /* ---------- navigation: toolbar, double-click zoom, hand mode ---------- */
@@ -584,6 +627,9 @@ function clampToolbar(x, y, w, h, W, H) {
   return { x: Math.min(Math.max(x, m), Math.max(m, W - w - m)), y: Math.min(Math.max(y, m), Math.max(m, H - h - m)) };
 }
 function animMs(ms) { return document.hidden ? 0 : ms; }
+/* Camera moves made here do not raise the controls' change event: re-check labels
+   once the move has finished. */
+function afterCamera(ms) { setTimeout(updateLabels, ms + 40); }
 function camState() {
   const c = G.camera().position, t = G.controls().target;
   return { pos: { x: c.x, y: c.y, z: c.z }, target: { x: t.x, y: t.y, z: t.z } };
@@ -592,7 +638,7 @@ let ZOOMED = null;     /* {id, back: camera to return to} while zoomed in */
 let LAST_CLICK = null;
 function zoomBy(factor) {
   const s = camState();
-  G.cameraPosition(zoomStep(s.pos, s.target, factor), s.target, animMs(250));
+  G.cameraPosition(zoomStep(s.pos, s.target, factor), s.target, animMs(250)); afterCamera(animMs(250));
 }
 function zoomToNode(id) {
   const n = G.graphData().nodes.find((x) => x.id === id);
@@ -603,14 +649,16 @@ function zoomToNode(id) {
   const len = Math.hypot(dx, dy, dz) || 1, d = 70;
   const at = { x: n.x, y: n.y, z: n.z || 0 };
   G.cameraPosition({ x: at.x + dx / len * d, y: at.y + dy / len * d, z: at.z + dz / len * d }, at, animMs(700));
+  afterCamera(animMs(700));
 }
 function zoomBack() {
   if (!ZOOMED) return;
   const b = ZOOMED.back;
   ZOOMED = null;
   G.cameraPosition(b.pos, b.target, animMs(700));
+  afterCamera(animMs(700));
 }
-function fitAll() { ZOOMED = null; G.zoomToFit(animMs(500), 40); }
+function fitAll() { ZOOMED = null; G.zoomToFit(animMs(500), 40); afterCamera(animMs(500)); }
 function onNodeClicked(n) {
   const k = clickKind(LAST_CLICK, n.id, performance.now());
   LAST_CLICK = k.last;
@@ -763,6 +811,7 @@ function fitCamera(attempt) {
   const ms = document.hidden ? 0 : 700; /* animations need frames a hidden tab does not get */
   if (S.view === "library" && anyNew) G.zoomToFit(ms, 60, (n) => isNew(n) || n.type === "interest");
   else G.zoomToFit(ms, 40);
+  afterCamera(ms);
 }
 G.onEngineStop(() => { savePositions(); fitCamera(); });
 function savePositions() {

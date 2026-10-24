@@ -25,6 +25,10 @@ Advanced is also in effect, the key names it and offers to clear it. **More deta
 on a card, or the **Advanced** switch in the top bar, opens the full interface below;
 the page remembers which one you used last.
 
+To keep text off the graph, only the research-interest names are always shown. Sub-area,
+report and lab names appear as you zoom in close, or next to whatever you click; long
+names are shortened with "…", and the full name is in the hover tooltip and the card.
+
 In **Advanced**, four views, keys 1-4:
 
 - **Library** - papers and web sources next to the sub-areas they are labelled with,
