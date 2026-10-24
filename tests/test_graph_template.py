@@ -168,6 +168,61 @@ class TemplateTests(unittest.TestCase):
             self.assertIn("<circle", m.group(1), button)  # the lens
             self.assertIn('aria-hidden="true"', m.group(1), button)
 
+    def test_simple_mode_regions_present(self):
+        # Researcher, 2026-10-24: a minimal Simple interface as the default, with
+        # Advanced holding the full controls.
+        for region in ("simplekey", "nodecard", "ui-simple", "ui-advanced"):
+            self.assertRegex(TEMPLATE, rf'id="{region}"', region)
+        self.assertIn('body.simple', TEMPLATE)
+        # On a phone-width screen the key starts folded, so the graph is visible.
+        self.assertRegex(TEMPLATE, r'max-width: 600px\)"\)\.matches\) \$\("#simplekey"\)\.classList\.add\("collapsed"\)')
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_simple_is_the_default_mode(self):
+        got = run_js(["initialUi"], "", '[initialUi(null, null), initialUi(null, "advanced"), '
+                     'initialUi("simple", "advanced"), initialUi("advanced", null), initialUi("bogus", "nope")]')
+        self.assertEqual(got, ["simple", "advanced", "simple", "advanced", "simple"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_simple_names_filters_it_cannot_show(self):
+        # Clarity: Simple never hides something that is shaping the picture.
+        base = '{sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false}'
+        got = run_js(["advancedOnlyFilters"], "", f"""[
+          advancedOnlyFilters({base}),
+          advancedOnlyFilters(Object.assign({base}, {{sets: {{interest: new Set(["XR"]), type: new Set(["Paper"])}}}})),
+          advancedOnlyFilters(Object.assign({base}, {{sets: {{status: new Set(["Used in a report"])}}, yearMin: 2020, newOnly: true}}))]""")
+        self.assertEqual(got[0], [])
+        self.assertEqual(got[1], [])  # interest and kind are shown in Simple itself
+        self.assertEqual(got[2], ["Status", "Publication year", "Only new items"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_unticked_interest_hides_its_hubs(self):
+        prelude = 'const S = {filters: {sets: {interest: new Set(["XR"])}}};'
+        got = run_js(["hubShown"], prelude, '[hubShown({type: "interest", label: "XR"}), '
+                     'hubShown({type: "subarea", interest: "AI"}), hubShown({type: "subarea", interest: "XR"}), '
+                     'hubShown({type: "report"})]')
+        self.assertEqual(got, [True, False, True, True])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_no_tooltip_over_the_open_card(self):
+        # The hover tooltip repeated the title of the card already open beside it.
+        prelude = ('const S = {ui: "simple", focus: "p1", since: "2026-01-01"}; function css() { return "#000"; } '
+                   'function esc(s) { return String(s); } function isNew() { return false; } const KIND_NAMES = {};')
+        got = run_js(["hoverLabel"], prelude, '[hoverLabel({id: "p1", type: "paper", title: "T"}), '
+                     'hoverLabel({id: "p2", type: "paper", title: "U"}).includes("U")]')
+        self.assertEqual(got, ["", True])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_focus_drops_when_filtered_out(self):
+        # A focused node that a filter hides left every visible node dimmed.
+        got = run_js(["focusStillShown"], "", '[focusStillShown("a", [{id: "a"}, {id: "b"}]), '
+                     'focusStillShown("z", [{id: "a"}]), focusStillShown(null, [])]')
+        self.assertEqual(got, [True, False, True])
+        for name in ("refreshData", "setView", "select"):
+            self.assertIn("focusStillShown(", page_function(name), name)
+        # A card for a node the filters hide says so, rather than pointing at nothing.
+        self.assertIn("hidden by the current filters", page_function("renderNodeCard"))
+
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_double_click_detection(self):
         got = run_js(["clickKind"], "", """(() => {

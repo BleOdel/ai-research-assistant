@@ -219,7 +219,12 @@ it costs nothing against your 250-per-month SerpApi quota.
 
 Every search command ends by rebuilding `graph/index.html`, and `/graph` rebuilds it on
 demand. Open it in a browser: no server, no network. It is the whole library in one
-picture, with everything new since your last search ringed:
+picture, with everything new since your last search ringed.
+
+It opens in **Simple** mode: the graph, a key you can tick to show or hide research
+interests and kinds of source (tick two interests to see them together), and a short
+card for whatever you click. The key also names any filter set in Advanced, so nothing
+hidden shapes the picture. Switch to **Advanced** (top bar) for the four views:
 
 - **Library** (key 1) - papers and web sources around the sub-areas in your profile.
 - **Research groups** (2) - papers clustered by lab. A lab is a group of authors who

@@ -89,7 +89,7 @@ h2:first-child { margin-top: 0; }
 #summary { position: absolute; top: 12px; left: 12px; right: 12px; max-width: 640px; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px var(--ring); }
 #summary p { margin: 0 0 6px; }
 #navtools { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 2px 10px var(--ring); touch-action: none; user-select: none; }
-#navtools button { min-width: 32px; padding: 3px 8px; }
+#navtools button { min-width: 32px; padding: 3px 8px; white-space: nowrap; }
 #navtools .icon { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 #navtools .sep { width: 1px; align-self: stretch; background: var(--hair); margin: 0 2px; }
 #nav-grip { cursor: grab; border: none; background: none; color: var(--muted); font-size: 16px; padding: 2px 4px; min-width: 0; }
@@ -109,6 +109,28 @@ h2:first-child { margin-top: 0; }
 #export-list { position: absolute; right: 0; top: 110%; z-index: 6; background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px; display: grid; gap: 4px; min-width: 210px; }
 #export-list[hidden] { display: none; }
 .toggle-panels { display: none; }
+#ui-switch { display: inline-flex; border: 1px solid var(--axis); border-radius: 999px; overflow: hidden; }
+#ui-switch button { border: none; border-radius: 0; padding: 3px 12px; }
+#ui-switch button[aria-pressed="true"] { background: var(--focus); color: var(--surface); box-shadow: none; }
+/* Simple mode: the graph, one key that is also the filter, a small card per click. */
+body.simple #app { grid-template-columns: minmax(0, 1fr); }
+body.simple #drawer, body.simple #detail, body.simple #views, body.simple #dims, body.simple #since-wrap,
+body.simple #list-toggle, body.simple #export-menu, body.simple .toggle-panels, body.simple #summary,
+body.simple #listview { display: none !important; }
+body:not(.simple) #simplekey, body:not(.simple) #nodecard { display: none !important; }
+#simplekey { position: absolute; top: 12px; left: 12px; z-index: 3; width: 270px; max-height: calc(100% - 24px); overflow: auto; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px var(--ring); }
+#simplekey h2 { font-size: 13px; margin: 8px 0 4px; }
+#simplekey h2:first-of-type { margin-top: 0; }
+#simplekey label { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 13px; cursor: pointer; }
+#simplekey .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+#simplekey .note { font-size: 12px; color: var(--ink-2); margin: 8px 0 0; }
+#simplekey .warn { border-left: 3px solid var(--gap); padding-left: 6px; }
+#simplekey .keyhead { display: flex; align-items: center; justify-content: space-between; }
+#simplekey.collapsed .keybody { display: none; }
+#nodecard { position: absolute; z-index: 5; width: 280px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 8px 10px; box-shadow: 0 2px 12px var(--ring); font-size: 13px; }
+#nodecard[hidden] { display: none; }
+#nodecard h3 { font-size: 13.5px; margin: 0 22px 4px 0; }
+#nodecard .close { position: absolute; top: 4px; right: 4px; border: none; background: none; font-size: 16px; padding: 0 6px; }
 @media (max-width: 1000px) {
   #app { grid-template-columns: minmax(0, 1fr); }
   #drawer, #detail { position: fixed; top: 52px; bottom: 0; z-index: 5; width: min(340px, 92vw); box-shadow: 0 4px 20px var(--ring); }
@@ -143,6 +165,10 @@ h2:first-child { margin-top: 0; }
         <button data-export="png">Picture of the graph (PNG)</button>
       </div>
     </div>
+    <div id="ui-switch" role="group" aria-label="Interface">
+      <button id="ui-simple" aria-pressed="true" title="The graph, a key you can tick, and a summary per click">Simple</button>
+      <button id="ui-advanced" aria-pressed="false" title="All views, filters, the list view, export and full details">Advanced</button>
+    </div>
     <button class="toggle-panels" data-panel="drawer">Filters</button>
     <button class="toggle-panels" data-panel="detail">Details</button>
   </header>
@@ -156,6 +182,8 @@ h2:first-child { margin-top: 0; }
   <main id="center">
     <div id="graph" aria-label="Interactive graph of the library"></div>
     <section id="summary" aria-live="polite"></section>
+    <section id="simplekey" aria-label="Key and filter"></section>
+    <section id="nodecard" hidden aria-live="polite"></section>
     <div id="viewnote"></div>
     <div id="navtools" role="toolbar" aria-label="Zoom and move the graph">
       <button id="nav-grip" title="Drag to move this toolbar; or focus it and use the arrow keys" aria-label="Move this toolbar">&#10303;</button>
@@ -254,6 +282,7 @@ const FACETS = [
 const S = {
   view: "library", focus: null, since: D.meta.newSince, dims: 3, highlight: null, highlightWhy: "",
   filters: { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false },
+  ui: "simple", advView: "library", show: { gap: false, report: false },
   current: null, trail: [], trailPos: -1, listIds: null, listWhy: "", listOpen: false, sort: ["year", -1],
 };
 function isNew(n) {
@@ -289,10 +318,16 @@ const posCache = {};
 function viewGraph(view) {
   const keep = new Set(VISIBLE);
   let extra = [];
-  if (view === "library") D.nodes.forEach((n) => { if (["interest", "subarea", "report"].includes(n.type)) keep.add(n.id); });
-  if (view === "gaps") D.nodes.forEach((n) => { if (["interest", "subarea", "report", "gap"].includes(n.type)) keep.add(n.id); });
+  const simple = S.ui === "simple";
+  /* Simple shows reports and gaps only when ticked in its key. */
+  const structure = view === "gaps" ? ["interest", "subarea", "report", "gap"]
+    : view === "library" ? (simple ? ["interest", "subarea"].concat(S.show.report ? ["report"] : [], S.show.gap ? ["gap"] : [])
+      : ["interest", "subarea", "report"]) : [];
+  D.nodes.forEach((n) => { if (structure.includes(n.type) && hubShown(n)) keep.add(n.id); });
   if (view === "groups") ITEMS.forEach((n) => { if (n.type === "web") keep.delete(n.id); });
-  const links = D.edges.filter((e) => EDGES_BY_VIEW[view].has(e.type) && keep.has(e.source) && keep.has(e.target))
+  const allowed = new Set(EDGES_BY_VIEW[view]);
+  if (simple && S.show.gap) ["gap_subarea", "gap_report", "gap_interest"].forEach((x) => allowed.add(x));
+  const links = D.edges.filter((e) => allowed.has(e.type) && keep.has(e.source) && keep.has(e.target))
     .map((e) => ({ source: e.source, target: e.target, type: e.type }));
   if (view === "groups") {
     for (const lab of D.labs) {
@@ -437,6 +472,7 @@ new ResizeObserver(fitCanvas).observe(box);
 
 function hoverLabel(n) {
   if (n.type === "year") return "";
+  if (S.ui === "simple" && n.id === S.focus) return ""; /* its card is already open */
   const kind = n.type === "paper" ? "Paper" : n.type === "web" ? "Web source, not peer-reviewed"
     : n.type === "subarea" ? "Sub-area" : n.type === "interest" ? "Research interest"
     : n.type === "gap" ? (KIND_NAMES[n.kind] || "Gap") : n.type === "report" ? "Report" : "Lab";
@@ -497,7 +533,9 @@ function refreshObjects() {
 function select(id, fromTrail) {
   const lab = labOf(id), isLab = !!lab;
   if (!isLab && !byId.has(id)) return;
-  S.focus = isLab ? null : id;
+  /* A node hidden by the filters still gets its details, but no focus mode: there is
+     nothing drawn to keep lit, and dimming everything else would hide the rest. */
+  S.focus = isLab || !focusStillShown(id, G.graphData().nodes) ? null : id;
   S.highlight = isLab ? new Set(lab.papers.concat(lab.bridges)) : null;
   S.highlightWhy = isLab ? lab.name : "";
   S.current = id;
@@ -511,6 +549,7 @@ function select(id, fromTrail) {
   computeNeighbours();
   refreshObjects();
   renderDetail(id);
+  renderNodeCard(id);
   renderTrail();
   writeHash(true);
   /* The camera stays put: zooming is the researcher's call (double-click, toolbar,
@@ -635,7 +674,7 @@ function initToolbar() {
 function clearFocus() {
   if (!S.focus && !S.highlight) return;
   S.focus = null; S.highlight = null; S.highlightWhy = ""; S.current = null;
-  computeNeighbours(); refreshObjects(); renderDetail(null); writeHash(true);
+  computeNeighbours(); refreshObjects(); renderDetail(null); hideNodeCard(); writeHash(true);
 }
 function renderTrail() {
   const t = $("#trail"); t.replaceChildren();
@@ -657,9 +696,9 @@ function moveTrail(step) {
 function writeHash(push) {
   const f = S.filters, sets = {};
   for (const [k, v] of Object.entries(f.sets)) if (v.size) sets[k] = [...v];
-  const state = { v: S.view, f: S.current,
+  const state = { v: S.advView, f: S.current,
     s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic } };
-  const h = "#" + new URLSearchParams({ view: state.v, focus: state.f || "", since: state.s, dims: state.d,
+  const h = "#" + new URLSearchParams({ ui: S.ui, view: state.v, focus: state.f || "", since: state.s, dims: state.d,
     filters: JSON.stringify(state.flt) }).toString();
   if (h === location.hash) return;
   if (push) history.pushState(null, "", h); else history.replaceState(null, "", h);
@@ -667,7 +706,7 @@ function writeHash(push) {
 function readHash() {
   if (!location.hash) return false;
   const p = new URLSearchParams(location.hash.slice(1));
-  if (VIEWS.includes(p.get("view"))) S.view = p.get("view");
+  if (VIEWS.includes(p.get("view"))) S.advView = S.view = p.get("view");
   if (/^\d{4}-\d{2}-\d{2}$/.test(p.get("since") || "")) S.since = p.get("since");
   S.dims = p.get("dims") === "2" ? 2 : 3;
   try {
@@ -692,11 +731,14 @@ const VIEW_NOTES = {
 function setView(view, keepCamera) {
   savePositions();
   S.view = view;
+  if (S.ui === "advanced") S.advView = view;
   document.querySelectorAll("#views button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
-  $("#viewnote").textContent = VIEW_NOTES[view] + " Double-click a shape to zoom to it; double-click again to go back.";
+  $("#viewnote").textContent = (S.ui === "simple" ? "Click a shape for a summary." : VIEW_NOTES[view])
+    + " Double-click a shape to zoom to it; double-click again to go back.";
   G.d3Force("charge").strength(view === "groups" ? -18 : view === "timeline" ? -14 : -30);
   G.d3Force("link").distance((l) => (l.type === "labmember" ? 12 : l.type === "interest" ? 60 : l.type === "cites" ? 40 : 28));
   const data = viewGraph(view);
+  if (!focusStillShown(S.focus, data.nodes)) dropHiddenFocus(data.nodes);
   computeNeighbours(data.links);
   G.graphData(data);
   renderLegend();
@@ -733,11 +775,150 @@ function refreshData() {
   recomputeVisible();
   savePositions();
   const data = viewGraph(S.view);
+  if (!focusStillShown(S.focus, data.nodes)) dropHiddenFocus(data.nodes);
   computeNeighbours(data.links);
   G.graphData(data);
-  renderFilters(); renderLegend();
+  renderFilters(); renderLegend(); renderSimpleKey();
   if (S.listOpen) renderList();
   writeHash(false);
+}
+
+/* Whether the focused node (if any) is still among the nodes drawn. */
+function focusStillShown(focusId, nodes) { return !focusId || nodes.some((n) => n.id === focusId); }
+/* A filter that hides the focused node ends focus mode, rather than dimming
+   everything that is still shown. */
+function dropHiddenFocus(nodes) {
+  if (focusStillShown(S.focus, nodes)) return;
+  S.focus = null; S.current = null;
+  hideNodeCard(); renderDetail(null);
+}
+
+/* ---------- Simple and Advanced ---------- */
+/* Which interface to open in: the address wins, then the last one used, else Simple. */
+function initialUi(fromHash, saved) {
+  if (fromHash === "simple" || fromHash === "advanced") return fromHash;
+  if (saved === "simple" || saved === "advanced") return saved;
+  return "simple";
+}
+/* Filters set in Advanced that Simple's key cannot show, in plain words. Simple
+   names them, so nothing hidden is shaping the picture. */
+function advancedOnlyFilters(f) {
+  const names = { subarea: "Sub-area", status: "Status", tier: "Verdict / tier", evidence: "Evidence read",
+    disclosure: "Disclosure", contribution: "Contribution" };
+  const out = [];
+  for (const [key, name] of Object.entries(names)) if (f.sets[key] && f.sets[key].size) out.push(name);
+  if (f.yearMin != null || f.yearMax != null) out.push("Publication year");
+  if (!f.undated) out.push("Undated items hidden");
+  if (f.newOnly) out.push("Only new items");
+  if (f.offTopic) out.push("Off-topic papers shown");
+  return out;
+}
+/* Interest and sub-area hubs follow the interest filter, so an isolated interest
+   is not surrounded by the empty hubs of the others. */
+function hubShown(n) {
+  const f = S.filters.sets.interest;
+  if (!f || !f.size) return true;
+  if (n.type === "interest") return f.has(n.label);
+  if (n.type === "subarea") return f.has(n.interest);
+  if (n.type === "gap") return !n.interest || f.has(n.interest);
+  return true;
+}
+function setUi(mode, save) {
+  S.ui = mode;
+  document.body.classList.toggle("simple", mode === "simple");
+  $("#ui-simple").setAttribute("aria-pressed", String(mode === "simple"));
+  $("#ui-advanced").setAttribute("aria-pressed", String(mode === "advanced"));
+  if (save) { try { localStorage.setItem("kg-ui", mode); } catch (e) { /* storage blocked */ } }
+  hideNodeCard();
+  setView(mode === "simple" ? "library" : S.advView);
+  renderFilters(); renderSimpleKey();
+  if (S.current && mode === "advanced") renderDetail(S.current);
+  fitCanvas();
+}
+/* The set of ticked values for a facet, where an empty set means "all". */
+function ticked(key, all) { const s = S.filters.sets[key]; return new Set(s && s.size ? s : all); }
+function toggleFacet(key, all, value, on) {
+  const s = ticked(key, all);
+  if (on) s.add(value); else s.delete(value);
+  S.filters.sets[key] = s.size === all.length ? new Set() : (s.size ? s : new Set(["(none)"]));
+  refreshData();
+}
+function renderSimpleKey() {
+  const K = $("#simplekey");
+  if (S.ui !== "simple") { K.replaceChildren(); return; }
+  const collapsed = K.classList.contains("collapsed");
+  const interests = INTERESTS.concat(ITEMS.some((n) => interestOf(n) === "Uncategorized") ? ["Uncategorized"] : []);
+  const kinds = ["Paper", "Web source (not peer-reviewed)"];
+  const onI = ticked("interest", interests), onK = ticked("type", kinds);
+  const passIgnoring = (n, facet) => passes(n, facet);
+  const body = el("div", { class: "keybody" });
+  body.append(el("p", { class: "note", style: "margin-top:0" }, "Colour is the research interest; shape is the kind of source. Untick to hide; leave two interests ticked to see them together."));
+  body.append(el("h2", {}, "Research interests"));
+  for (const name of interests) {
+    const count = ITEMS.filter((n) => interestOf(n) === name && passIgnoring(n, "interest")).length;
+    body.append(el("label", {}, el("input", { type: "checkbox", checked: onI.has(name), on: { change: (e) => toggleFacet("interest", interests, name, e.target.checked) } }),
+      swatch("dot", interestColor(name)), el("span", {}, name), el("span", { class: "count", title: "papers and web sources" }, String(count))));
+  }
+  body.append(el("h2", {}, "Kinds of source"));
+  const shapes = { Paper: ["dot", "Papers"], "Web source (not peer-reviewed)": ["cube", "Web sources (not peer-reviewed)"] };
+  for (const kind of kinds) {
+    const count = ITEMS.filter((n) => (n.type === "web" ? "Web source (not peer-reviewed)" : "Paper") === kind && passIgnoring(n, "type")).length;
+    body.append(el("label", {}, el("input", { type: "checkbox", checked: onK.has(kind), on: { change: (e) => toggleFacet("type", kinds, kind, e.target.checked) } }),
+      swatch(shapes[kind][0], css("--ink-2")), el("span", {}, shapes[kind][1]), el("span", { class: "count" }, String(count))));
+  }
+  const gapCount = D.nodes.filter((n) => n.type === "gap" && hubShown(n)).length;
+  const reportCount = D.nodes.filter((n) => n.type === "report").length;
+  for (const [key, shape, label, count] of [["gap", "diamond", "Gaps (open questions and thin areas)", gapCount], ["report", "cube", "Your reports", reportCount]]) {
+    body.append(el("label", {}, el("input", { type: "checkbox", checked: S.show[key], on: { change: (e) => { S.show[key] = e.target.checked; refreshData(); } } }),
+      swatch(shape, key === "gap" ? css("--gap") : css("--ink-2"), key === "report" ? "width:9px;height:13px" : ""), el("span", {}, label), el("span", { class: "count" }, String(count))));
+  }
+  const newIds = ITEMS.filter((n) => isNew(n) && VISIBLE.has(n.id)).map((n) => n.id);
+  body.append(el("p", { class: "note" }, swatch("ring"), " Ringed = new since " + S.since + ": ",
+    newIds.length ? el("button", { class: "linkbtn", title: "Highlight them", on: { click: () => highlightSet(newIds, "new since " + S.since) } }, String(newIds.length)) : "none"));
+  body.append(el("p", { class: "note" }, "Bigger = higher score. Solid = used in a report; fainter = not (yet)."));
+  const extra = advancedOnlyFilters(S.filters);
+  if (extra.length) body.append(el("p", { class: "note warn" }, "Also filtered in Advanced: " + extra.join(", ") + ". ",
+    el("button", { class: "linkbtn", on: { click: () => { const keep = { interest: S.filters.sets.interest, type: S.filters.sets.type };
+      S.filters = { sets: Object.fromEntries(Object.entries(keep).filter(([, v]) => v)), yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false }; refreshData(); } } }, "Clear those")));
+  const anyOff = Object.values(S.filters.sets).some((s) => s && s.size) || S.show.gap || S.show.report || extra.length;
+  if (anyOff) body.append(el("p", { class: "note" }, el("button", { class: "linkbtn", on: { click: () => { S.show = { gap: false, report: false }; resetFilters(); } } }, "Back to the starting picture")));
+  K.replaceChildren(el("div", { class: "keyhead" }, el("strong", {}, "Key"),
+    el("button", { class: "linkbtn", "aria-expanded": String(!collapsed), on: { click: () => { K.classList.toggle("collapsed"); renderSimpleKey(); } } }, collapsed ? "Show" : "Hide")), body);
+}
+/* A small summary next to a clicked node in Simple mode; the full details are in Advanced. */
+function hideNodeCard() { const c = $("#nodecard"); c.hidden = true; c.replaceChildren(); }
+function renderNodeCard(id) {
+  const card = $("#nodecard");
+  const n = byId.get(id);
+  if (S.ui !== "simple" || !n) { hideNodeCard(); return; }
+  const kids = [el("button", { class: "close", "aria-label": "Close", on: { click: clearFocus } }, "×")];
+  if (n.type === "paper" || n.type === "web") {
+    const who = (n.authors || []).slice(0, 3).join(", ") + ((n.authors || []).length > 3 ? " et al." : "");
+    kids.push(el("h3", {}, n.title),
+      el("div", { class: "muted" }, [who, n.year == null ? "Undated" : String(n.year)].filter(Boolean).join(" · ")),
+      el("div", {}, n.type === "web" ? n.kindLabel : n.statusLabel),
+      el("div", { class: "muted" }, interestOf(n) + (n.subareas && n.subareas.length ? " · " + n.subareas.join("; ") : "")));
+  } else if (n.type === "gap") {
+    kids.push(el("h3", {}, KIND_NAMES[n.kind] || "Gap"), el("div", {}, n.text), el("div", { class: "muted" }, "Why: " + n.rule));
+  } else {
+    const count = n.type === "report" ? ITEMS.filter((x) => (x.reports || []).some((r) => r.slug === n.slug)).length
+      : D.edges.filter((e) => e.target === n.id && VISIBLE.has(e.source)).length;
+    kids.push(el("h3", {}, n.label), el("div", { class: "muted" }, (n.type === "report" ? "Report · " + plural(count, "library paper") + " cited"
+      : (n.type === "interest" ? "Research interest" : "Sub-area") + (n.type === "subarea" ? " · " + plural(count, "item") + " shown" : ""))));
+  }
+  const g = G.graphData().nodes.find((x) => x.id === id && x.x != null);
+  if (!g) kids.push(el("p", { class: "small", style: "margin:6px 0 0;border-left:3px solid var(--gap);padding-left:6px" },
+    "Not in the graph right now: hidden by the current filters."));
+  kids.push(el("div", { class: "actions", style: "margin:6px 0 0" },
+    n.url ? link("Open source", n.url) : null,
+    el("button", { class: "linkbtn", on: { click: () => { setUi("advanced", true); select(id, true); } } }, "More details →")));
+  card.replaceChildren(...kids);
+  card.hidden = false;
+  const area = $("#center");
+  let x = area.clientWidth - card.offsetWidth - 12, y = 12; /* top right, clear of the key */
+  if (g) { const c = G.graph2ScreenCoords(g.x, g.y, g.z || 0); x = c.x + 16; y = c.y + 16; }
+  const p = clampToolbar(x, y, card.offsetWidth, card.offsetHeight, area.clientWidth, area.clientHeight);
+  card.style.left = p.x + "px"; card.style.top = p.y + "px";
 }
 
 /* ---------- legend ---------- */
@@ -1082,6 +1263,8 @@ $("#search").addEventListener("keydown", (e) => {
 document.querySelectorAll("#views button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 $("#dims").addEventListener("click", () => { S.dims = S.dims === 3 ? 2 : 3; applyDims(); writeHash(false); });
 function applyDims() { $("#dims").textContent = S.dims === 3 ? "2D" : "3D"; $("#dims").title = S.dims === 3 ? "Switch to a flat 2D layout" : "Switch to 3D"; G.numDimensions(S.dims); FIT_PENDING = true; }
+$("#ui-simple").addEventListener("click", () => setUi("simple", true));
+$("#ui-advanced").addEventListener("click", () => setUi("advanced", true));
 $("#list-toggle").addEventListener("click", () => { if (S.listOpen) closeList(); else { S.listIds = null; S.listOpen = true; renderList(); } });
 $("#since").value = S.since;
 $("#since").addEventListener("change", (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { S.since = e.target.value; refreshObjects(); refreshData(); renderDetail(S.focus); } });
@@ -1093,7 +1276,7 @@ function onKey(e) {
   if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
   else if (e.key === "ArrowLeft") moveTrail(-1);
   else if (e.key === "ArrowRight") moveTrail(1);
-  else if (["1", "2", "3", "4"].includes(e.key)) setView(VIEWS[+e.key - 1]);
+  else if (["1", "2", "3", "4"].includes(e.key) && S.ui === "advanced") setView(VIEWS[+e.key - 1]);
   else if (e.key === "+" || e.key === "=") zoomBy(0.7);
   else if (e.key === "-" || e.key === "_") zoomBy(1 / 0.7);
   else if (e.key === "0") fitAll();
@@ -1118,16 +1301,24 @@ function renderSummary() {
 /* ---------- start ---------- */
 function restoreFromHash() {
   const focus = readHash();
+  let saved = null;
+  try { saved = localStorage.getItem("kg-ui"); } catch (e) { /* storage blocked */ }
+  S.ui = initialUi(new URLSearchParams(location.hash.slice(1)).get("ui"), saved);
+  document.body.classList.toggle("simple", S.ui === "simple");
+  $("#ui-simple").setAttribute("aria-pressed", String(S.ui === "simple"));
+  $("#ui-advanced").setAttribute("aria-pressed", String(S.ui === "advanced"));
   $("#since").value = S.since;
   recomputeVisible();
   applyDims();
-  setView(S.view);
+  setView(S.ui === "simple" ? "library" : S.advView);
+  renderSimpleKey();
   renderFilters();
   S.focus = null; S.highlight = null; S.current = null;
   if (focus) select(focus, true);
   if (!S.current) { renderDetail(null); refreshObjects(); } /* no focus, or one this build lacks */
 }
 if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.add("closed"); $("#detail").classList.add("closed"); }
+if (window.matchMedia("(max-width: 600px)").matches) $("#simplekey").classList.add("collapsed");
 recomputeVisible();
 renderSummary();
 restoreFromHash();

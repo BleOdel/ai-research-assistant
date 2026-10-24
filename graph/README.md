@@ -17,7 +17,15 @@ README.
 
 ## What the page shows
 
-Four views, keys 1-4:
+The page opens in **Simple** mode: the graph, one key that is also the filter, and a
+small summary card for whatever you click. The key shows colour per research interest
+and shape per kind of source (papers, web sources, gaps, your reports), with counts;
+untick to hide, or leave two interests ticked to see them together. If a filter set in
+Advanced is also in effect, the key names it and offers to clear it. **More details**
+on a card, or the **Advanced** switch in the top bar, opens the full interface below;
+the page remembers which one you used last.
+
+In **Advanced**, four views, keys 1-4:
 
 - **Library** - papers and web sources next to the sub-areas they are labelled with,
   from your profile's "Sub-areas of interest" (`python3 tools/state.py subareas`).
