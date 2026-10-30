@@ -89,13 +89,19 @@ information or follows a user action; a precise list always one click from any p
 - **G6 Everything in the current page stays reachable** (the four views, filters, list,
   export, details), in the Explore tab.
 - **G7 Out of the way.** Every tab area and card can be minimised to a labelled chip.
+- **G8 Built for a large library.** A researcher with several areas can hold thousands to
+  tens of thousands of items. The map stays readable and smooth there, by showing the right
+  amount of detail for the zoom level, never by telling the researcher their library is too
+  big. (Added 2026-10-30.)
 
 ## Non-goals
 
 - Running an AI model from the page. (Claude reads the note files through Claude Code
   later; that integration is a separate project.)
 - Per-subject maps in their own folders. Discussed 2026-10-24 (recommended: a home map
-  plus one map per subject); not decided, and not part of this build.
+  plus one map per subject); not decided, and not part of this build. The zoom-based
+  detail above is what lets one map hold a large library; per-subject maps would be an
+  addition later, not a rescue.
 - Collaboration, sharing or syncing notes between machines.
 - Replacing the reports: notes feed thinking, not citations. A note is never cited.
 - Mobile-first design. It must work at phone width (no sideways scroll; panels
@@ -181,8 +187,46 @@ that highlights the answer on the globe: "Show what it cites", "Show what cites 
 (opens the editor with this item already linked), "Open full details" (Explore tab,
 details panel). Click empty space or Esc to leave.
 
-Performance: smooth at 1,000 items and 2,500 arcs (the synthetic library), as the
-current page is. Render technology is the builder's choice within the constraints.
+### Scale: thousands to tens of thousands of items
+
+The globe is a fixed size. Adding items or interests makes it denser, never bigger, so the
+detail shown depends on how far the researcher has zoomed. The design target is a library
+of **20,000 items and 50,000 citation links**, smooth to rotate and zoom. (The live library
+today has 325 items and 683 links; a PhD student working across several areas for a few
+years could reach 5,000 to 20,000, because the framework stores every source it finds, not
+only what was read.)
+
+Four rules:
+
+1. **Zoomed out shows regions, not papers.** Each interest is a region sized by its count;
+   its sub-areas are labelled clusters. Every region and cluster shows its exact count, so
+   aggregating never hides what is there.
+2. **Zoom in and clusters open into dots.** Dots are drawn only for what is in view, the
+   highest-scoring first, and more appear as the researcher zooms. A cap on dots drawn at
+   once keeps the frame rate smooth; when the cap hides some, the cluster says "showing 400
+   of 2,300; zoom in or filter to see more".
+3. **Citation arcs are drawn for the selection.** Clicking a dot shows its own arcs. With
+   nothing selected, only the strongest arcs are drawn, up to a small cap, and none when
+   zoomed far out.
+4. **Show only the shortlist by default.** The globe opens on papers scored Core or
+   Supporting, plus items not yet scored, so new finds are never hidden. A visible toggle
+   ("Include peripheral and excluded: 14,200 more") brings in the rest. The count of what
+   is hidden is always on screen. *(Designer's call, confirmed in discussion 2026-10-30.)*
+
+Smaller rules that keep it readable:
+- Every interest keeps at least a readable minimum band width, however small its count;
+  its label shows on zoom.
+- The year scale uses the library's real range and does not leave empty bands; if the
+  range is wide, the most recent years get no less than a set share of the height.
+- The Explore tab's List is virtualised (only visible rows are drawn); the other
+  Explore views apply the same caps and say so when they do.
+- Colouring rule from "Many interests" below still applies.
+
+Performance is tested at the target size with a synthetic library (20,000 items, 50,000
+links) as well as the live one. The test records time to first draw and frame rate while
+rotating, and fails the build's check if either regresses past a stated limit. The
+builder sets the limits after measuring in a real browser. Render technology is the
+builder's choice within the constraints.
 
 ### Many interests
 
@@ -443,6 +487,10 @@ it.
 - Exact visual values (sizes, opacities, glow), the shells' spacing, the chip designs.
 - The question patterns' grammar, provided the listed examples work.
 - Whether to cache abstracts for matching, and the suggestion threshold.
+- How the 20,000-item data reaches the page without making the file unmanageable (for
+  example: titles, years, scores and keys embedded, abstracts and full details loaded only
+  on demand from the helper, or aggregated counts precomputed at build). The one offline
+  file must still open without the helper.
 - How the build passes saved notes into the page (embedded at build time, read from the
   helper at runtime, or both).
 - Test strategy, following the repo's: unittest for Python, node checks for page logic,
@@ -473,3 +521,6 @@ it.
 16. The annotation toolbar's first version is the table above; highlighter, sticky pins and
     compare-two-dots are left out. Marks use five fixed colours distinct from interest colours.
     Save as image is included.
+17. The globe is built for 20,000 items: regions when zoomed out, dots as the researcher zooms,
+    arcs for the selection, shortlist (Core, Supporting and unscored) shown by default with
+    a visible toggle for the rest. Tested at 20,000 items and 50,000 links.
