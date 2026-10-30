@@ -170,7 +170,7 @@ Positions carry meaning:
 | Dot / small square | Paper / web source (not peer-reviewed) |
 | Colour | Research interest (see "Many interests" for the cap) |
 | Arc over the surface | One library paper citing another (OpenAlex references, library only). Drawn from the citing paper to the cited one; see "Reading the citation lines" |
-| White ring | New since the last search |
+| White ring | New since the last search. A ring means nothing else; see "Reading the rings" |
 | Faint meridians | Region boundaries |
 | Year marks on the rim | The latitude scale |
 
@@ -186,6 +186,23 @@ that highlights the answer on the globe: "Show what it cites", "Show what cites 
 "Show its research group's other papers", "Show the same sub-area", "Write a note about this"
 (opens the editor with this item already linked), "Open full details" (Explore tab,
 details panel). Click empty space or Esc to leave.
+
+### Reading the rings
+
+A white ring around a dot means exactly one thing: **added in your most recent search**.
+The page must say so where the rings are, not only in a legend at the bottom.
+
+- **A key appears whenever ringed items are in view**, near the top of the globe: "○ ring =
+  new since your last search (24 Oct) · 82 in view". It states the date of that search and
+  the count in view, and hides when none are in view or the globe is zoomed out to regions.
+- **Hovering any dot** shows its title, year and kind. A ringed dot adds a line: "○ New since
+  your last search (24 Oct)".
+- **The selected item is never drawn with a ring.** It is a filled white dot with a soft
+  glow, so the only rings on the page are "new" rings.
+- The "On your map" card counts them ("○ 14 new since 24 Oct") and clicking that line shows
+  only those items.
+- At region level (zoomed out) a sub-area with new items shows the number in its label
+  ("Defence surveys · 1,261 · 12 new").
 
 ### Reading the citation lines
 
@@ -555,3 +572,5 @@ it.
 18. Citation lines are directional: amber for what the selected paper cites, blue for what cites
     it, arrowheads at the cited end, always with a plain-words sentence per colour beside the card,
     and a separate sentence when a count is zero.
+19. Rings mean only "new since your last search": a key near the globe when rings are in view,
+    a line on the hover label, no ring on the selected item (a glowing filled dot instead).
