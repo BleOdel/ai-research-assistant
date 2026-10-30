@@ -153,11 +153,24 @@ reopens the same picture (extends the existing hash state).
 
 ### "On your map" card
 
-One big number (items shown), then: papers and web sources; each research interest with
+One big number (items shown), then a three-way switch, **Show: Both | Papers only | Web
+only**, each choice carrying its count ("Papers only 9,330", "Web only 1,048"); each research interest with
 its colour and count (click to hide or show it, as the Simple key does now); one line
 for new items, research groups, gaps and notes ("✦ 6 notes · 1 with new evidence");
 any hidden filter set elsewhere, named, with "Clear"; a link "See how your library
 connects →" to the second tab.
+
+**The Papers / Web switch.** It combines with the interest, shortlist and new-only filters
+and is applied after them, so the counts on each choice are what that choice would show
+under the other filters. The headline number and the "showing X of Y" notice always say what
+is currently shown. "Papers only" means peer-reviewed sources: no web page. "Web only" says
+under the switch that web sources are not peer-reviewed and have no citation lines, and
+selecting a web item says "nothing is drawn from this one" instead of showing empty
+amber and blue sentences. The choice is shared with the Explore tab's list and with the Ask
+tab, so the globe and the list never disagree, and it is remembered per viewer like the
+other view state. Notes are unaffected by it: a note linked to a hidden web source still
+draws its tether when the source is shown again, and the note card says "1 linked source is
+hidden by Papers only".
 
 ### The research globe
 
@@ -574,3 +587,5 @@ it.
     and a separate sentence when a count is zero.
 19. Rings mean only "new since your last search": a key near the globe when rings are in view,
     a line on the hover label, no ring on the selected item (a glowing filled dot instead).
+20. The Papers only / Web only switch is in the On your map card, shared with Explore and Ask,
+    applied after the other filters, with a count on each choice.
