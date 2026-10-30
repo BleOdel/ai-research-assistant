@@ -201,9 +201,9 @@ page may leave that to be guessed.
   colour, each with the count from the card's "Cites 6 · cited by 0":
   - "Amber, going out: this paper cites 2 papers in your library."
   - "Blue, coming in: 1 paper in your library cites this one."
-  - A zero count gets its own sentence, never "(none)": "No amber lines. None of this paper's
-    references are in your library." / "No blue lines. No paper in your library cites this one
-    yet."
+  - A zero count gets its own sentence, never a bare "(none)": "Amber, going out: none,
+    because none of this paper's references are in your library." / "Blue, coming in: none,
+    because no paper in your library cites this one yet."
   - Singular and plural are handled ("1 paper ... cites", "2 papers ... cite").
 - **The legend names the lines** whenever any are drawn, including the faint "strongest
   arcs" shown with nothing selected: "Lines are citations between papers in your library".
