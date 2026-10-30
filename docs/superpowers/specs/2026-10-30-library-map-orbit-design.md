@@ -169,7 +169,7 @@ Positions carry meaning:
 | Height (latitude) | Publication year: newest at the top, oldest towards the bottom; **undated items at the south pole** |
 | Dot / small square | Paper / web source (not peer-reviewed) |
 | Colour | Research interest (see "Many interests" for the cap) |
-| Arc over the surface | One library paper citing another (OpenAlex references, library only) |
+| Arc over the surface | One library paper citing another (OpenAlex references, library only). Drawn from the citing paper to the cited one; see "Reading the citation lines" |
 | White ring | New since the last search |
 | Faint meridians | Region boundaries |
 | Year marks on the rim | The latitude scale |
@@ -180,12 +180,35 @@ is drawn over its region where its papers are. Drag to spin, scroll to zoom; the
 existing toolbar functions (zoom in/out, fit, rotate/move) and double-click zoom carry
 over.
 
-Click a dot: its citation arcs light up, everything else dims, and a card opens with the
+Click a dot: its citation arcs light up (see "Reading the citation lines" below), everything else dims, and a card opens with the
 title, interest, year, status, cites/cited-by counts, and **next steps**, each one click
 that highlights the answer on the globe: "Show what it cites", "Show what cites it",
 "Show its research group's other papers", "Show the same sub-area", "Write a note about this"
 (opens the editor with this item already linked), "Open full details" (Explore tab,
 details panel). Click empty space or Esc to leave.
+
+### Reading the citation lines
+
+A line on the globe always means one thing: **this paper cites that paper**. Nothing on the
+page may leave that to be guessed.
+
+- **Two colours, one meaning each.** Lines from the selected paper to papers it *cites*
+  are one colour (amber); lines from papers that *cite it* to the selected paper are
+  another (blue). The colours are chosen to be distinguishable for colour-blind viewers and
+  never reuse an interest colour. A small arrowhead at the cited end shows the direction
+  without relying on colour.
+- **A label next to the card says so in words**, on every selection: "Amber lines: papers
+  this one cites (6). Blue lines: papers that cite it (0)." The counts match the card's
+  "Cites 6 · cited by 0", and a zero count says "none in your library".
+- **The legend names the lines** whenever any are drawn, including the faint "strongest
+  arcs" shown with nothing selected: "Lines are citations between papers in your library".
+  Those faint lines carry no direction colour; selecting a paper turns its own lines into
+  amber and blue.
+- **Hovering a line** shows "<citing title> cites <cited title>".
+- **What a missing line means** is written in the card: "A line only appears when both
+  papers are in your library. This paper may cite others you have not collected."
+- **Lines to hidden items** are not drawn, and the label says how many were left out by the
+  current filters ("2 more are hidden by the shortlist").
 
 ### Scale: thousands to tens of thousands of items
 
@@ -524,3 +547,6 @@ it.
 17. The globe is built for 20,000 items: regions when zoomed out, dots as the researcher zooms,
     arcs for the selection, shortlist (Core, Supporting and unscored) shown by default with
     a visible toggle for the rest. Tested at 20,000 items and 50,000 links.
+18. Citation lines are directional: amber for what the selected paper cites, blue for what cites
+    it, arrowheads at the cited end, always with a plain-words label and counts beside the
+    card.
