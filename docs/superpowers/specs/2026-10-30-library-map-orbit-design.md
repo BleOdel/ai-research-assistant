@@ -197,9 +197,14 @@ page may leave that to be guessed.
   another (blue). The colours are chosen to be distinguishable for colour-blind viewers and
   never reuse an interest colour. A small arrowhead at the cited end shows the direction
   without relying on colour.
-- **A label next to the card says so in words**, on every selection: "Amber lines: papers
-  this one cites (6). Blue lines: papers that cite it (0)." The counts match the card's
-  "Cites 6 · cited by 0", and a zero count says "none in your library".
+- **A label next to the card says so in words**, on every selection, one plain sentence per
+  colour, each with the count from the card's "Cites 6 · cited by 0":
+  - "Amber, going out: this paper cites 2 papers in your library."
+  - "Blue, coming in: 1 paper in your library cites this one."
+  - A zero count gets its own sentence, never "(none)": "No amber lines. None of this paper's
+    references are in your library." / "No blue lines. No paper in your library cites this one
+    yet."
+  - Singular and plural are handled ("1 paper ... cites", "2 papers ... cite").
 - **The legend names the lines** whenever any are drawn, including the faint "strongest
   arcs" shown with nothing selected: "Lines are citations between papers in your library".
   Those faint lines carry no direction colour; selecting a paper turns its own lines into
@@ -548,5 +553,5 @@ it.
     arcs for the selection, shortlist (Core, Supporting and unscored) shown by default with
     a visible toggle for the rest. Tested at 20,000 items and 50,000 links.
 18. Citation lines are directional: amber for what the selected paper cites, blue for what cites
-    it, arrowheads at the cited end, always with a plain-words label and counts beside the
-    card.
+    it, arrowheads at the cited end, always with a plain-words sentence per colour beside the card,
+    and a separate sentence when a count is zero.
