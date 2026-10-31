@@ -209,6 +209,17 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("if (FIT_PENDING) setTimeout(fitCamera", page_function("setTab"))
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_hidden_explore_does_no_graph_work(self):
+        # At 20,000 items, laying out Explore's 3D graph behind the Overview held the
+        # first globe frame back by six seconds. Explore's work waits until it is shown.
+        got = run_js(["deferExplore"], 'let EXPLORE_DIRTY = false; const S = {tab: "overview"};',
+                     '[deferExplore(), EXPLORE_DIRTY, (S.tab = "explore", deferExplore())]')
+        self.assertEqual(got, [True, True, False])
+        for name in ("setView", "refreshData"):
+            self.assertIn("deferExplore()", page_function(name), name)
+        self.assertIn("EXPLORE_DIRTY", page_function("setTab"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_blocked_storage_is_not_an_error(self):
         prelude = ('const localStorage = {getItem() { throw new Error("blocked"); }, '
                    'setItem() { throw new Error("blocked"); }};')
@@ -339,6 +350,29 @@ class TemplateTests(unittest.TestCase):
                      "visibleRange(3000, 300, 30, 1000, 5), visibleRange(29700, 300, 30, 1000, 5), "
                      "visibleRange(0, 300, 30, 4, 5)]")
         self.assertEqual(got, [[0, 15], [95, 115], [985, 1000], [0, 4]])
+
+    def test_line_colours_are_not_interest_colours(self):
+        # Amber and blue lines must never be mistaken for an interest's colour.
+        root = re.search(r":root \{(.*?)\n\}", TEMPLATE, re.S).group(1)
+        dark = re.search(r"prefers-color-scheme: dark\).*?\{(.*?)\n  \}", TEMPLATE, re.S).group(1)
+        forced = re.search(r':root\[data-theme="dark"\] \{(.*?)\n\}', TEMPLATE, re.S).group(1)
+        for block in (root, dark, forced):
+            tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+            interest = {tokens[f"s{i}"].lower() for i in range(1, 7)}
+            self.assertNotIn(tokens["cites"].lower(), interest)
+            self.assertNotIn(tokens["citedby"].lower(), interest)
+            self.assertNotEqual(tokens["cites"], tokens["citedby"])
+
+    def test_globe_regions_present(self):
+        for region in ("globe", "globe-nav", "gnav-grip", "gnav-zoom-in", "gnav-zoom-out", "gnav-fit",
+                       "gnav-rotate", "gnav-pan"):
+            self.assertRegex(TEMPLATE, rf'id="{region}"', region)
+        self.assertIn("TAB_HOOKS.overview", PAGE_SOURCE)
+        self.assertIn("ON_FILTERS.push(globeRefresh)", PAGE_SOURCE)
+        # Showing the Overview refreshes what is visible: the start-up shows the tab before
+        # it has worked out the filters, which once left the globe empty.
+        hook = re.search(r"^TAB_HOOKS\.overview = .*$", (PARTS / "globe.js").read_text(), re.M).group(0)
+        self.assertIn("globeRefresh()", hook)
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
