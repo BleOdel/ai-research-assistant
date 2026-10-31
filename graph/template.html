@@ -121,6 +121,24 @@ h2:first-child { margin-top: 0; }
 #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 #globe:active { cursor: grabbing; }
 #globe.pan-mode { cursor: move; }
+.page h2 { font-size: 16px; margin: 0 0 4px; }
+.page .lede { color: var(--ink-2); margin: 0 0 14px; max-width: 760px; }
+.schema-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; max-width: 1120px; }
+@media (max-width: 900px) { .schema-wrap { grid-template-columns: minmax(0, 1fr); } }
+#schema { width: 100%; height: auto; background: var(--surface); border: 1px solid var(--hair); border-radius: 10px; }
+#schema .kind rect { fill: var(--plane); stroke: var(--axis); cursor: pointer; }
+#schema .kind.on rect { stroke: var(--focus); stroke-width: 2; }
+#schema .kind text { fill: var(--ink); font: 600 13px system-ui; pointer-events: none; }
+#schema .kind text.n { fill: var(--muted); font-weight: 400; }
+#schema .link { stroke: var(--axis); stroke-width: 1.4; fill: none; }
+#schema .lbl { fill: var(--ink-2); font: 11.5px system-ui; }
+#schema-detail { background: var(--surface); border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px; align-self: start; }
+#schema-detail h3 { margin: 0 0 6px; font-size: 15px; }
+.status-table { border-collapse: collapse; width: 100%; max-width: 1000px; font-size: 13.5px; }
+.status-table th, .status-table td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--hair); }
+.status-table td.fix { color: var(--ink-2); }
+.status-table tr.problem td:first-child { border-left: 3px solid var(--gap); }
+.status-table code { font-size: 12.5px; }
 .ocard { position: absolute; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 10px; padding: 12px 14px; box-shadow: 0 2px 12px var(--ring); }
 .ocard[hidden] { display: none; }
 .ocard.min { width: auto; max-width: calc(100% - 24px); padding: 0; overflow: hidden; }
@@ -306,6 +324,17 @@ function el(tag, attrs, ...kids) {
     if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
     else if (k === "class") e.className = v;
     else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : String(k));
+  return e;
+}
+/* The same for SVG, which needs its own namespace. */
+function svgEl(tag, attrs, ...kids) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+    else e.setAttribute(k, v);
   }
   for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : String(k));
   return e;

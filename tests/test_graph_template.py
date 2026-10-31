@@ -422,6 +422,42 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("Hidden by the current filters.", page_function("renderSelCard"))
         self.assertIn("selcard", page_function("renderSelCard"))
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_schema_counts(self):
+        # "Uncategorized" and the "no sub-area" hubs are placeholders, not interests or sub-areas.
+        d = ('{nodes: [{type:"interest", label:"XR"},{type:"interest", label:"Uncategorized"},'
+             '{type:"subarea", id:"subarea:XR:Gaze"},{type:"subarea", id:"subarea:XR:Auth"},'
+             '{type:"subarea", id:"subarea:XR:__unlabelled"},{type:"subarea", id:"subarea:XR:__stale"},'
+             '{type:"paper"},{type:"web"},'
+             '{type:"report"},{type:"gap"}], edges: [{type:"cites"},{type:"cites"},{type:"subarea"}], '
+             'labs: [{papers:[1,2]},{papers:[3]}]}')
+        got = run_js(["schemaCounts"], "", f"schemaCounts({d})")
+        self.assertEqual(got, {"interests": 1, "subareas": 2, "papers": 1, "web": 1, "groups": 1,
+                               "reports": 1, "gaps": 1, "cites": 2})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_status_rows_pair_problems_with_fixes(self):
+        d = ('{meta: {built: "2026-10-31", newSince: "2026-10-24", warnings: ["report r2 could not be read"], '
+             'coverage: {found: 291, notFound: 2, mismatch: 5, noId: 3, notFetched: 0}, '
+             'labels: {notLabelled: 71, fitsNone: 59, stale: 0, noContribution: 4}, counts: {}}, '
+             'edges: [{type: "cites"}, {type: "subarea"}]}')
+        rows = run_js(["statusRows"], "", f"statusRows({d}, {{shown: 325, shortlist: 38, offTopic: 51, other: 0}})")
+        by = {r["label"]: r for r in rows}
+        self.assertEqual(by["Last built"]["value"], "2026-10-31")
+        self.assertIn("325 shown", by["Items"]["value"])
+        self.assertIn("38 by the shortlist", by["Items"]["value"])
+        self.assertIn("python3 tools/knowledge_graph.py --enrich", by["OpenAlex coverage"]["fix"])
+        self.assertIn("python3 tools/state.py subareas", by["Sub-area labels"]["fix"])
+        self.assertEqual(by["Citation links"]["value"], "1")
+        self.assertIn("report r2 could not be read", by["Warnings from the build"]["value"])
+        self.assertTrue(all(r["fix"] for r in rows if r["problem"]))
+        self.assertFalse(by["Last built"]["problem"])
+
+    def test_connects_and_status_regions(self):
+        self.assertIn("TAB_HOOKS.connects", PAGE_SOURCE)
+        self.assertIn("TAB_HOOKS.status", PAGE_SOURCE)
+        self.assertIn("function svgEl(", TEMPLATE)
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
