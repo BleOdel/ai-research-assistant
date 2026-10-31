@@ -22,7 +22,7 @@ Type these **inside Claude Code**, not in your shell.
 | `/update <topic>` | Refresh an existing report in place, with a dated Revision History |
 | `/defend <topic> [context]` | Stress-test or presentation/viva prep pack + mock Q&A |
 | `/outcome [topic]` | Record what happened to a report after the fact |
-| `/graph [YYYY-MM-DD]` | Build the library knowledge graph: labs, sub-areas, timeline, gaps |
+| `/graph [YYYY-MM-DD]` | Build the library map: globe, labs, sub-areas, timeline, gaps, Ask |
 | `/gaps` | Cross-report: recurring gaps, divergent sources, portfolio health |
 | `/expand` | Enrich your profile from `documents/`, Google Scholar, GitHub |
 | `/add-source` | Generate a new source-database connector |
@@ -215,16 +215,31 @@ it costs nothing against your 250-per-month SerpApi quota.
 
 ---
 
-## 2c. Your library graph
+## 2c. Your library map
 
 Every search command ends by rebuilding `graph/index.html`, and `/graph` rebuilds it on
 demand. Open it in a browser: no server, no network. It is the whole library in one
-picture, with everything new since your last search ringed.
+picture, with everything new since your last search ringed. It has five tabs; **M**
+minimises the tab bar and every card, and restores them.
 
-It opens in **Simple** mode: the graph, a key you can tick to show or hide research
-interests and kinds of source (tick two interests to see them together), and a short
-card for whatever you click. The key also names any filter set in Advanced, so nothing
-hidden shapes the picture. Switch to **Advanced** (top bar) for the four views:
+**Overview** opens first. The *On your map* card gives the number of items shown, a
+**Papers only / Web only** switch, and your research interests with their counts: click a
+name to hide it, its dot to colour it (six at most, so no colour repeats). The map starts
+on your **shortlist** - Core, Supporting and everything not yet scored - and "Include
+peripheral and excluded" brings in the rest. Beside it is the **research globe**: each
+region is a research interest and height is publication year, newest at the top. Zoomed
+out, each glow is a sub-area with its count; zoom in (scroll, the toolbar, or
+double-click) and it opens into papers (●) and web sources (■), a ring marking what is
+new. Click a paper and its card says what it is, the rest dims, and its citation lines
+appear: amber to the papers it cites, blue from the papers that cite it, each colour
+explained in words on the card. The card's next steps highlight what it cites, what
+cites it, its research group or its sub-area, or open its full details in Explore. Esc
+clears it.
+
+**How it connects** shows the kinds of thing in your library, how many there are, and how
+they link.
+
+**Explore** holds the four detailed views:
 
 - **Library** (key 1) - papers and web sources around the sub-areas in your profile.
 - **Research groups** (2) - papers clustered by lab. A lab is a group of authors who
@@ -243,10 +258,20 @@ Colour is the research interest everywhere; shape, size, solidity and rings carr
 rest, and the legend explains them. Click anything for details (the camera stays put);
 double-click to zoom to it and again to go back. A floating toolbar you can drag anywhere
 zooms in and out, fits everything, and switches dragging between rotating the graph and
-moving it with a hand. Every count opens the
-list of what it counts; **List view** is a sortable table of exactly what is shown and
-exports as a Markdown or CSV reading list. The address bar keeps the view, focus and
-filters, so a bookmark reopens the same picture.
+moving it with a hand. Every count opens the list of what it counts; **List view** is a
+sortable table of exactly what is shown and exports as a Markdown or CSV reading list.
+With more than 1,500 items shown, these 3D views draw the highest scored 1,500 and say so.
+
+**Ask** takes a plain question - "attack papers in XR since 2024 with no defence", "what
+cites <a title>?", "papers from the same lab as <a title>", "thin sub-areas" - and turns
+it into the same filters and steps you could take by hand, shown so you can check them.
+No AI is used; a question it cannot read exactly, it says so.
+
+**Status** says when the map was built, what is shown and hidden, OpenAlex coverage and
+missing labels, each with the command that fixes it.
+
+The address bar keeps the tab, view, selection and filters, so a bookmark reopens the
+same picture.
 
 The labels behind it are the `subareas` and `contribution` fields scoring adds to each
 source. `/graph` lists any that are missing or name a sub-area your profile no longer

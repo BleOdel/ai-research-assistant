@@ -53,11 +53,29 @@ Synthesize by theme,            -> blog/<topic>/index.html
 attributing contested claims       (filter, sort, expand — offline)
 ```
 
-**The library graph** — `/graph` (and every search command, when it finishes) builds
-`graph/index.html`, an interactive 3D map of your whole library with what is new since
-the last search highlighted: which papers come from the same research groups, how
-sub-areas connect, how the field progressed year by year, and where the gaps are. Web
-sources appear as their own node type, marked not peer-reviewed.
+**The library map** — `/graph` (and every search command, when it finishes) builds
+`graph/index.html`, an interactive map of your whole library with what is new since the
+last search highlighted. It opens on a research globe: each region is a research
+interest, height is publication year, and zooming in opens sub-areas into papers, with
+citation lines drawn for whatever you select. Behind it sit the research groups papers
+come from, how sub-areas connect, how the field progressed year by year, and where the
+gaps are. Web sources appear as their own kind, marked not peer-reviewed. It is built for
+libraries of tens of thousands of items and opens offline as one file.
+
+```
+research/seen_sources.json --+
+blog/seen_web_sources.json --+--> tools/knowledge_graph.py --> graph/index.html
+reports/*/ + OpenAlex cache --+       (--check lints it)        (one offline file)
+                                                                      |
+     +-------------+-----------------+--------------+---------+------+
+     |             |                 |              |         |
+     v             v                 v              v         v
+  Overview    How it connects     Explore          Ask      Status
+  card +      kinds, counts,      Library, groups, plain     coverage,
+  globe       how they link       timeline, gaps,  questions labels,
+                                  list + export    -> exact  what to fix
+                                                   filters
+```
 
 They stay separate because a blog post and a peer-reviewed paper are different kinds
 of evidence: separate state, separate rubrics, separate output. Merging them would
@@ -208,13 +226,18 @@ evidence basis, citation-count divergence). The list below is the summary.
   linted by `tools/check_webscan.py` before it is presented. Kept deliberately
   separate from the academic track so an unreviewed assertion never sits beside a
   replicated result unmarked.
-- **`/graph`** builds the **library knowledge graph**, `graph/index.html`: every paper
-  and web source in one interactive 3D page, new items ringed. Four views: the library
-  by sub-area (from your profile), research groups (labs found from OpenAlex author
-  records, around each paper's senior author), a timeline with citation links, and
-  gaps (your reports' open questions plus computed ones, each showing the rule that
-  produced it). Every encoding is explained in a legend, every count opens the list of
-  what it counts, and a sortable list view shows exactly what the graph shows. The
+- **`/graph`** builds the **library map**, `graph/index.html`: every paper and web
+  source in one interactive page, new items ringed, in five tabs. **Overview** has a
+  summary card (papers only / web only, your shortlist, six coloured interests) and a
+  research globe that shows sub-areas zoomed out and papers zoomed in, with amber and
+  blue citation lines for a selected paper. **How it connects** shows the kinds of thing
+  in the library and how they link. **Explore** has four detailed views: the library by
+  sub-area (from your profile), research groups (labs found from OpenAlex author
+  records, around each paper's senior author), a timeline with citation links, and gaps
+  (your reports' open questions plus computed ones, each showing the rule that produced
+  it), with a sortable list that exports. **Ask** turns plain questions into exact
+  filters, with no AI. **Status** shows coverage and what to fix. Every encoding is
+  explained where it appears and every count opens the list of what it counts. The
   search commands rebuild it as their last step; it is linted by
   `tools/knowledge_graph.py --check` and works offline.
 - **`/gaps`** reasons across **all** your reports at once, which no other command
@@ -296,9 +319,10 @@ ai-research-assistant/
 ├── blog/                                  # /websearch output — interactive HTML scans
 │   ├── README.md
 │   └── template.html                      # Self-contained report shell (tracked)
-├── graph/                                 # /graph output — the library knowledge graph
+├── graph/                                 # /graph output — the library map
 │   ├── README.md
-│   ├── template.html                      # Page shell (tracked); index.html is built and gitignored
+│   ├── template.html                      # Page shell, shared state and Explore (tracked); index.html is built and gitignored
+│   ├── parts/                             # The page's code per tab: globe, overview, connects, ask, status
 │   └── vendor/                            # three.js + 3d-force-graph, inlined so the page is offline
 ├── research/                              # Discovery state (seen_sources.json, papers_by_subject.md)
 ├── reports/                               # Compiled synthesis reports (per topic), incl. outcome.md logs

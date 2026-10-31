@@ -71,8 +71,8 @@ access date and flagged in the prose as not peer-reviewed. See
   any `/defend` prep packs and `/outcome` logs
 - `blog/` - Web track: `template.html` (tracked) and one folder per `/websearch`
   scan containing `index.html` + `sources.json`; state in `seen_web_sources.json`
-- `graph/` - The library knowledge graph: `template.html` and `vendor/` (tracked);
-  `index.html` is built by `tools/knowledge_graph.py` and gitignored
+- `graph/` - The library map: `template.html`, `parts/` (the page's code per tab) and
+  `vendor/` (tracked); `index.html` is built by `tools/knowledge_graph.py` and gitignored
 - `tools/` - `state.py` (the only write path for `research/`, `blog/` and tracker
   state - validated, locked, atomic), `check_report.py` (the report linter) and
   `evidence_table.py` (generates a report's Evidence Basis table from its `.bib`),

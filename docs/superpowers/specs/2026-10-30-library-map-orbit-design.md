@@ -3,6 +3,25 @@
 Design, 2026-10-30. Builds on the library knowledge graph
 (`2026-10-21-knowledge-graph-design.md`), which is live as `graph/index.html`.
 
+## Build status
+
+- **Part 1, built 2026-10-31** (plan `docs/superpowers/plans/2026-10-31-orbit-map-globe.md`):
+  the five tabs, the research globe at 20,000-item scale, the "On your map" card, the
+  selection card, directional citation lines, the ring key, the Papers / Web switch,
+  minimising, How it connects, Ask and Status. Decisions made while building it:
+  - the globe is a 2D canvas with an orthographic projection; first frame about 280 ms and
+    frames under 2 ms at 20,000 items in the desktop app's browser;
+  - the shortlist is a shared filter, so it also applies to Explore's views, list and export;
+  - Explore's 3D views draw at most 1,500 items (highest scored first) and say so; its graph,
+    filters and details are built only while Explore is shown;
+  - the selection card floats over the globe rather than moving it;
+  - Ask's example questions are written from the library, and a question with a word the
+    patterns cannot read is refused rather than answered more broadly;
+  - interest colour slot 4 is the palette's purple, and the line colours sit at least 25
+    degrees of hue from every interest colour.
+- **Part 2** (notes as satellites, the `--serve` helper, the editor and guide,
+  new-evidence, `/reset notes`) and **Part 3** (the annotation toolbar): not built yet.
+
 ## Intent
 
 The library graph works, but the researcher found it busy and generic: two sidebars of
