@@ -38,6 +38,7 @@ blog/*
 graph/*
 !graph/template.html
 !graph/vendor/
+!graph/parts/
 !graph/README.md
 
 # Personal identity/background documents — the folder structure and README stay

@@ -336,6 +336,17 @@ class CheckTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             knowledge_graph.render({}, "<html>no slot</html>")
 
+    def test_parts_are_inlined_in_order(self):
+        tpl = '<script data-part="a.js"></script><script data-part="b.js"></script>[GRAPH_JSON]'
+        html = knowledge_graph.render({}, tpl, parts={"a.js": "var A=1;", "b.js": "var B='</script>';"})
+        self.assertNotIn("data-part", html)
+        self.assertLess(html.index("var A=1;"), html.index("var B="))
+        self.assertIn("<\\/script>", html)
+
+    def test_missing_part_is_an_error(self):
+        with self.assertRaisesRegex(ValueError, "nope.js"):
+            knowledge_graph.render({}, '<script data-part="nope.js"></script>[GRAPH_JSON]', parts={})
+
 
 class DocsDriftTests(unittest.TestCase):
     """Commands and docs tell agents how to run the graph builder; a flag that does

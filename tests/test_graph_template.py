@@ -12,6 +12,10 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 import knowledge_graph  # noqa: E402
 
 TEMPLATE = (REPO_ROOT / "graph" / "template.html").read_text()
+PARTS = REPO_ROOT / "graph" / "parts"
+PART_NAMES = re.findall(r'<script data-part="([\w.-]+)"></script>', TEMPLATE)
+# The template plus every page part, in the order the page loads them.
+PAGE_SOURCE = TEMPLATE + "".join("\n" + (PARTS / name).read_text() for name in PART_NAMES)
 VENDOR = REPO_ROOT / "graph" / "vendor"
 EMPTY = {"meta": {"counts": {}, "summary": "", "newSince": "2026-10-21", "built": "2026-10-21",
                   "thresholds": {}}, "interests": [], "nodes": [], "edges": [], "gaps": [],
@@ -19,8 +23,8 @@ EMPTY = {"meta": {"counts": {}, "summary": "", "newSince": "2026-10-21", "built"
 
 
 def page_function(name):
-    """The source of one top-level function in the page script."""
-    m = re.search(rf"^function {name}\(.*?^}}$", TEMPLATE, re.S | re.M)
+    """The source of one top-level function in the page script or its parts."""
+    m = re.search(rf"^function {name}\(.*?^}}$", PAGE_SOURCE, re.S | re.M)
     if not m:
         raise AssertionError(f"function {name} not found in the template")
     return m.group(0)
@@ -304,11 +308,18 @@ class TemplateTests(unittest.TestCase):
             Path(f.name).unlink()
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_every_part_parses(self):
+        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "connects.js", "ask.js", "status.js"])
+        for name in PART_NAMES:
+            code = (PARTS / name).read_text()
+            r = subprocess.run(["node", "--check", "-"], input=code, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, f"{name}: {r.stderr}")
+
     def test_data_strings_never_reach_innerhtml(self):
         # Titles and abstracts are untrusted. The page builds DOM with textContent
         # (el()); the only HTML string it builds is the hover label, and that
         # passes every data string through esc().
-        self.assertNotRegex(TEMPLATE, r"\.innerHTML\s*=(?!=)")
+        self.assertNotRegex(PAGE_SOURCE, r"\.innerHTML\s*=(?!=)")
         hover = TEMPLATE.split("function hoverLabel", 1)[1].split("\n}\n", 1)[0]
         for field in ("title", "kind", "bits"):
             self.assertRegex(hover, rf"esc\({field}", field)

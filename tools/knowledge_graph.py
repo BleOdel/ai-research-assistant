@@ -47,8 +47,10 @@ TEMPLATE = ROOT / "graph" / "template.html"
 PAGE = ROOT / "graph" / "index.html"
 FULLTEXT = ROOT / "research" / "fulltext"
 VENDOR = ROOT / "graph" / "vendor"
+PARTS = ROOT / "graph" / "parts"
 SLOT = "[GRAPH_JSON]"
 VENDOR_TAG = re.compile(r'<script data-vendor="([\w.-]+)"></script>')
+PART_TAG = re.compile(r'<script data-part="([\w.-]+)"></script>')
 
 # Plain words for the page. The internal names (ranked, synthesized, ...) mean
 # nothing to a reader who has not read state.py.
@@ -401,28 +403,34 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     }
 
 
-def render(data: dict, template: str, vendor: dict[str, str] | None = None) -> str:
-    """TEMPLATE with DATA in its one slot and each <script data-vendor="NAME"> filled
-    with graph/vendor/NAME (or VENDOR[NAME]), so the page is one offline file.
+def render(data: dict, template: str, vendor: dict[str, str] | None = None,
+           parts: dict[str, str] | None = None) -> str:
+    """TEMPLATE with DATA in its one slot, each <script data-vendor="NAME"> filled
+    with graph/vendor/NAME (or VENDOR[NAME]) and each <script data-part="NAME"> with
+    the page's own code in graph/parts/NAME (or PARTS[NAME]), so the page is one
+    offline file.
     Every "<" in the data becomes \\u003c and every "</script" in vendored code
     "<\\/script", so neither can end its script element early."""
     if template.count(SLOT) != 1:
         raise ValueError(f"template must contain {SLOT} exactly once")
     payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 
-    def inline(m: re.Match) -> str:
-        name = m.group(1)
-        if vendor is not None and name in vendor:
-            code = vendor[name]
-        elif (VENDOR / name).is_file():
-            code = (VENDOR / name).read_text(encoding="utf-8")
-        else:
-            raise ValueError(f"vendored script {name} not found in {VENDOR}")
-        code = re.sub(r"</(script)", r"<\\/\1", code, flags=re.I).replace("<!--", "<\\!--")
-        return f"<script>{code}</script>"
+    def inliner(given: dict[str, str] | None, folder: Path, what: str):
+        def inline(m: re.Match) -> str:
+            name = m.group(1)
+            if given is not None and name in given:
+                code = given[name]
+            elif (folder / name).is_file():
+                code = (folder / name).read_text(encoding="utf-8")
+            else:
+                raise ValueError(f"{what} {name} not found in {folder}")
+            code = re.sub(r"</(script)", r"<\\/\1", code, flags=re.I).replace("<!--", "<\\!--")
+            return f"<script>{code}</script>"
+        return inline
 
-    # The slot is filled first: vendored code is never searched for it.
-    return VENDOR_TAG.sub(inline, template.replace(SLOT, payload))
+    # The slot is filled first: inlined code is never searched for it.
+    page = VENDOR_TAG.sub(inliner(vendor, VENDOR, "vendored script"), template.replace(SLOT, payload))
+    return PART_TAG.sub(inliner(parts, PARTS, "page part"), page)
 
 
 def extract_data(html: str) -> dict:
