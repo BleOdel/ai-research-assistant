@@ -374,6 +374,54 @@ class TemplateTests(unittest.TestCase):
         hook = re.search(r"^TAB_HOOKS\.overview = .*$", (PARTS / "globe.js").read_text(), re.M).group(0)
         self.assertIn("globeRefresh()", hook)
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_line_sentences(self):
+        got = run_js(["lineSentences"], "", "[lineSentences(2, 1), lineSentences(0, 0), lineSentences(1, 3)]")
+        self.assertEqual(got[0], ["Amber, going out: this paper cites 2 papers in your library.",
+                                  "Blue, coming in: 1 paper in your library cites this one."])
+        self.assertEqual(got[1], ["Amber, going out: none, because none of this paper's references are in your library.",
+                                  "Blue, coming in: none, because no paper in your library cites this one yet."])
+        self.assertEqual(got[2], ["Amber, going out: this paper cites 1 paper in your library.",
+                                  "Blue, coming in: 3 papers in your library cite this one."])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ring_key_and_dates(self):
+        got = run_js(["shortDate", "ringKey", "hiddenLinesNote"], "",
+                     "[shortDate('2026-10-24'), ringKey(82, '2026-10-24'), ringKey(1, '2026-03-02'), "
+                     "hiddenLinesNote(0), hiddenLinesNote(1), hiddenLinesNote(2)]")
+        self.assertEqual(got, ["24 Oct", "○ ring = new since your last search (24 Oct) · 82 in view",
+                               "○ ring = new since your last search (2 Mar) · 1 in view", "",
+                               "1 more is hidden by the current filters.",
+                               "2 more are hidden by the current filters."])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_kind_counts_follow_the_other_filters(self):
+        got = run_js(["kindCounts"], "", "kindCounts([{type: 'paper', ok: true}, {type: 'paper', ok: false}, "
+                     "{type: 'web', ok: true}], (n) => n.ok)")
+        self.assertEqual(got, {"both": 2, "paper": 1, "web": 1})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_card_chips(self):
+        got = run_js(["cardChip"], "", "[cardChip('On your map', 325), cardChip('Selected', null, "
+                     "'A rather long paper title that goes on and on'), cardChip('Legend')]")
+        self.assertEqual(got, ["▸ On your map · 325", "▸ Selected: A rather long paper title…", "▸ Legend"])
+
+    def test_null_never_reaches_the_page(self):
+        # replaceChildren(null) writes the word "null": cards and the hover label once did.
+        self.assertIn("body.filter((x) => x != null)", page_function("cardFrame"))
+        self.assertNotIn(": null", page_function("globeTip"))
+
+    def test_overview_regions_and_phone_width(self):
+        for region in ("mapcard", "selcard", "ringkey", "globe-tip", "globe-legend", "globe-notice",
+                       "highlight-chip"):
+            self.assertRegex(TEMPLATE, rf'id="{region}"', region)
+        # On a phone-width screen the cards start as chips, so the globe is visible.
+        self.assertIn('matchMedia("(max-width: 600px)")', PAGE_SOURCE)
+        self.assertIn("Nothing in your library yet. Run /research to start.", PAGE_SOURCE)
+        # A card for an item the filters hide says so, rather than pointing at nothing.
+        self.assertIn("Hidden by the current filters.", page_function("renderSelCard"))
+        self.assertIn("selcard", page_function("renderSelCard"))
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:

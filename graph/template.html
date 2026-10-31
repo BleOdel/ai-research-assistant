@@ -121,6 +121,45 @@ h2:first-child { margin-top: 0; }
 #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 #globe:active { cursor: grabbing; }
 #globe.pan-mode { cursor: move; }
+.ocard { position: absolute; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 10px; padding: 12px 14px; box-shadow: 0 2px 12px var(--ring); }
+.ocard[hidden] { display: none; }
+.ocard.min { width: auto; max-width: calc(100% - 24px); padding: 0; overflow: hidden; }
+.ocard .chip { border: none; background: none; box-shadow: none; padding: 6px 12px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ocard .hd { display: flex; align-items: center; gap: 8px; }
+.ocard .hd .t { flex: 1; color: var(--muted); font-size: 12.5px; }
+.ocard .hd button { border: none; background: none; box-shadow: none; padding: 0 4px; color: var(--muted); font-size: 15px; line-height: 1; }
+.ocard .big { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.15; }
+.ocard .note { font-size: 12px; color: var(--ink-2); margin: 6px 0 0; }
+.ocard .warn { border-left: 3px solid var(--gap); padding-left: 6px; }
+.ocard h3 { font-size: 14px; margin: 2px 0 6px; line-height: 1.35; }
+.ocard .tags .tag { margin: 0 4px 4px 0; }
+.ocard .steps { border-top: 1px solid var(--hair); margin-top: 8px; padding-top: 4px; display: grid; justify-items: start; gap: 2px; }
+.ocard .steps .linkbtn { padding: 3px 0; }
+#mapcard { top: 12px; left: 12px; width: 300px; max-height: calc(100% - 150px); overflow: auto; }
+#selcard { top: 12px; right: 12px; width: 320px; max-height: calc(100% - 150px); overflow: auto; }
+.seg { display: flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; margin-top: 4px; }
+.seg button { flex: 1; border: none; border-radius: 0; border-right: 1px solid var(--axis); padding: 4px 6px; line-height: 1.25; box-shadow: none; font-size: 12.5px; }
+.seg button:last-child { border-right: none; }
+.seg button[aria-pressed="true"] { background: var(--plane); font-weight: 600; box-shadow: inset 0 -2px 0 var(--focus); }
+.seg .n { display: block; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.irow { display: flex; align-items: center; gap: 8px; margin: 2px 0; font-size: 13px; }
+.irow .dotbtn { flex: none; width: 13px; height: 13px; min-width: 0; border-radius: 50%; padding: 0; border: 1.5px solid var(--axis); box-shadow: none; }
+.irow .name { flex: 1; border: none; background: none; box-shadow: none; padding: 0; text-align: left; }
+.irow.off .name { text-decoration: line-through; color: var(--muted); }
+.irow .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ocard input[type=search] { width: 100%; margin-top: 6px; padding: 4px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); }
+.key { font-weight: 600; white-space: nowrap; }
+#ringkey, #highlight-chip { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); top: 12px; background: var(--surface); border: 1px solid var(--axis); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+#highlight-chip { top: 44px; }
+#ringkey[hidden], #highlight-chip[hidden], #globe-tip[hidden] { display: none; }
+#globe-tip { position: fixed; z-index: 7; pointer-events: none; background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 9px; font-size: 12.5px; max-width: 300px; box-shadow: 0 2px 10px var(--ring); }
+#globe-legend { left: 12px; bottom: 12px; max-width: min(520px, calc(50% - 170px)); font-size: 12px; color: var(--ink-2); padding: 8px 12px; }
+#globe-notice { right: 12px; bottom: 12px; max-width: min(360px, calc(50% - 170px)); font-size: 12px; color: var(--ink-2); padding: 8px 12px; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  #selcard { top: auto; bottom: 108px; left: 12px; right: 12px; width: auto; max-height: 45%; }
+  #globe-legend { bottom: 62px; max-width: calc(100% - 24px); }
+  #globe-notice { left: 12px; right: auto; top: 52px; bottom: auto; max-width: calc(100% - 24px); text-align: left; }
+}
 #graph.pan-mode canvas { cursor: grab; }
 #graph.pan-mode canvas:active { cursor: grabbing; }
 #viewnote { position: absolute; left: 12px; bottom: 10px; z-index: 2; max-width: min(560px, calc(100% - 24px)); background: var(--surface); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
@@ -174,6 +213,13 @@ h2:first-child { margin-top: 0; }
     <button id="gnav-rotate" aria-pressed="true" title="Dragging the globe turns it">&#8635; Rotate</button>
     <button id="gnav-pan" aria-pressed="false" title="Dragging the globe moves it (H)">&#9995; Move</button>
   </div>
+  <section id="mapcard" class="ocard" aria-label="On your map"></section>
+  <section id="selcard" class="ocard" aria-label="Selected item" aria-live="polite" hidden></section>
+  <div id="ringkey" hidden></div>
+  <div id="highlight-chip" hidden></div>
+  <section id="globe-legend" class="ocard" aria-label="How to read the globe"></section>
+  <div id="globe-notice" class="ocard" aria-live="polite"></div>
+  <div id="globe-tip" role="tooltip" hidden></div>
 </section>
 <div id="app" class="tabpane" hidden>
   <header id="topbar">
