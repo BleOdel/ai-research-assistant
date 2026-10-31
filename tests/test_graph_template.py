@@ -458,6 +458,75 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("TAB_HOOKS.status", PAGE_SOURCE)
         self.assertIn("function svgEl(", TEMPLATE)
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ask_patterns(self):
+        ctx = """{since: "2026-10-01", interests: [{name: "XR Security"}, {name: "AI Security"}],
+          gaps: [{kind: "thin", interest: "XR Security", subarea: "Gaze"}],
+          labs: [{id: "L1", papers: ["p1", "p3"]}],
+          items: [
+            {id: "p1", type: "paper", title: "Heimdall gaze defence", interest: "XR Security", year: 2025,
+             contribution: "defence", subareas: ["Gaze"], primaryLab: "L1", firstSeen: "2026-10-02", citesOut: ["p2"]},
+            {id: "p2", type: "paper", title: "Unique Identification of VR users", interest: "XR Security",
+             year: 2024, contribution: "attack", subareas: ["Motion"], firstSeen: "2026-09-01", citesOut: []},
+            {id: "p3", type: "paper", title: "Old attack", interest: "XR Security", year: 2019,
+             contribution: "attack", subareas: ["Motion"], primaryLab: "L1", firstSeen: "2026-09-01", citesOut: []},
+            {id: "w1", type: "web", title: "A blog", interest: "AI Security", year: 2025, firstSeen: "2026-10-03", citesOut: []}]}"""
+        prelude = ("function passes() { return true; } "
+                   "function isNew(n) { return (n.firstSeen || '') >= '2026-10-01'; } "
+                   "const S = {since: '2026-10-01'};")
+        q = lambda text: f"parseQuestion({json.dumps(text)}, {ctx})"
+        got = run_js(["parseQuestion", "askExamples"], prelude, "[" + ", ".join(q(t) for t in [
+            "attack papers in XR since 2024 with no defence",
+            "papers from the same lab as Heimdall",
+            "what cites the Unique Identification paper?",
+            "thin sub-areas",
+            "new since my last search",
+            "what is the meaning of life",
+            "scored but never used in a report",
+            "papers about cooking"]) + "]")
+        self.assertEqual(got[0]["ids"], ["p2"])
+        self.assertEqual(sorted(got[1]["ids"]), ["p1", "p3"])
+        self.assertEqual(got[2]["ids"], ["p1"])
+        self.assertEqual(got[3]["ids"], ["p1"])
+        self.assertEqual(sorted(got[4]["ids"]), ["p1", "w1"])
+        self.assertFalse(got[5]["ok"])
+        self.assertTrue(got[5]["closest"])
+        self.assertTrue(got[6]["ok"])
+        self.assertTrue(all(g["ok"] and g["steps"] for g in got[:5]))
+        self.assertIn("Interest: XR Security", got[0]["steps"])
+        # A word the patterns cannot read makes the question unsupported; ignoring it
+        # would answer a different question ("all papers").
+        self.assertFalse(got[7]["ok"])
+        self.assertIn("cooking", got[7]["message"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ask_examples_come_from_the_library(self):
+        # Profile-agnostic: the examples are written from the library, never hard-coded,
+        # and each one is a question the patterns answer.
+        for word in ("Heimdall", "Unique Identification", "XR "):
+            self.assertNotIn(word, (PARTS / "ask.js").read_text(), word)
+        ctx = """{since: "2026-10-01", interests: [{name: "Gaze Privacy"}], gaps: [], labs: [{id: "L1", name: "Lab", papers: ["a", "b"]}],
+          items: [{id: "a", type: "paper", title: "Eye movements leak identity", interest: "Gaze Privacy", year: 2025,
+                   contribution: "attack", subareas: [], primaryLab: "L1", citesOut: ["b"]},
+                  {id: "b", type: "paper", title: "Blink patterns as biometrics", interest: "Gaze Privacy", year: 2023,
+                   contribution: "measurement", subareas: [], primaryLab: "L1", citesOut: []}]}"""
+        prelude = "function passes() { return true; } function isNew() { return false; } const S = {};"
+        got = run_js(["parseQuestion", "askExamples"], prelude,
+                     f"(() => {{ const c = {ctx}; return askExamples(c).map((q) => [q, parseQuestion(q, c).ok]); }})()")
+        self.assertEqual(len(got), 6)
+        self.assertTrue(all(ok for _, ok in got), got)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ask_hides_what_the_map_hides(self):
+        ctx = """{since: "2026-10-01", interests: [{name: "XR Security"}], gaps: [], labs: [],
+          items: [{id: "a", type: "paper", title: "One", interest: "XR Security", contribution: "attack", citesOut: []},
+                  {id: "b", type: "paper", title: "Two", interest: "XR Security", contribution: "attack", citesOut: []}]}"""
+        prelude = ("function passes(n) { return n.id !== 'b'; } function isNew() { return false; } "
+                   "const S = {since: '2026-10-01'};")
+        got = run_js(["parseQuestion", "askExamples"], prelude, f"parseQuestion('attack papers in XR', {ctx})")
+        self.assertEqual(got["ids"], ["a"])
+        self.assertEqual(got["steps"][-1], "1 more is hidden by the current filters")
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
