@@ -367,5 +367,124 @@ class TemplateTests(unittest.TestCase):
             self.assertRegex(hover, rf"esc\({field}", field)
 
 
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class GlobeMathTests(unittest.TestCase):
+    """The globe's positions carry meaning, so its maths are pinned here; the drawing
+    is checked in a real browser."""
+
+    def js(self, names, expr, prelude=""):
+        return run_js(["hash01", "yearLat", "bands", "clusterKey", "clusterName", "buildGlobe",
+                       "rotation", "project", "pickDots", "clusterStats", "zoomBlend",
+                       "flyTarget", "yearMarks", "arcPath", "placeLabels"] + names,
+                      "const MIN_BAND_DEG = 8, DOT_CAP = 2500;" + prelude, expr)
+
+    def test_hash_spreads_ids_that_differ_at_the_end(self):
+        # Library keys often differ only in their last characters (10.1000/x.1, .2, ...);
+        # a weak hash bunched those items together on the globe.
+        got = self.js([], "(() => { const h = Array.from({length: 200}, (_, i) => hash01('paper:10.1000/x.' + i)); "
+                      "const q = [0, 0, 0, 0]; h.forEach((v) => q[Math.floor(v * 4)]++); return q; })()")
+        self.assertTrue(all(30 <= c <= 70 for c in got), got)
+
+    def test_year_scale(self):
+        got = self.js([], "[yearLat(2026, 2003, 2026), yearLat(2003, 2003, 2026), "
+                      "yearLat(2017, 2003, 2026), yearLat(2020, 2020, 2020), yearLat(null, 2003, 2026), "
+                      "yearLat(2024, 2020, 2026)]")
+        self.assertEqual([round(v, 1) for v in got], [62.0, -62.0, -12.4, 0.0, -80.0, 20.7])
+
+    def test_bands_have_a_minimum_and_fill_the_sphere(self):
+        got = self.js([], "[bands([['A', 900], ['B', 1], ['C', 99]]), bands([]), "
+                      "bands(Array.from({length: 50}, (_, i) => ['I' + i, 1]))]")
+        self.assertAlmostEqual(sum(b["width"] for b in got[0]), 360, places=6)
+        self.assertGreaterEqual(min(b["width"] for b in got[0]), 8)
+        self.assertEqual(got[0][0]["start"], 0)
+        self.assertEqual(got[1], [])
+        self.assertAlmostEqual(got[2][0]["width"], 7.2, places=6)  # 50 x 8 > 360: equal shares
+
+    def test_cluster_keys(self):
+        subs = "['Side channels', 'Auth']"
+        got = self.js([], f"[clusterKey({{interest: 'X', subareas: ['Auth', 'Side channels']}}, {subs}), "
+                      f"clusterKey({{interest: 'X', subareas: null}}, {subs}), "
+                      f"clusterKey({{interest: 'X', subareas: []}}, {subs}), "
+                      f"clusterKey({{interest: 'X', subareas: ['Gone']}}, {subs}), "
+                      f"clusterName('X::__unlabelled'), clusterName('X::Auth'), clusterName('X::__none')]")
+        self.assertEqual(got, ["X::Auth", "X::__unlabelled", "X::__none", "X::__none",
+                               "Not yet labelled", "Auth", "Fits no listed sub-area"])
+
+    def test_empty_library(self):
+        got = self.js([], "(() => { const m = buildGlobe([], [], {}); "
+                      "return [m.n, m.bands.length, pickDots(m, new Uint8Array(0), rotation(0, 0), "
+                      "() => true, 10).inView, clusterStats(m, new Uint8Array(0), new Uint8Array(0)).length]; })()")
+        self.assertEqual(got, [0, 0, 0, 0])
+
+    def test_positions_are_stable_and_on_the_sphere(self):
+        items = ("[{id: 'p1', interest: 'A', year: 2020, subareas: ['s'], score: 80}, "
+                 "{id: 'p2', interest: 'B', year: null, subareas: null, score: null}]")
+        got = self.js([], f"(() => {{ const a = buildGlobe({items}, ['A', 'B'], {{A: ['s'], B: []}}); "
+                      f"const b = buildGlobe({items}, ['A', 'B'], {{A: ['s'], B: []}}); "
+                      f"return [a.vx[0] === b.vx[0], Math.hypot(a.vx[0], a.vy[0], a.vz[0]), "
+                      f"Math.asin(a.vy[1]) * 180 / Math.PI <= -74, [...a.order]]; }})()")
+        self.assertTrue(got[0])
+        self.assertAlmostEqual(got[1], 1, places=5)
+        self.assertTrue(got[2])            # undated items sit at the south pole
+        self.assertEqual(got[3], [0, 1])   # higher score first
+
+    def test_items_stay_inside_their_interest_band(self):
+        got = self.js([], "(() => { const items = Array.from({length: 300}, (_, i) => ({id: 'p' + i, "
+                      "interest: ['A', 'B', 'C'][i % 3], year: 2000 + i % 27, subareas: [['s', 't', null][i % 3]].filter(Boolean), score: i})); "
+                      "const m = buildGlobe(items, ['A', 'B', 'C'], {A: ['s', 't'], B: ['s'], C: []}); "
+                      "return [...Array(m.n).keys()].every((i) => { const b = m.bands[m.interest[i]]; "
+                      "let lon = Math.atan2(m.vz[i], m.vx[i]) * 180 / Math.PI; if (lon < 0) lon += 360; "
+                      "return lon >= b.start - 1e-6 && lon <= b.start + b.width + 1e-6; }); })()")
+        self.assertTrue(got)
+
+    def test_pick_dots_caps_by_priority_and_counts_everything(self):
+        got = self.js([], "(() => { const items = Array.from({length: 50}, (_, i) => "
+                      "({id: 'p' + i, interest: 'A', year: 2020, subareas: [], score: i})); "
+                      "const m = buildGlobe(items, ['A'], {A: []}); const mask = new Uint8Array(50).fill(1); "
+                      "const r = pickDots(m, mask, rotation(0, 0), () => true, 5); "
+                      "const front = [...Array(50).keys()].filter((i) => project(rotation(0, 0), m.vx[i], m.vy[i], m.vz[i])[2] > 0.02); "
+                      "const top5 = front.sort((a, b) => items[b].score - items[a].score).slice(0, 5); "
+                      "return [r.drawn.length, r.inView === front.length, JSON.stringify(r.drawn) === JSON.stringify(top5)]; })()")
+        self.assertEqual(got, [5, True, True])  # the five highest scored in view, in that order
+
+    def test_cluster_stats_count_and_new(self):
+        got = self.js([], "(() => { const items = [{id: 'a', interest: 'A', year: 2020, subareas: ['s']}, "
+                      "{id: 'b', interest: 'A', year: 2021, subareas: ['s']}, {id: 'c', interest: 'A', year: 2021, subareas: null}]; "
+                      "const m = buildGlobe(items, ['A'], {A: ['s']}); "
+                      "const st = clusterStats(m, Uint8Array.from([1, 1, 0]), Uint8Array.from([0, 1, 1])); "
+                      "return m.clusters.map((c, k) => [c.name, st[k].count, st[k].fresh, Math.round(Math.hypot(st[k].x, st[k].y, st[k].z) * 1000) / 1000]); })()")
+        self.assertEqual(got, [["s", 2, 1, 1], ["Not yet labelled", 0, 0, 0]])
+
+    def test_zoom_blend(self):
+        got = self.js([], "[zoomBlend(1), zoomBlend(2), zoomBlend(3)]")
+        self.assertEqual(got[0], {"regions": 1, "dots": 0})
+        self.assertGreater(got[1]["regions"], 0)
+        self.assertGreater(got[1]["dots"], 0)
+        self.assertEqual(got[2], {"regions": 0, "dots": 1})
+
+    def test_fly_target_brings_the_point_to_the_front(self):
+        got = self.js([], "(() => { const p = [0.3, 0.5, -0.81]; const t = flyTarget(...p); "
+                      "return project(rotation(t.yaw, t.pitch), ...p); })()")
+        self.assertAlmostEqual(got[0], 0, places=5)
+        self.assertAlmostEqual(got[1], 0, places=5)
+        self.assertGreater(got[2], 0.99)
+
+    def test_year_marks(self):
+        got = self.js([], "[yearMarks(2003, 2026), yearMarks(2020, 2020), yearMarks(null, null)]")
+        self.assertEqual(got, [[2003, 2010, 2015, 2020, 2026], [2020], []])
+
+    def test_arc_path_runs_end_to_end_above_the_surface(self):
+        got = self.js([], "(() => { const p = arcPath([1, 0, 0], [0, 0, 1], 10); "
+                      "return [p.length, p[0], p[10].map((v) => Math.round(v * 1e6) / 1e6), Math.hypot(...p[5]) > 1]; })()")
+        self.assertEqual(got, [11, [1, 0, 0], [0, 0, 1], True])
+
+    def test_labels_never_overlap_and_big_ones_win(self):
+        got = self.js([], "placeLabels([{text: 's', x: 10, y: 10, w: 40, h: 14, priority: 5, big: false}, "
+                      "{text: 'B', x: 20, y: 12, w: 60, h: 18, priority: 1e9, big: true}, "
+                      "{text: 't', x: 200, y: 10, w: 40, h: 14, priority: 4, big: false}], 1).map((c) => c.text)")
+        self.assertEqual(got, ["B", "t"])
+
+
 if __name__ == "__main__":
     unittest.main()
