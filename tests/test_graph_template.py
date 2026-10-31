@@ -307,6 +307,39 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got, [{"x": 4, "y": 556}, {"x": 100, "y": 100}, {"x": 596, "y": 10}])
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_shortlist_rule(self):
+        got = run_js(["shortlisted"], "", "[shortlisted({verdict: 'Core'}), shortlisted({verdict: 'Supporting'}), "
+                     "shortlisted({verdict: null}), shortlisted({verdict: 'Peripheral'}), "
+                     "shortlisted({verdict: 'Excluded'}), shortlisted({type: 'web', tier: 'Peripheral'}), "
+                     "shortlisted({type: 'web', tier: 'Core'})]")
+        self.assertEqual(got, [True, True, True, False, False, False, True])
+        self.assertIn("shortlisted(", page_function("passes"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_at_most_six_interests_coloured(self):
+        names = '["A","B","C","D","E","F","G","H"]'
+        counts = '{A: 1, B: 9, C: 5, D: 7, E: 2, F: 8, G: 6, H: 3}'
+        got = run_js(["colourSlots"], "", f"[colourSlots({names}, {counts}, null), "
+                     f"colourSlots({names}, {counts}, ['A', 'H'])]")
+        self.assertEqual(got[0], {"A": 0, "B": 1, "C": 5, "D": 3, "E": 0, "F": 2, "G": 4, "H": 6})
+        self.assertEqual(got[1], {"A": 1, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0, "G": 0, "H": 2})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_explore_cap_keeps_the_highest_scored(self):
+        prelude = ('const byId = new Map([["a",{score:90}],["b",{score:null}],["c",{score:20}],'
+                   '["d",{score:70}]]);')
+        got = run_js(["capItems"], prelude, '(() => { const r = capItems(["a","b","c","d"], 2); '
+                     'return [[...r.keep].sort(), r.total]; })()')
+        self.assertEqual(got, [["a", "d"], 4])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_virtual_list_range(self):
+        got = run_js(["visibleRange"], "", "[visibleRange(0, 300, 30, 1000, 5), "
+                     "visibleRange(3000, 300, 30, 1000, 5), visibleRange(29700, 300, 30, 1000, 5), "
+                     "visibleRange(0, 300, 30, 4, 5)]")
+        self.assertEqual(got, [[0, 15], [95, 115], [985, 1000], [0, 4]])
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:

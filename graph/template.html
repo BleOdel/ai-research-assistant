@@ -119,6 +119,8 @@ h2:first-child { margin-top: 0; }
 #listview th, #listview td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--hair); vertical-align: top; }
 #listview th button { border: none; background: none; padding: 0; font-weight: 600; }
 #listview td.num { font-variant-numeric: tabular-nums; }
+#listview table.virtual tbody tr:not([aria-hidden]) { height: 30px; }
+#listview table.virtual td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 #listview tbody tr { cursor: pointer; }
 #listview tbody tr:hover { background: var(--plane); }
 #export-menu { position: relative; }
@@ -261,9 +263,25 @@ function subareaText(n) {
   if (n.subareas == null) return "Not yet labelled";
   return n.subareas.length ? n.subareas.join("; ") : "Fits no listed sub-area";
 }
+/* At most six interests are coloured, so no colour repeats: the six largest, or the
+   researcher's choice (CHOSEN, first six). Every other interest gets slot 0, grey. */
+function colourSlots(names, counts, chosen) {
+  const pick = chosen ? chosen.filter((n) => names.includes(n)).slice(0, 6)
+    : names.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || a.localeCompare(b)).slice(0, 6);
+  return Object.fromEntries(names.map((n) => [n, pick.indexOf(n) + 1]));
+}
+let COLOUR_SLOTS = {};
+function refreshColourSlots() {
+  const counts = {};
+  for (const n of ITEMS) counts[interestOf(n)] = (counts[interestOf(n)] || 0) + 1;
+  let chosen = null;
+  try { chosen = JSON.parse(store.get("kg-colours") || "null"); } catch (e) { /* a hand-edited value */ }
+  S.colours = Array.isArray(chosen) ? chosen.map(String) : null;
+  COLOUR_SLOTS = colourSlots(INTERESTS, counts, S.colours);
+}
 function interestColor(name) {
-  const i = INTERESTS.indexOf(name);
-  return i < 0 ? css("--uncat") : css("--s" + ((i % 8) + 1));
+  const k = COLOUR_SLOTS[name];
+  return k ? css("--s" + k) : css("--uncat");
 }
 function nodeColor(n) {
   if (n.type === "gap") return css("--gap");
@@ -287,16 +305,24 @@ const FACETS = [
 ];
 const S = {
   view: "library", focus: null, since: D.meta.newSince, dims: 3, highlight: null, highlightWhy: "",
-  filters: { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false },
+  filters: { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false },
   tab: "overview", min: { tabs: false, cards: {} },
   current: null, trail: [], trailPos: -1, listIds: null, listWhy: "", listOpen: false, sort: ["year", -1],
 };
 function isNew(n) {
   return (n.type === "paper" || n.type === "web") && !n.hiddenByDefault && (n.firstSeen || "") >= S.since;
 }
+/* The shortlist: what the map starts with. Peripheral and excluded sources are one
+   toggle away (S.filters.all); everything not yet scored stays, so new finds show. */
+function shortlisted(n) {
+  const grade = n.type === "web" ? n.tier : n.verdict;
+  return grade !== "Peripheral" && grade !== "Excluded";
+}
+/* SKIP names a facet to ignore (for its counts), or "shortlist". */
 function passes(n, skip) {
   const f = S.filters;
   if (n.hiddenByDefault && !f.offTopic) return false;
+  if (skip !== "shortlist" && !f.all && !shortlisted(n)) return false;
   if (f.newOnly && !isNew(n)) return false;
   if (n.year == null) { if (!f.undated) return false; }
   else {
@@ -311,6 +337,15 @@ function passes(n, skip) {
   return true;
 }
 let VISIBLE = new Set();
+/* Explore's force-directed views slow to a crawl past a couple of thousand shapes, so
+   they draw the highest scored items and say so. The list and export keep everything. */
+const EXPLORE_CAP = 1500;
+let CAPPED = null; /* {shown, total} while the current view is trimmed */
+function capItems(ids, cap) {
+  const score = (id) => { const v = (byId.get(id) || {}).score; return v == null ? 50 : v; };
+  const keep = ids.slice().sort((a, b) => score(b) - score(a) || (a < b ? -1 : a > b ? 1 : 0)).slice(0, cap);
+  return { keep: new Set(keep), total: ids.length };
+}
 function recomputeVisible() { VISIBLE = new Set(ITEMS.filter((n) => passes(n)).map((n) => n.id)); }
 
 /* ---------- graph data per view ---------- */
@@ -328,6 +363,13 @@ function viewGraph(view) {
     : view === "library" ? ["interest", "subarea", "report"] : [];
   D.nodes.forEach((n) => { if (structure.includes(n.type) && hubShown(n)) keep.add(n.id); });
   if (view === "groups") ITEMS.forEach((n) => { if (n.type === "web") keep.delete(n.id); });
+  const items = [...keep].filter((id) => { const n = byId.get(id); return n && (n.type === "paper" || n.type === "web"); });
+  CAPPED = null;
+  if (items.length > EXPLORE_CAP) {
+    const r = capItems(items, EXPLORE_CAP);
+    for (const id of items) if (!r.keep.has(id)) keep.delete(id);
+    CAPPED = { shown: EXPLORE_CAP, total: r.total };
+  }
   const allowed = new Set(EDGES_BY_VIEW[view]);
   const links = D.edges.filter((e) => allowed.has(e.type) && keep.has(e.source) && keep.has(e.target))
     .map((e) => ({ source: e.source, target: e.target, type: e.type }));
@@ -752,7 +794,7 @@ function writeHash(push) {
   const f = S.filters, sets = {};
   for (const [k, v] of Object.entries(f.sets)) if (v.size) sets[k] = [...v];
   const state = { v: S.view, f: S.current,
-    s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic } };
+    s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic, a: f.all } };
   const h = "#" + new URLSearchParams({ tab: S.tab, view: state.v, focus: state.f || "", since: state.s, dims: state.d,
     filters: JSON.stringify(state.flt) }).toString();
   if (h === location.hash) return;
@@ -770,7 +812,7 @@ function readHash() {
     for (const [k, v] of Object.entries(flt.sets || {})) if (Array.isArray(v)) S.filters.sets[k] = new Set(v.map(String));
     S.filters.yearMin = Number.isInteger(flt.yMin) ? flt.yMin : null;
     S.filters.yearMax = Number.isInteger(flt.yMax) ? flt.yMax : null;
-    S.filters.undated = flt.u !== false; S.filters.newOnly = !!flt.n; S.filters.offTopic = !!flt.o;
+    S.filters.undated = flt.u !== false; S.filters.newOnly = !!flt.n; S.filters.offTopic = !!flt.o; S.filters.all = !!flt.a;
   } catch (e) { /* a hand-edited hash: keep the defaults */ }
   const focus = p.get("focus");
   return focus || null;
@@ -783,18 +825,22 @@ const VIEW_NOTES = {
   timeline: "Left to right is publication year; undated items sit in their own lane on the far left. Arrows point from a paper to the library papers it cites.",
   gaps: "Red diamonds are gaps: open questions from your reports and computed gaps, each with the rule that produced it. Click one to see its rule and the items behind it.",
 };
+function renderViewNote() {
+  $("#viewnote").textContent = (CAPPED ? "Showing " + CAPPED.shown.toLocaleString() + " of " + CAPPED.total.toLocaleString()
+    + " items, highest scored first. Filter to see more. " : "") + VIEW_NOTES[S.view]
+    + " Double-click a shape to zoom to it; double-click again to go back.";
+}
 function setView(view, keepCamera) {
   savePositions();
   S.view = view;
   document.querySelectorAll("#views button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
-  $("#viewnote").textContent = VIEW_NOTES[view]
-    + " Double-click a shape to zoom to it; double-click again to go back.";
   G.d3Force("charge").strength(view === "groups" ? -18 : view === "timeline" ? -14 : -30);
   G.d3Force("link").distance((l) => (l.type === "labmember" ? 12 : l.type === "interest" ? 60 : l.type === "cites" ? 40 : 28));
   const data = viewGraph(view);
   if (!focusStillShown(S.focus, data.nodes)) dropHiddenFocus(data.nodes);
   computeNeighbours(data.links);
   G.graphData(data);
+  renderViewNote();
   renderLegend();
   if (!keepCamera) {
     FIT_PENDING = true;
@@ -834,7 +880,7 @@ function refreshData() {
   if (!focusStillShown(S.focus, data.nodes)) dropHiddenFocus(data.nodes);
   computeNeighbours(data.links);
   G.graphData(data);
-  renderFilters(); renderLegend();
+  renderFilters(); renderLegend(); renderViewNote();
   if (S.listOpen) renderList();
   for (const fn of ON_FILTERS) fn();
   writeHash(false);
@@ -998,7 +1044,9 @@ function renderFilters() {
     el("button", { class: "linkbtn", on: { click: resetFilters } }, "Reset filters"));
   const toggles = el("div", { class: "facet" });
   const tg = (label, key) => el("label", {}, el("input", { type: "checkbox", checked: S.filters[key], on: { change: (e) => { S.filters[key] = e.target.checked; refreshData(); } } }), label);
-  toggles.append(tg("Only items new since " + S.since, "newOnly"), tg("Show papers judged off-topic at triage", "offTopic"));
+  const more = ITEMS.filter((n) => !shortlisted(n) && passes(n, "shortlist")).length;
+  toggles.append(tg("Include peripheral and excluded" + (S.filters.all ? "" : " (" + more + " more)"), "all"),
+    tg("Only items new since " + S.since, "newOnly"), tg("Show papers judged off-topic at triage", "offTopic"));
   F.append(toggles);
   const years = ITEMS.filter((n) => n.year != null).map((n) => n.year);
   const yr = el("details", { class: "facet", open: true }, el("summary", {}, "Publication year"));
@@ -1030,7 +1078,7 @@ function renderFilters() {
   }
 }
 function resetFilters() {
-  S.filters = { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false };
+  S.filters = { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false };
   refreshData();
 }
 
@@ -1211,6 +1259,12 @@ function listRows() {
   rows.sort((a, b) => { const x = a[k] ?? "", y = b[k] ?? ""; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
   return rows;
 }
+/* The rows to draw for a scrolled table: those in view plus OVERSCAN either side. */
+function visibleRange(scrollTop, viewH, rowH, total, overscan) {
+  const start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
+  return [start, Math.min(total, Math.ceil((scrollTop + viewH) / rowH) + overscan)];
+}
+const LIST_ROW_H = 30, LIST_VIRTUAL_FROM = 500;
 function openList(ids, why) { S.listIds = ids; S.listWhy = why; S.listOpen = true; renderList(); }
 function renderList() {
   const V = $("#listview"); V.hidden = !S.listOpen;
@@ -1225,10 +1279,21 @@ function renderList() {
   const thead = el("tr", {}, COLS.map(([k, label]) => el("th", { "aria-sort": S.sort[0] === k ? (S.sort[1] > 0 ? "ascending" : "descending") : "none" },
     el("button", { on: { click: () => { S.sort = [k, S.sort[0] === k ? -S.sort[1] : 1]; renderList(); } } }, label + (S.sort[0] === k ? (S.sort[1] > 0 ? " ▲" : " ▼") : "")))));
   const tbody = el("tbody");
-  for (const r of rows) tbody.append(el("tr", { tabindex: "0", on: { click: () => select(r.id), keydown: (e) => { if (e.key === "Enter") select(r.id); } } },
+  const rowEl = (r) => el("tr", { tabindex: "0", on: { click: () => select(r.id), keydown: (e) => { if (e.key === "Enter") select(r.id); } } },
     el("td", {}, r.title, r.isNew ? el("span", { class: "tag" }, "new") : null), el("td", {}, r.authors), el("td", { class: "num" }, r.year ?? "Undated"),
-    el("td", {}, r.kind), el("td", {}, r.subareas), el("td", {}, r.lab), el("td", {}, r.status), el("td", {}, r.tier)));
-  V.append(el("table", {}, el("thead", {}, thead), tbody));
+    el("td", {}, r.kind), el("td", {}, r.subareas), el("td", {}, r.lab), el("td", {}, r.status), el("td", {}, r.tier));
+  const table = el("table", { class: rows.length > LIST_VIRTUAL_FROM ? "virtual" : "" }, el("thead", {}, thead), tbody);
+  V.append(table);
+  if (rows.length <= LIST_VIRTUAL_FROM) { for (const r of rows) tbody.append(rowEl(r)); V.onscroll = null; return; }
+  /* A long list draws only the rows in view, between two spacers of the right height. */
+  const spacer = (h) => el("tr", { "aria-hidden": "true", style: "height:" + h + "px" }, el("td", { colspan: String(COLS.length), style: "padding:0;border:0" }));
+  const draw = () => {
+    const top = Math.max(0, V.scrollTop - tbody.offsetTop);
+    const [a, b] = visibleRange(top, V.clientHeight, LIST_ROW_H, rows.length, 5);
+    tbody.replaceChildren(spacer(a * LIST_ROW_H), ...rows.slice(a, b).map(rowEl), spacer((rows.length - b) * LIST_ROW_H));
+  };
+  V.onscroll = draw;
+  draw();
 }
 function closeList() { S.listOpen = false; S.listIds = null; renderList(); }
 
@@ -1349,6 +1414,7 @@ function restoreFromHash() {
 "use strict";
 /* ---------- start: after the parts, so it can use what they define ---------- */
 loadMin();
+refreshColourSlots();
 applyMin(false);
 if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.add("closed"); $("#detail").classList.add("closed"); }
 recomputeVisible();
