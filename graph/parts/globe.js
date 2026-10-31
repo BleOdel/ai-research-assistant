@@ -149,6 +149,17 @@ function zoomBlend(zoom) {
   return { regions: c((2.4 - zoom) / 1.0), dots: c((zoom - 1.3) / 0.9) };
 }
 
+/* An angle kept within one turn, -pi to pi. */
+function wrapAngle(a) {
+  return a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
+}
+/* A drag of (DX, DY) pixels turns the globe freely, over the poles and all the way
+   round. Once it is upside down, left and right are swapped so the surface still
+   follows the hand. Slower when zoomed in, so a drag never jumps across the globe. */
+function dragRotate(yaw, pitch, dx, dy, zoom) {
+  const k = 0.0055 / Math.pow(zoom, 0.75), upright = Math.cos(pitch) >= 0 ? 1 : -1;
+  return { yaw: wrapAngle(yaw - dx * k * upright), pitch: wrapAngle(pitch + dy * k) };
+}
 /* The yaw and pitch that turn the point (x, y, z) to face the viewer. */
 function flyTarget(x, y, z) {
   return { yaw: Math.atan2(z, x) - Math.PI / 2, pitch: Math.atan2(y, Math.hypot(x, z)) };
@@ -417,9 +428,9 @@ function globeDraw() {
 function globeClamp(z) { return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)); }
 function globeFly(x, y, z, zoom) {
   const t = flyTarget(x, y, z);
-  const dy = ((t.yaw - GL.yaw + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  /* The short way round for both angles, wherever a free drag has left them. */
   const from = { yaw: GL.yaw, pitch: GL.pitch, zoom: GL.zoom, panX: GL.panX, panY: GL.panY };
-  const to = { yaw: GL.yaw + dy, pitch: Math.max(-1.4, Math.min(1.4, t.pitch)), zoom: globeClamp(zoom), panX: 0, panY: 0 };
+  const to = { yaw: GL.yaw + wrapAngle(t.yaw - GL.yaw), pitch: GL.pitch + wrapAngle(t.pitch - GL.pitch), zoom: globeClamp(zoom), panX: 0, panY: 0 };
   globeTween(from, to);
 }
 function globeTween(from, to) {
@@ -487,7 +498,7 @@ function globeInput() {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
     if (GL.mode === "pan") { GL.panX += dx; GL.panY += dy; }
-    else { const k = 0.0055 / Math.pow(GL.zoom, 0.75); GL.yaw -= dx * k; GL.pitch = Math.max(-1.4, Math.min(1.4, GL.pitch + dy * k)); }
+    else { const v = dragRotate(GL.yaw, GL.pitch, dx, dy, GL.zoom); GL.yaw = v.yaw; GL.pitch = v.pitch; }
     GL.onHover(null);
     globeRequestDraw();
   });

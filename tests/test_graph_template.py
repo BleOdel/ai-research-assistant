@@ -802,6 +802,19 @@ class GlobeMathTests(unittest.TestCase):
                       "return [p.length, p[0], p[10].map((v) => Math.round(v * 1e6) / 1e6), Math.hypot(...p[5]) > 1]; })()")
         self.assertEqual(got, [11, [1, 0, 0], [0, 0, 1], True])
 
+    def test_the_globe_turns_a_full_circle_both_ways(self):
+        # Researcher, 2026-10-31: "i cant seem to rotate it 360 fully". Dragging up and
+        # down stopped at about 80 degrees; it now rolls over the poles.
+        got = self.js(["dragRotate", "wrapAngle"], "(() => { let v = {yaw: 0, pitch: 0}; const steps = [];"
+                      " for (let k = 0; k < 400; k++) { v = dragRotate(v.yaw, v.pitch, 0, 10, 1); steps.push(v.pitch); }"
+                      " const maxP = Math.max(...steps), minP = Math.min(...steps);"
+                      " const up = dragRotate(0, 0, 10, 0, 1), flipped = dragRotate(0, Math.PI, 10, 0, 1);"
+                      " return [maxP > 3.1, minP < -3.1, steps.every((p) => p > -Math.PI - 1e-9 && p <= Math.PI + 1e-9),"
+                      " Math.sign(up.yaw) === -Math.sign(flipped.yaw)]; })()")
+        # past the pole and all the way round, kept within one turn, and left-right
+        # dragging still follows the hand when the globe is upside down
+        self.assertEqual(got, [True, True, True, True])
+
     def test_labels_never_overlap_and_big_ones_win(self):
         got = self.js([], "placeLabels([{text: 's', x: 10, y: 10, w: 40, h: 14, priority: 5, big: false}, "
                       "{text: 'B', x: 20, y: 12, w: 60, h: 18, priority: 1e9, big: true}, "

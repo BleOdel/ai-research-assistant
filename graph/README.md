@@ -50,7 +50,8 @@ screen the cards start minimised so the globe is visible.
   cited paper; the card says what each colour means in words. Next steps highlight what
   it cites, what cites it, its research group's other papers, or its sub-area, and
   "Open full details" takes you to it in Explore. Esc or empty space clears it.
-- The toolbar zooms in and out (`+`/`-`), fits the whole globe (`0`), and switches
+- Drag to turn the globe any way, all the way round and over the poles. The toolbar
+  zooms in and out (`+`/`-`), fits the whole globe (`0`), and switches
   dragging between turning the globe and moving it (`H`). Drag it by its grip.
 
 **How it connects** shows the kinds of thing in the library (research interests,
