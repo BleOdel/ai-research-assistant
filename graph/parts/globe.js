@@ -242,6 +242,13 @@ function globeRefresh() {
   GL.strong = pairs.slice(0, ARC_CAP);
   globeRequestDraw();
 }
+/* Whether item I is drawn at full strength: the highlight decides when there is one,
+   else a selection lights itself and the papers its lines join, and dims the rest. */
+function globeLit(i, sel, hlHas, out, inn) {
+  if (hlHas) return hlHas(i);
+  if (sel == null) return true;
+  return i === sel || out[sel].includes(i) || inn[sel].includes(i);
+}
 function globeSelectedIndex() {
   return S.current != null && GL.index ? GL.index.get(S.current) : undefined;
 }
@@ -357,9 +364,10 @@ function globeDraw() {
     const pick = pickDots(m, GL.mask, rot, inView, DOT_CAP);
     GL.counts = { inView: pick.inView, drawn: pick.drawn.length };
     const rr = 2.3 * Math.pow(GL.zoom, 0.3);
+    const hlHas = S.highlight ? (j) => S.highlight.has(m.ids[j]) : null;
     for (const i of pick.drawn) {
       const p = P(m.vx[i], m.vy[i], m.vz[i]), r = rr * (0.7 + 0.3 * p[2]);
-      const lit = !S.highlight || S.highlight.has(m.ids[i]);
+      const lit = globeLit(i, sel, hlHas, GL.out, GL.inn);
       g.globalAlpha = blend.dots * (lit ? 1 : 0.1);
       g.fillStyle = colour[m.interest[i]]; g.beginPath();
       if (m.items[i].type === "web") g.rect(p[0] - r, p[1] - r, 2 * r, 2 * r); else g.arc(p[0], p[1], r, 0, 2 * Math.PI);
@@ -516,7 +524,7 @@ function globeInput() {
     else if (e.key === "-" || e.key === "_") globeZoomBy(1 / 1.5);
     else if (e.key === "0") globeFit();
     else if (e.key.toLowerCase() === "h") globeSetMode(GL.mode === "pan" ? "rotate" : "pan");
-    else if (e.key === "Escape" && (S.current != null || S.highlight)) globeClear();
+    /* Esc is handled by the page's onKey, for every tab. */
   });
 }
 /* #perf=1: after the first draw, turn the globe for 120 frames and keep each frame's

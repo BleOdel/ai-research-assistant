@@ -176,8 +176,9 @@ h2:first-child { margin-top: 0; }
 #globe-notice { right: 12px; bottom: 12px; max-width: min(360px, calc(50% - 170px)); font-size: 12px; color: var(--ink-2); padding: 8px 12px; text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) {
   #selcard { top: auto; bottom: 108px; left: 12px; right: 12px; width: auto; max-height: 45%; }
-  #globe-legend { bottom: 62px; max-width: calc(100% - 24px); }
-  #globe-notice { left: 12px; right: auto; top: 52px; bottom: auto; max-width: calc(100% - 24px); text-align: left; }
+  #mapcard { max-height: calc(100% - 130px); }
+  #globe-legend { bottom: 62px; max-width: calc(50% - 18px); }
+  #globe-notice { right: 12px; bottom: 62px; max-width: calc(50% - 18px); }
 }
 #graph.pan-mode canvas { cursor: grab; }
 #graph.pan-mode canvas:active { cursor: grabbing; }
@@ -731,8 +732,8 @@ function select(id, fromTrail) {
   }
   computeNeighbours();
   refreshObjects();
-  renderDetail(id);
-  renderTrail();
+  /* Explore's details (lineage and all) are built when Explore is shown. */
+  if (!deferExplore()) { renderDetail(id); renderTrail(); }
   writeHash(true);
   /* The camera stays put: zooming is the researcher's call (double-click, toolbar,
      or the panel's "Zoom to it"). */
@@ -1049,6 +1050,7 @@ function setTab(tab, push) {
     G.resumeAnimation(); fitCanvas();
     if (EXPLORE_DIRTY) {
       EXPLORE_DIRTY = false; renderFilters(); setView(S.view);
+      renderDetail(S.current); renderTrail();
       if (S.listOpen) renderList();
       /* An item selected on another tab is focused here too, now there is a graph to light. */
       if (S.current && !S.highlight && focusStillShown(S.current, G.graphData().nodes)) { S.focus = S.current; computeNeighbours(); refreshObjects(); }
@@ -1286,22 +1288,30 @@ function paperDetail(n) {
         on: { click: () => highlightSet([n.id, ...lineage.all], "the citation chain through this paper: " + lineage.ancestors.length + " it builds on, " + lineage.descendants.length + " building on it") } },
         "Show lineage (" + lineage.ancestors.length + " back, " + lineage.descendants.length + " forward)") : null));
 }
-function lineageOf(id) {
-  /* Citations within the library: direct ones both ways (up, down), and the whole
-     chain - everything this paper cites, transitively (ancestors), and everything that
-     cites it, transitively (descendants). Cycles are walked once. */
+/* The library's citations both ways, built once: the data never changes on the page. */
+let CITE_MAPS = null;
+function citeMaps() {
+  if (CITE_MAPS) return CITE_MAPS;
   const out = new Map(), into = new Map();
   for (const e of D.edges) if (e.type === "cites") {
     (out.get(e.source) || out.set(e.source, []).get(e.source)).push(e.target);
     (into.get(e.target) || into.set(e.target, []).get(e.target)).push(e.source);
   }
+  CITE_MAPS = { out, into };
+  return CITE_MAPS;
+}
+function lineageOf(id) {
+  /* Citations within the library: direct ones both ways (up, down), and the whole
+     chain - everything this paper cites, transitively (ancestors), and everything that
+     cites it, transitively (descendants). Cycles are walked once. */
+  const { out, into } = citeMaps();
   const walk = (next) => {
-    const seen = new Set(), queue = [...(next.get(id) || [])];
-    while (queue.length) {
-      const cur = queue.shift();
+    const seen = new Set(), queue = (next.get(id) || []).slice();
+    for (let k = 0; k < queue.length; k++) {   /* an index, not shift(): shift is linear */
+      const cur = queue[k];
       if (cur === id || seen.has(cur)) continue;
       seen.add(cur);
-      queue.push(...(next.get(cur) || []));
+      for (const x of next.get(cur) || []) if (!seen.has(x)) queue.push(x);
     }
     return [...seen];
   };
@@ -1481,7 +1491,13 @@ $("#since").addEventListener("change", (e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e
 document.querySelectorAll(".toggle-panels").forEach((b) => b.addEventListener("click", () => $("#" + b.dataset.panel).classList.toggle("closed")));
 function onKey(e) {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-  if (e.key === "Escape") { if (typing) document.activeElement.blur(); else if (S.listOpen) closeList(); else clearFocus(); return; }
+  if (e.key === "Escape") {
+    if (typing) { document.activeElement.blur(); return; }
+    /* On the Overview, Esc leaves the selection there; Explore's list and focus are not on screen. */
+    if (S.tab === "overview") { if (S.current != null || S.highlight) globeClear(); return; }
+    if (S.listOpen) closeList(); else clearFocus();
+    return;
+  }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key.toLowerCase() === "m") { toggleMinimiseAll(); return; }
   if (S.tab !== "explore") return; /* the keys below drive Explore's graph */

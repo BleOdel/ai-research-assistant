@@ -33,6 +33,14 @@ function cardChip(name, count, extra) {
   }
   return "▸ " + name + (count != null ? " · " + count.toLocaleString() : "") + tail;
 }
+/* The highlight's count is what the map shows; anything the filters hide is named. */
+function highlightChipText(why, ids, visible) {
+  const shown = ids.filter((id) => visible.has(id)).length, hidden = ids.length - shown;
+  return "Highlighted: " + why + " · " + shown.toLocaleString() + (hidden ? " shown, " + hidden.toLocaleString() + " hidden by the filters" : "");
+}
+function libraryLine(groups, gaps) {
+  return groups.toLocaleString() + " research group" + (groups === 1 ? "" : "s") + " · " + gaps.toLocaleString() + " gap" + (gaps === 1 ? "" : "s");
+}
 /* Counts for the Papers / Web switch, under every other filter (PASS ignores the kind). */
 function kindCounts(items, pass) {
   const out = { both: 0, paper: 0, web: 0 };
@@ -125,6 +133,9 @@ function renderMapCard() {
     el("div", { class: "note", style: "margin-top:2px" }, "of " + ITEMS.length.toLocaleString() + " in the library, across " + plural(INTERESTS.length, "research interest")),
     el("div", { class: "note", style: "margin-top:10px" }, "Show"), seg, kindNote ? el("p", { class: "note" }, kindNote) : null,
     shortlist, newLine,
+    el("p", { class: "note" }, "In the library: " + libraryLine(D.labs.filter((l) => l.papers.length > 1).length, D.gaps.length) + " · ",
+      el("button", { class: "linkbtn", on: { click: () => { setTab("explore", true); setView("groups"); } } }, "groups"), " ",
+      el("button", { class: "linkbtn", on: { click: () => { setTab("explore", true); setView("gaps"); } } }, "gaps")),
     el("div", { class: "note", style: "margin-top:10px" }, "Research interests: click a name to hide it, its dot to colour it"),
     search, ...rows,
     OV.colourMsg ? el("p", { class: "note warn" }, OV.colourMsg) : null,
@@ -184,7 +195,7 @@ function renderHighlightChip() {
   const chip = $("#highlight-chip");
   if (!S.highlight) { chip.hidden = true; return; }
   chip.hidden = false;
-  chip.replaceChildren("Highlighted: " + S.highlightWhy + " · " + S.highlight.size.toLocaleString() + " · ",
+  chip.replaceChildren(highlightChipText(S.highlightWhy, [...S.highlight], VISIBLE) + " · ",
     el("button", { class: "linkbtn", on: { click: () => { S.highlight = null; S.highlightWhy = ""; refreshObjects(); renderOverview(); globeRequestDraw(); } } }, "Clear"));
 }
 /* Whether citation lines are on the globe right now (the legend explains them if so). */
@@ -238,6 +249,8 @@ function renderOverview() {
     OV.defaultsDone = true;
     /* On a phone-width screen the cards start as chips, so the globe is visible. */
     if (store.get("kg-min") == null && window.matchMedia("(max-width: 600px)").matches) for (const id of MIN_CARDS) S.min.cards[id] = true;
+    /* Below 900 px the legend starts as a chip, so it never sits under the card's list. */
+    else if (store.get("kg-min") == null && window.matchMedia("(max-width: 900px)").matches) S.min.cards["globe-legend"] = true;
   }
   renderMapCard(); renderSelCard(); renderHighlightChip(); renderGlobeLegend();
 }

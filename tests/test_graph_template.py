@@ -103,13 +103,14 @@ class TemplateTests(unittest.TestCase):
         prelude = """const D = {edges: [
           {source: "a", target: "b", type: "cites"}, {source: "b", target: "c", type: "cites"},
           {source: "c", target: "a", type: "cites"}, {source: "d", target: "a", type: "cites"},
-          {source: "e", target: "x", type: "cites"}, {source: "a", target: "h", type: "subarea"}]};"""
-        got = run_js(["lineageOf"], prelude, 'lineageOf("d")')
+          {source: "e", target: "x", type: "cites"}, {source: "a", target: "h", type: "subarea"}]};
+        let CITE_MAPS = null;"""
+        got = run_js(["lineageOf", "citeMaps"], prelude, 'lineageOf("d")')
         self.assertEqual(sorted(got["up"]), ["a"])
         self.assertEqual(got["down"], [])
         self.assertEqual(sorted(got["ancestors"]), ["a", "b", "c"])
         self.assertEqual(got["descendants"], [])
-        got = run_js(["lineageOf"], prelude, 'lineageOf("b")')
+        got = run_js(["lineageOf", "citeMaps"], prelude, 'lineageOf("b")')
         self.assertEqual(sorted(got["descendants"]), ["a", "c", "d"])
         self.assertNotIn("b", got["all"])
 
@@ -526,6 +527,89 @@ class TemplateTests(unittest.TestCase):
         got = run_js(["parseQuestion", "askExamples"], prelude, f"parseQuestion('attack papers in XR', {ctx})")
         self.assertEqual(got["ids"], ["a"])
         self.assertEqual(got["steps"][-1], "1 more is hidden by the current filters")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_escape_on_the_overview_clears_its_selection(self):
+        # Esc reached Explore's clearFocus, which nulled the state but left the Overview's
+        # card, highlight chip and dimmed globe standing; with Explore's list open it
+        # closed the hidden list instead.
+        prelude = ('const document = {activeElement: {tagName: "BODY", blur() {}}}; let called = []; '
+                   'function globeClear() { called.push("globe"); } function closeList() { called.push("list"); } '
+                   'function clearFocus() { called.push("focus"); } function toggleMinimiseAll() {}')
+        got = run_js(["onKey"], prelude, """[
+          (S0 => { globalThis.S = S0; called = []; onKey({key: "Escape"}); return called; })({tab: "overview", current: "p", highlight: null, listOpen: true}),
+          (S0 => { globalThis.S = S0; called = []; onKey({key: "Escape"}); return called; })({tab: "overview", current: null, highlight: null, listOpen: true}),
+          (S0 => { globalThis.S = S0; called = []; onKey({key: "Escape"}); return called; })({tab: "explore", current: "p", highlight: null, listOpen: true})]""")
+        self.assertEqual(got, [["globe"], [], ["list"]])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_lineage_is_fast_at_scale(self):
+        # Clicking a paper on the globe built Explore's lineage, which rebuilt the citation
+        # maps and walked them with queue.shift(): 1-4 s at 20,000 items.
+        # 20,000 papers each citing up to six others at random, like --synthetic 20000.
+        prelude = ('let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; const edges = []; '
+                   'for (let i = 0; i < 20000; i++) { const k = Math.floor(rnd() * 7); for (let j = 0; j < k; j++) '
+                   'edges.push({type: "cites", source: "p" + i, target: "p" + Math.floor(rnd() * 20000)}); } '
+                   'const D = {edges}; let CITE_MAPS = null;')
+        names = ["lineageOf"] + (["citeMaps"] if "function citeMaps(" in PAGE_SOURCE else [])
+        got = run_js(names, prelude, "(() => { lineageOf('p1'); const t = Date.now(); "
+                     "const r = [2, 3, 10].map((k) => lineageOf('p' + k).ancestors.length); return [r[0] > 1000, (Date.now() - t) / 3]; })()")
+        self.assertTrue(got[0])
+        self.assertLess(got[1], 60, "a lineage took %d ms" % got[1])
+        # And none of it runs while Explore is hidden.
+        self.assertIn("deferExplore()", page_function("select"))
+        self.assertIn("renderDetail(S.current)", page_function("setTab"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_show_on_map_says_what_will_show(self):
+        got = run_js(["showOnMapLabel"], "", "[showOnMapLabel(1038, 2000), showOnMapLabel(358, 358), showOnMapLabel(1, 3)]")
+        self.assertEqual(got[0], {"label": "Show 1,038 on the map",
+                                  "note": "962 of the 2,000 are hidden by the current filters, such as the shortlist."})
+        self.assertEqual(got[1], {"label": "Show all 358 on the map", "note": ""})
+        self.assertEqual(got[2]["note"], "2 of the 3 are hidden by the current filters, such as the shortlist.")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_selection_dims_everything_else(self):
+        # Spec: click a dot, its citation arcs light up, everything else dims.
+        prelude = "const OUT = [[1], [], [], []], INN = [[], [0], [], []];"
+        got = run_js(["globeLit"], prelude, "[0, 1, 2].map((i) => globeLit(i, 0, null, OUT, INN)).concat("
+                     "[globeLit(2, null, null, OUT, INN), globeLit(2, null, (i) => i === 2, OUT, INN), globeLit(1, 0, (i) => i === 2, OUT, INN)])")
+        self.assertEqual(got, [True, True, False, True, True, False])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_highlight_count_is_what_shows(self):
+        got = run_js(["highlightChipText"], "", "[highlightChipText('x', ['a', 'b', 'c'], new Set(['a'])), "
+                     "highlightChipText('y', ['a', 'b'], new Set(['a', 'b']))]")
+        self.assertEqual(got, ["Highlighted: x · 1 shown, 2 hidden by the filters", "Highlighted: y · 2"])
+
+    def test_notice_never_covers_the_map_card(self):
+        narrow = re.search(r"@media \(max-width: 900px\) \{\n(.*?)\n\}", TEMPLATE, re.S).group(1)
+        rule = re.search(r"#globe-notice \{([^}]*)\}", narrow).group(1)
+        self.assertNotIn("top:", rule.replace("top: auto", ""))
+        # Nor do the card's long list and the legend run into each other: under 900 px the
+        # card stops short of the bottom row and the legend starts as a chip.
+        self.assertIn("max-height", re.search(r"#mapcard \{([^}]*)\}", narrow).group(1))
+        self.assertIn('matchMedia("(max-width: 900px)")', page_function("renderOverview"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ask_examples_answer_on_a_many_interest_library(self):
+        # Interest names that share words ("Interest A", "Interest B") and titles that
+        # share words ("Synthetic paper 1", ...) once made half the examples fail.
+        ctx = """{since: "2026-10-01", interests: [{name: "Interest A"}, {name: "Interest B"}, {name: "AI Security"}, {name: "AI Ethics"}],
+          gaps: [], labs: [{id: "L1", name: "Lab", papers: ["p1", "p2"]}],
+          items: [1, 2, 3, 4].map((k) => ({id: "p" + k, type: "paper", title: "Synthetic paper " + k, interest: k < 3 ? "Interest A" : "Interest B",
+            year: 2020 + k, contribution: "attack", subareas: [], primaryLab: k < 3 ? "L1" : null, citesOut: k === 1 ? ["p2"] : []}))}"""
+        prelude = "function passes() { return true; } function isNew() { return false; } const S = {};"
+        got = run_js(["parseQuestion", "askExamples"], prelude,
+                     f"(() => {{ const c = {ctx}; return askExamples(c).map((q) => [q, parseQuestion(q, c).ok]); }})()")
+        self.assertGreaterEqual(len(got), 3)
+        self.assertTrue(all(ok for _, ok in got), got)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_library_line_on_the_card(self):
+        got = run_js(["libraryLine"], "", "[libraryLine(39, 23), libraryLine(1, 1), libraryLine(0, 0)]")
+        self.assertEqual(got, ["39 research groups · 23 gaps", "1 research group · 1 gap", "0 research groups · 0 gaps"])
+        self.assertIn("libraryLine(", page_function("renderMapCard"))
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]

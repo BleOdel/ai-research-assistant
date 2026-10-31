@@ -30,7 +30,7 @@ function parseQuestion(q, ctx) {
     if (hidden) steps.push(hidden + " more " + (hidden === 1 ? "is" : "are") + " hidden by the current filters");
     return { ok: true, ids: shown, steps };
   };
-  const examples = askExamples(ctx);
+  const examples = ctx.examples || askExamples(ctx);
   const nope = (message) => {
     const want = new Set(words(text));
     const closest = examples.slice().sort((a, b) => words(b).filter((w) => want.has(w)).length - words(a).filter((w) => want.has(w)).length)[0] || examples[0];
@@ -106,25 +106,41 @@ function parseQuestion(q, ctx) {
   if (unread.length) return nope("The map could not read: " + unread.join(", ") + ".");
   return finish(items.filter((it) => tests.every((t) => t(it))).map((it) => it.id), steps);
 }
-/* Example questions, written from the library itself so they always have an answer. */
+/* Example questions, written from the library itself, and each one checked against the
+   patterns: an example that does not parse is never offered. */
 function askExamples(ctx) {
-  const out = [];
-  const name = (ctx.interests[0] || {}).name;
-  const acronym = name ? (name.match(/\b[A-Z]{2,}\b/) || [])[0] || (name.match(/[A-Za-z]{4,}/) || [""])[0] : "";
+  const names = ctx.interests.map((i) => i.name);
+  const tokens = names.map((n) => (n.match(/[A-Za-z0-9]+/g) || []).map((w) => w.toLowerCase()));
+  /* A word that names exactly one interest, by the parser's own rule. */
+  let interestWord = "";
+  for (const n of names) {
+    for (const w of n.match(/[A-Za-z0-9]+/g) || []) {
+      const usable = w.length >= 4 || (w.length >= 2 && w === w.toUpperCase() && /[A-Z]/.test(w));
+      if (usable && tokens.filter((t) => t.includes(w.toLowerCase())).length === 1) { interestWord = w; break; }
+    }
+    if (interestWord) break;
+  }
   const years = ctx.items.map((it) => it.year).filter((y) => y != null);
   const recent = years.length ? Math.max(...years) - 2 : null;
-  out.push("attack papers" + (acronym ? " in " + acronym : "") + (recent ? " since " + recent : "") + " with no defence");
-  const short = (t) => (String(t).match(/[A-Za-z0-9]+/g) || []).filter((w) => w.length >= 4).slice(0, 2).join(" ");
-  const withLab = ctx.items.find((it) => it.primaryLab && ctx.labs.some((l) => l.id === it.primaryLab && l.papers.length > 1));
-  if (withLab) out.push("papers from the same lab as " + short(withLab.title));
+  const short = (t) => (String(t).match(/[A-Za-z0-9]+/g) || []).filter((w) => w.length >= 4).slice(0, 3).join(" ");
   const citesOf = ctx.citesOf || ((it) => it.citesOut || []);
   const cited = new Map();
   for (const it of ctx.items) for (const id of citesOf(it)) cited.set(id, (cited.get(id) || 0) + 1);
-  const top = [...cited.entries()].sort((a, b) => b[1] - a[1])[0];
-  const topItem = top && ctx.items.find((it) => it.id === top[0]);
-  if (topItem) out.push("what cites " + short(topItem.title) + "?");
-  out.push("thin sub-areas", "new since my last search", "scored but never used in a report");
-  return out;
+  const generic = ["thin sub-areas", "new since my last search", "scored but never used in a report"];
+  const check = { ...ctx, examples: generic };
+  const answers = (q) => parseQuestion(q, check).ok;
+  const first = (candidates) => candidates.find(answers);
+  const out = [];
+  const attack = first(["attack papers" + (interestWord ? " in " + interestWord : "") + (recent ? " since " + recent : "") + " with no defence",
+    "attack papers" + (recent ? " since " + recent : "")]);
+  if (attack) out.push(attack);
+  const lab = first(ctx.items.filter((it) => it.primaryLab && ctx.labs.some((l) => l.id === it.primaryLab && l.papers.length > 1))
+    .slice(0, 20).map((it) => "papers from the same lab as " + short(it.title)));
+  if (lab) out.push(lab);
+  const cites = first([...cited.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([id]) => ctx.items.find((it) => it.id === id)).filter(Boolean).map((it) => "what cites " + short(it.title) + "?"));
+  if (cites) out.push(cites);
+  return out.concat(generic.filter(answers));
 }
 const ASK = { q: "", result: null };
 let ASK_CITES = null;

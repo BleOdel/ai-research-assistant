@@ -25,6 +25,12 @@ function schemaCounts(data) {
     groups: data.labs.filter((l) => l.papers.length > 1).length, reports: by("report"), gaps: by("gap"),
     cites: data.edges.filter((e) => e.type === "cites").length };
 }
+/* What "Show on the map" will show under the current filters, and what they hide. */
+function showOnMapLabel(shown, total) {
+  if (shown >= total) return { label: "Show all " + total.toLocaleString() + " on the map", note: "" };
+  return { label: "Show " + shown.toLocaleString() + " on the map",
+    note: (total - shown).toLocaleString() + " of the " + total.toLocaleString() + " are hidden by the current filters, such as the shortlist." };
+}
 const CN = { on: null };
 function renderConnects() {
   const pane = $("#tab-connects"), counts = schemaCounts(D);
@@ -54,9 +60,10 @@ function renderConnects() {
   if (!CN.on) detail.append(el("h3", {}, "Click a kind"), el("p", { class: "muted" }, "Its count, what it connects to, and where to see all of them."));
   else {
     const key = CN.on, links = SCHEMA_LINKS.filter(([a, b]) => a === key || b === key);
+    const willShow = (type) => showOnMapLabel(ITEMS.filter((n) => n.type === type && passes(n, "type")).length, counts[type === "paper" ? "papers" : "web"]);
     const action = {
-      papers: ["Show all " + counts.papers.toLocaleString() + " on the map", () => { S.filters.sets.type = new Set([KIND_PAPER]); refreshData(); setTab("overview", true); }],
-      web: ["Show all " + counts.web.toLocaleString() + " on the map", () => { S.filters.sets.type = new Set([KIND_WEB]); refreshData(); setTab("overview", true); }],
+      papers: [willShow("paper"), () => { S.filters.sets.type = new Set([KIND_PAPER]); refreshData(); setTab("overview", true); }],
+      web: [willShow("web"), () => { S.filters.sets.type = new Set([KIND_WEB]); refreshData(); setTab("overview", true); }],
       interests: ["See them on the globe", () => { GL.zoom = 1; setTab("overview", true); }],
       subareas: ["See them on the globe", () => { GL.zoom = 1; setTab("overview", true); }],
       groups: ["Open the Research groups view", () => { setTab("explore", true); setView("groups"); }],
@@ -67,7 +74,8 @@ function renderConnects() {
       el("p", { class: "small muted", style: "margin:0 0 4px" }, "Connects to:"),
       el("ul", { class: "small", style: "margin:0 0 10px;padding-left:18px" }, ...links.map(([a, b, label]) =>
         el("li", {}, a === b ? "Papers " + label + " papers (" + counts.cites.toLocaleString() + " links)" : name[a] + " " + label + " " + name[b].toLowerCase()))),
-      el("button", { on: { click: action[1] } }, action[0]));
+      el("button", { on: { click: action[1] } }, typeof action[0] === "string" ? action[0] : action[0].label),
+      typeof action[0] === "string" || !action[0].note ? null : el("p", { class: "small muted" }, action[0].note));
   }
   pane.replaceChildren(el("h2", {}, "How your library connects"),
     el("p", { class: "lede" }, "The kinds of thing in your library, how many there are, and how they link. Counts are the whole library, before filters."),
