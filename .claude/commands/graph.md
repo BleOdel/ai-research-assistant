@@ -1,10 +1,12 @@
 # /graph - Build and Open the Library Knowledge Graph
 
-Builds `graph/index.html`, an interactive 3D map of the whole library: every paper in
+Builds `graph/index.html`, an interactive map of the whole library: every paper in
 `research/seen_sources.json` and every included web source in
 `blog/seen_web_sources.json`, with what is new since the last search highlighted. It
 shows the research groups papers come from, how sub-areas connect, how the field
-progressed year by year, and where the gaps are. `graph/README.md` describes the page.
+progressed year by year, and where the gaps are. It opens on an Overview (a summary card
+and a research globe), with How it connects, Explore (the detailed views), Ask and Status
+tabs. `graph/README.md` describes the page.
 
 `/research`, `/rank`, `/synthesize`, `/update` and `/websearch` already rebuild it when
 they finish. Run `/graph` to rebuild it on demand, to look at a different "new since"
@@ -58,7 +60,7 @@ From its output, report two things:
 ## Step 4: Present
 
 ```
-## Library graph - YYYY-MM-DD
+## Library map - YYYY-MM-DD
 
 <the summary line the build printed>
 
