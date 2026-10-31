@@ -27,8 +27,9 @@ screen the cards start minimised so the globe is visible.
   only** switch with a count on each choice, and the research interests with their
   counts. Click a name to hide or show that interest, and its dot to colour it. At most
   six interests are coloured at once (the six largest by default), so no colour repeats;
-  the rest are grey. It also counts what is new since your last search; click that line
-  to show only those.
+  the rest are grey. It also counts what is new since your last search (click that line
+  to show only those) and the library's research groups and gaps, each a link to its
+  view in Explore.
 - The map starts on your **shortlist**: papers and web sources graded Core or
   Supporting, plus everything not yet scored, so new finds always show. "Include
   peripheral and excluded" brings in the rest, and the card says how many that is. The
@@ -42,7 +43,8 @@ screen the cards start minimised so the globe is visible.
   2,500 items are drawn at once, highest scored first; the notice in the corner says
   when it is trimming.
 - **Click an item** for its card: interest, sub-area, year, grade, and how many library
-  papers it cites and is cited by. Its citation lines are drawn on the globe, amber to
+  papers it cites and is cited by. Everything else dims, and its citation lines are drawn
+  on the globe, amber to
   the papers it cites and blue from the papers that cite it, with an arrowhead on the
   cited paper; the card says what each colour means in words. Next steps highlight what
   it cites, what cites it, its research group's other papers, or its sub-area, and
