@@ -17,7 +17,8 @@ in `parts/`, `vendor/` and this README.
 
 ## What the page shows
 
-The page has five tabs. **M** minimises the tab bar and every card to small labelled
+The page opens in dark mode; **Light mode** in the tab bar switches it, and the page
+remembers the choice. It has five tabs. **M** minimises the tab bar and every card to small labelled
 chips, and restores them; each card also has its own minimise control. On a phone-width
 screen the cards start minimised so the globe is visible.
 

@@ -19,9 +19,10 @@
   --hair: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --focus: #2a78d6;
   --gap: #d03b3b; --new: #0b0b0b; --uncat: #898781;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
-  /* Citation lines: what the selected paper cites, and what cites it. At least 25 degrees of
-     hue from every interest colour in use (SLOT_TOKENS), in both themes. */
-  --cites: #7a6400; --citedby: #007c8a;
+  /* Interest colours (six at most, SLOT_TOKENS) and citation lines: what the selected paper
+     cites, and what cites it. The dark set is the prototype's, the researcher's choice. */
+  --i1: #2a78d6; --i2: #d0662a; --i3: #14935f; --i4: #c03f8c; --i5: #9c8400; --i6: #6a5fd6;
+  --cites: #a35f00; --citedby: #0072a8;
   --globe-hi: #f1f2f4; --globe-lo: #e1e3e8; --globe-edge: #c9ccd4; --globe-line: rgba(11,11,11,0.07);
 }
 @media (prefers-color-scheme: dark) {
@@ -31,7 +32,8 @@
     --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
     --gap: #e66767; --new: #f0efec; --uncat: #898781;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-    --cites: #ffe066; --citedby: #7ae6f2;
+    --i1: #3987e5; --i2: #e07a3c; --i3: #21b07d; --i4: #d44fa0; --i5: #c9b037; --i6: #8b80f5;
+    --cites: #ffb040; --citedby: #5ac8ff;
     --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
   }
 }
@@ -41,7 +43,8 @@
   --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
   --gap: #e66767; --new: #f0efec; --uncat: #898781;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-  --cites: #ffe066; --citedby: #7ae6f2;
+  --i1: #3987e5; --i2: #e07a3c; --i3: #21b07d; --i4: #d44fa0; --i5: #c9b037; --i6: #8b80f5;
+  --cites: #ffb040; --citedby: #5ac8ff;
   --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
 }
 * { box-sizing: border-box; }
@@ -62,7 +65,7 @@ body.tabs-min { --tabs-h: 28px; }
 #tabs [role=tablist] { display: flex; gap: 18px; align-self: stretch; }
 #tabs [role=tab] { border: none; border-radius: 0; background: none; padding: 0; color: var(--muted); border-bottom: 2px solid transparent; box-shadow: none; }
 #tabs [role=tab][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
-#tabs-hide { margin-left: auto; }
+#theme-toggle { margin-left: auto; }
 #tabs-min { display: none; align-items: center; gap: 12px; height: var(--tabs-h); padding: 0 14px; border-bottom: 1px solid var(--hair); background: var(--surface); font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
 #tabs-min button { border: none; background: none; padding: 0; color: var(--muted); }
 #tabs-min button[aria-current="page"] { color: var(--ink); font-weight: 600; }
@@ -217,6 +220,7 @@ h2:first-child { margin-top: 0; }
     <button role="tab" data-tab="ask" aria-controls="tab-ask">Ask</button>
     <button role="tab" data-tab="status" aria-controls="tab-status">Status</button>
   </div>
+  <button id="theme-toggle" class="linkbtn" title="Switch between dark and light">Light mode</button>
   <button id="tabs-hide" class="linkbtn" title="Minimise the tabs. M minimises or restores everything.">Minimise</button>
 </header>
 <nav id="tabs-min" aria-label="Tabs, minimised">
@@ -303,6 +307,18 @@ h2:first-child { margin-top: 0; }
 <script data-vendor="3d-force-graph.min.js"></script>
 <script>
 "use strict";
+/* Storage is a convenience (the last tab, minimised cards, colours), never data: a
+   private window or blocked site data simply forgets. */
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* storage blocked */ } return null; },
+};
+/* Dark is the default look; the researcher can switch to light, and it is remembered.
+   Set before anything reads a colour, including Explore's renderer. */
+function initialTheme(saved) {
+  return saved === "light" ? "light" : "dark";
+}
+document.documentElement.dataset.theme = initialTheme(store.get("kg-theme"));
 const D = JSON.parse(document.getElementById("data").textContent);
 const $ = (s) => document.querySelector(s);
 const byId = new Map(D.nodes.map((n) => [n.id, n]));
@@ -370,9 +386,8 @@ function colourSlots(names, counts, chosen) {
     : names.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || a.localeCompare(b)).slice(0, 6);
   return Object.fromEntries(names.map((n) => [n, pick.indexOf(n) + 1]));
 }
-/* The six interest colours. Slot 4 is purple, not the palette's gold (--s4), which sat
-   too close to the amber citation lines. */
-const SLOT_TOKENS = ["--s1", "--s2", "--s3", "--s7", "--s5", "--s6"];
+/* The six interest colours, in the order the six largest interests take them. */
+const SLOT_TOKENS = ["--i1", "--i2", "--i3", "--i4", "--i5", "--i6"];
 let COLOUR_SLOTS = {};
 function refreshColourSlots() {
   const counts = {};
@@ -1025,12 +1040,6 @@ const TAB_HOOKS = {};
 const ON_FILTERS = [];
 /* Floating cards that minimise to chips; parts add their element ids. */
 const MIN_CARDS = [];
-/* Storage is a convenience (the last tab, minimised cards, colours), never data: a
-   private window or blocked site data simply forgets. */
-const store = {
-  get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
-  set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* storage blocked */ } return null; },
-};
 /* Which tab to open on: the address wins (old bookmarks name ui=simple or ui=advanced),
    then the last one used, else Overview. */
 function initialTab(hashTab, hashUi, saved) {
@@ -1518,7 +1527,21 @@ function onKey(e) {
 }
 document.addEventListener("keydown", onKey);
 window.addEventListener("popstate", () => restoreFromHash());
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { G.backgroundColor(css("--surface")); SPRITES.clear(); refreshObjects(); renderLegend(); });
+/* Repaint everything that baked a colour in: Explore's shapes and labels, its legend,
+   the globe and the Overview's cards. */
+function repaintTheme() {
+  G.backgroundColor(css("--surface")); SPRITES.clear(); refreshObjects(); renderLegend();
+  if (TAB_HOOKS[S.tab]) TAB_HOOKS[S.tab]();
+}
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  store.set("kg-theme", theme);
+  $("#theme-toggle").textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  repaintTheme();
+}
+$("#theme-toggle").textContent = document.documentElement.dataset.theme === "dark" ? "Light mode" : "Dark mode";
+$("#theme-toggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", repaintTheme);
 
 /* ---------- summary card ---------- */
 function renderSummary() {

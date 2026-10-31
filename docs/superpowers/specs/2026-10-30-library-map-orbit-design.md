@@ -17,8 +17,11 @@ Design, 2026-10-30. Builds on the library knowledge graph
   - the selection card floats over the globe rather than moving it;
   - Ask's example questions are written from the library, and a question with a word the
     patterns cannot read is refused rather than answered more broadly;
-  - interest colour slot 4 is the palette's purple, and the line colours sit at least 25
-    degrees of hue from every interest colour.
+  - the page opens in dark mode by default, with a Light mode switch that is remembered;
+  - in dark mode the six interest colours and the amber and blue citation lines are the
+    prototype's (#3987e5, #e07a3c, #21b07d, #d44fa0, #c9b037, #8b80f5; lines #ffb040 and
+    #5ac8ff), the researcher's choice on 2026-10-31, over an earlier rule that kept the
+    lines 25 degrees of hue from every interest colour.
 - **Part 2** (notes as satellites, the `--serve` helper, the editor and guide,
   new-evidence, `/reset notes`) and **Part 3** (the annotation toolbar): not built yet.
 

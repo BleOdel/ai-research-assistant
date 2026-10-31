@@ -358,7 +358,7 @@ class TemplateTests(unittest.TestCase):
         forced = re.search(r':root\[data-theme="dark"\] \{(.*?)\n\}', TEMPLATE, re.S).group(1)
         for block in (root, dark, forced):
             tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", block))
-            interest = {tokens[f"s{i}"].lower() for i in range(1, 7)}
+            interest = {tokens[f"i{i}"].lower() for i in range(1, 7)}
             self.assertNotIn(tokens["cites"].lower(), interest)
             self.assertNotIn(tokens["citedby"].lower(), interest)
             self.assertNotEqual(tokens["cites"], tokens["citedby"])
@@ -628,23 +628,24 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("applyMin(", start)
         self.assertIn('classList.toggle("tabs-min"', start)
 
-    def test_line_colours_differ_in_hue_from_every_interest_colour(self):
-        # Exact inequality was not enough: amber lines sat next to a gold interest colour.
-        import colorsys
-        def hue(hexv):
-            r, g, b = (int(hexv[i:i + 2], 16) / 255 for i in (1, 3, 5))
-            return colorsys.rgb_to_hls(r, g, b)[0] * 360
-        slots = re.search(r"const SLOT_TOKENS = \[(.*?)\];", PAGE_SOURCE).group(1)
-        used = re.findall(r'"--(s\d)"', slots)
-        self.assertEqual(len(used), 6)
-        root = re.search(r":root \{(.*?)\n\}", TEMPLATE, re.S).group(1)
-        dark = re.search(r"prefers-color-scheme: dark\).*?\{(.*?)\n  \}", TEMPLATE, re.S).group(1)
-        for block in (root, dark):
-            tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", block))
-            for line in ("cites", "citedby"):
-                for s_ in used:
-                    d = abs(hue(tokens[line]) - hue(tokens[s_]))
-                    self.assertGreaterEqual(min(d, 360 - d), 25, f"{line} vs {s_}: {tokens[line]} / {tokens[s_]}")
+    def test_dark_mode_uses_the_prototype_colours(self):
+        # Researcher, 2026-10-31: "I like the way the prototype looked in terms of the
+        # lines and dots colors". Dark is the reference look.
+        forced = re.search(r':root\[data-theme="dark"\] \{(.*?)\n\}', TEMPLATE, re.S).group(1)
+        tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", forced))
+        self.assertEqual([tokens[f"i{k}"].lower() for k in range(1, 7)],
+                         ["#3987e5", "#e07a3c", "#21b07d", "#d44fa0", "#c9b037", "#8b80f5"])
+        self.assertEqual((tokens["cites"].lower(), tokens["citedby"].lower()), ("#ffb040", "#5ac8ff"))
+        self.assertEqual(re.search(r"const SLOT_TOKENS = \[(.*?)\];", PAGE_SOURCE).group(1),
+                         '"--i1", "--i2", "--i3", "--i4", "--i5", "--i6"')
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_dark_is_the_default_theme(self):
+        got = run_js(["initialTheme"], "", '[initialTheme(null), initialTheme("light"), initialTheme("dark"), initialTheme("bogus")]')
+        self.assertEqual(got, ["dark", "light", "dark", "dark"])
+        self.assertRegex(TEMPLATE, r'id="theme-toggle"')
+        # The theme is set before Explore's renderer reads its background colour.
+        self.assertLess(TEMPLATE.index("initialTheme(store.get"), TEMPLATE.index("const G = ForceGraph3D"))
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_m_restores_when_every_shown_card_is_minimised(self):

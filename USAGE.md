@@ -219,8 +219,9 @@ it costs nothing against your 250-per-month SerpApi quota.
 
 Every search command ends by rebuilding `graph/index.html`, and `/graph` rebuilds it on
 demand. Open it in a browser: no server, no network. It is the whole library in one
-picture, with everything new since your last search ringed. It has five tabs; **M**
-minimises the tab bar and every card, and restores them.
+picture, with everything new since your last search ringed. It opens in dark mode
+(**Light mode** in the tab bar switches it). It has five tabs; **M** minimises the tab
+bar and every card, and restores them.
 
 **Overview** opens first. The *On your map* card gives the number of items shown, a
 **Papers only / Web only** switch, and your research interests with their counts: click a
