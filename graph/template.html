@@ -19,8 +19,9 @@
   --hair: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --focus: #2a78d6;
   --gap: #d03b3b; --new: #0b0b0b; --uncat: #898781;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
-  /* Citation lines: what the selected paper cites, and what cites it. Never an interest colour. */
-  --cites: #8a5a00; --citedby: #00728f;
+  /* Citation lines: what the selected paper cites, and what cites it. At least 25 degrees of
+     hue from every interest colour in use (SLOT_TOKENS), in both themes. */
+  --cites: #7a6400; --citedby: #007c8a;
   --globe-hi: #f1f2f4; --globe-lo: #e1e3e8; --globe-edge: #c9ccd4; --globe-line: rgba(11,11,11,0.07);
 }
 @media (prefers-color-scheme: dark) {
@@ -30,7 +31,7 @@
     --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
     --gap: #e66767; --new: #f0efec; --uncat: #898781;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-    --cites: #ffd27a; --citedby: #8fe3ff;
+    --cites: #ffe066; --citedby: #7ae6f2;
     --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
   }
 }
@@ -40,7 +41,7 @@
   --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --focus: #6da7ec;
   --gap: #e66767; --new: #f0efec; --uncat: #898781;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-  --cites: #ffd27a; --citedby: #8fe3ff;
+  --cites: #ffe066; --citedby: #7ae6f2;
   --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
 }
 * { box-sizing: border-box; }
@@ -369,6 +370,9 @@ function colourSlots(names, counts, chosen) {
     : names.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || a.localeCompare(b)).slice(0, 6);
   return Object.fromEntries(names.map((n) => [n, pick.indexOf(n) + 1]));
 }
+/* The six interest colours. Slot 4 is purple, not the palette's gold (--s4), which sat
+   too close to the amber citation lines. */
+const SLOT_TOKENS = ["--s1", "--s2", "--s3", "--s7", "--s5", "--s6"];
 let COLOUR_SLOTS = {};
 function refreshColourSlots() {
   const counts = {};
@@ -380,7 +384,7 @@ function refreshColourSlots() {
 }
 function interestColor(name) {
   const k = COLOUR_SLOTS[name];
-  return k ? css("--s" + k) : css("--uncat");
+  return k ? css(SLOT_TOKENS[k - 1]) : css("--uncat");
 }
 function nodeColor(n) {
   if (n.type === "gap") return css("--gap");
@@ -1075,7 +1079,9 @@ function applyMin(save) {
 }
 /* M: minimise the tab area and every card, or, when all are minimised, restore them. */
 function toggleMinimiseAll() {
-  const anyOpen = !S.min.tabs || MIN_CARDS.some((id) => !S.min.cards[id]);
+  /* Only cards on screen count: one never shown (the selection card) is not "open". */
+  const shown = MIN_CARDS.filter((id) => { const c = document.getElementById(id); return c && !c.hidden; });
+  const anyOpen = !S.min.tabs || shown.some((id) => !S.min.cards[id]);
   S.min.tabs = anyOpen;
   for (const id of MIN_CARDS) S.min.cards[id] = anyOpen;
   applyMin(true);
@@ -1552,7 +1558,9 @@ function restoreFromHash() {
 /* ---------- start: after the parts, so it can use what they define ---------- */
 loadMin();
 refreshColourSlots();
-applyMin(false);
+/* Only the tab bar's state here: the tab the address asks for is drawn by setTab below,
+   so the Overview's globe is not built for a bookmark that opens another tab. */
+document.body.classList.toggle("tabs-min", S.min.tabs);
 if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.add("closed"); $("#detail").classList.add("closed"); }
 recomputeVisible();
 renderSummary();

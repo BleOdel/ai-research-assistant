@@ -319,7 +319,6 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got, [{"x": 4, "y": 556}, {"x": 100, "y": 100}, {"x": 596, "y": 10}])
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
-    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_shortlist_rule(self):
         got = run_js(["shortlisted"], "", "[shortlisted({verdict: 'Core'}), shortlisted({verdict: 'Supporting'}), "
                      "shortlisted({verdict: null}), shortlisted({verdict: 'Peripheral'}), "
@@ -610,6 +609,58 @@ class TemplateTests(unittest.TestCase):
         got = run_js(["libraryLine"], "", "[libraryLine(39, 23), libraryLine(1, 1), libraryLine(0, 0)]")
         self.assertEqual(got, ["39 research groups · 23 gaps", "1 research group · 1 gap", "0 research groups · 0 gaps"])
         self.assertIn("libraryLine(", page_function("renderMapCard"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_interest_counts_in_one_pass(self):
+        # The card counted each interest with its own pass over every item: about 37 ms
+        # at 20,000 items and 12 interests, on every keystroke in its search box.
+        got = run_js(["interestCounts"], "function interestOf(n) { return n.interest || 'Uncategorized'; }",
+                     "(() => { let calls = 0; const items = [{interest: 'A', ok: 1}, {interest: 'A', ok: 0}, {interest: 'B', ok: 1}, {ok: 1}]; "
+                     "const c = interestCounts(items, (n) => { calls++; return n.ok; }); return [c, calls]; })()")
+        self.assertEqual(got, [{"A": 1, "B": 1, "Uncategorized": 1}, 4])
+        self.assertIn("interestCounts(", page_function("renderMapCard"))
+        self.assertNotRegex(page_function("renderMapCard"), r"ITEMS\.filter\(\(n\) => interestOf\(n\) === name")
+
+    def test_start_up_draws_only_the_tab_it_opens(self):
+        # The start-up ran the Overview's hook (building the globe) before it knew which
+        # tab the address asked for.
+        start = TEMPLATE.split("/* ---------- start: after the parts", 1)[1].split("</script>", 1)[0]
+        self.assertNotIn("applyMin(", start)
+        self.assertIn('classList.toggle("tabs-min"', start)
+
+    def test_line_colours_differ_in_hue_from_every_interest_colour(self):
+        # Exact inequality was not enough: amber lines sat next to a gold interest colour.
+        import colorsys
+        def hue(hexv):
+            r, g, b = (int(hexv[i:i + 2], 16) / 255 for i in (1, 3, 5))
+            return colorsys.rgb_to_hls(r, g, b)[0] * 360
+        slots = re.search(r"const SLOT_TOKENS = \[(.*?)\];", PAGE_SOURCE).group(1)
+        used = re.findall(r'"--(s\d)"', slots)
+        self.assertEqual(len(used), 6)
+        root = re.search(r":root \{(.*?)\n\}", TEMPLATE, re.S).group(1)
+        dark = re.search(r"prefers-color-scheme: dark\).*?\{(.*?)\n  \}", TEMPLATE, re.S).group(1)
+        for block in (root, dark):
+            tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+            for line in ("cites", "citedby"):
+                for s_ in used:
+                    d = abs(hue(tokens[line]) - hue(tokens[s_]))
+                    self.assertGreaterEqual(min(d, 360 - d), 25, f"{line} vs {s_}: {tokens[line]} / {tokens[s_]}")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_m_restores_when_every_shown_card_is_minimised(self):
+        # The selection card counted as open while it had never been shown, so the first
+        # M after minimising the visible cards minimised again: nothing happened.
+        prelude = ('const MIN_CARDS = ["mapcard", "selcard", "globe-legend"]; let saved = false; '
+                   'const document = {getElementById: (id) => ({hidden: id === "selcard"})}; '
+                   'function applyMin() { saved = true; } '
+                   'const S = {min: {tabs: true, cards: {mapcard: true, "globe-legend": true}}};')
+        got = run_js(["toggleMinimiseAll"], prelude, "(toggleMinimiseAll(), [S.min.tabs, S.min.cards.mapcard, saved])")
+        self.assertEqual(got, [False, False, True])
+
+    def test_no_duplicated_decorators(self):
+        lines = (REPO_ROOT / "tests" / "test_graph_template.py").read_text().splitlines()
+        dupes = [i + 1 for i in range(1, len(lines)) if lines[i].strip().startswith("@") and lines[i] == lines[i - 1]]
+        self.assertEqual(dupes, [])
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]

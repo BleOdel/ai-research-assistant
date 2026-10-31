@@ -41,6 +41,12 @@ function highlightChipText(why, ids, visible) {
 function libraryLine(groups, gaps) {
   return groups.toLocaleString() + " research group" + (groups === 1 ? "" : "s") + " · " + gaps.toLocaleString() + " gap" + (gaps === 1 ? "" : "s");
 }
+/* Items per interest that PASS lets through, in one pass over the library. */
+function interestCounts(items, pass) {
+  const out = {};
+  for (const n of items) if (pass(n)) out[interestOf(n)] = (out[interestOf(n)] || 0) + 1;
+  return out;
+}
 /* Counts for the Papers / Web switch, under every other filter (PASS ignores the kind). */
 function kindCounts(items, pass) {
   const out = { both: 0, paper: 0, web: 0 };
@@ -111,11 +117,11 @@ function renderMapCard() {
     title: S.filters.newOnly ? "Show everything again" : "Show only these", on: { click: () => { S.filters.newOnly = !S.filters.newOnly; refreshData(); } } },
   "○ " + fresh.toLocaleString() + " new since " + shortDate(S.since)), S.filters.newOnly ? " · showing only these" : "");
   const names = INTERESTS.concat(ITEMS.some((n) => interestOf(n) === "Uncategorized") ? ["Uncategorized"] : []);
-  const on = ticked("interest", names);
+  const on = ticked("interest", names), perInterest = interestCounts(ITEMS, (n) => passes(n, "interest"));
   const rows = [];
   for (const name of names) {
     if (OV.q && !name.toLowerCase().includes(OV.q.toLowerCase())) continue;
-    const count = ITEMS.filter((n) => interestOf(n) === name && passes(n, "interest")).length;
+    const count = perInterest[name] || 0;
     const coloured = !!COLOUR_SLOTS[name], uncat = name === "Uncategorized";
     rows.push(el("div", { class: "irow" + (on.has(name) ? "" : " off") },
       el("button", { class: "dotbtn", style: "background:" + interestColor(name), disabled: uncat,
