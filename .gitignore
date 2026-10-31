@@ -34,7 +34,8 @@ blog/*
 !blog/template.html
 
 # The library knowledge graph (tools/knowledge_graph.py): the built page holds every
-# title in the library, so only the template, vendored renderer and README are tracked.
+# title in the library, so only the template, its page parts, vendored renderer and README
+# are tracked.
 graph/*
 !graph/template.html
 !graph/vendor/

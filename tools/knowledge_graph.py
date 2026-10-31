@@ -172,29 +172,34 @@ def _library() -> dict:
 
 
 def synthetic_library(n: int, seed: int = 7) -> dict:
-    """A made-up library of N papers with labs, citations and gaps, for the scale
-    check. Nothing in it is real."""
+    """A made-up library of N papers and N // 10 web sources with labs, citations and
+    gaps, for the scale check. Twelve interests of very different sizes, and every
+    grade including none. Nothing in it is real."""
     rng = random.Random(seed)
-    taxonomy = {f"Interest {c}": [f"Sub-area {c}{i}" for i in range(1, 7)] for c in "ABC"}
-    statuses = ["ranked"] * 5 + ["synthesized"] * 4 + ["new", "skipped", "unfetchable"]
+    taxonomy = {f"Interest {c}": [f"Sub-area {c}{i}" for i in range(1, 7)] for c in "ABCDEFGHIJKL"}
+    weights = [1 / (k + 0.6) ** 1.1 for k in range(len(taxonomy))]
+    statuses = ["ranked"] * 5 + ["synthesized"] * 4 + ["skipped", "unfetchable"]
+    grades = ["Core"] + ["Supporting"] * 3 + ["Peripheral"] * 7 + ["Excluded"] * 5 + [None] * 9
     contributions = ["attack", "defence", "measurement", "user-study", "survey", "tool",
                      "position"]
     labs = [[f"https://openalex.org/A{lab}x{m}" for m in range(5)] for lab in range(max(3, n // 6))]
     entries, works = {}, {}
     for i in range(n):
         key = f"10.9999/synthetic.{i}"
-        interest = rng.choice(list(taxonomy))
+        interest = rng.choices(list(taxonomy), weights)[0]
+        grade = rng.choice(grades)
         lab = rng.choice(labs)
         team = rng.sample(lab[1:], 2) + [lab[0]]
         if rng.random() < 0.15:
             team.insert(1, rng.choice(rng.choice(labs)))
         year = rng.randint(2012, 2026) if rng.random() > 0.05 else None
         entries[key] = {
-            "title": f"Synthetic paper {i}", "subject": interest, "status": rng.choice(statuses),
+            "title": f"Synthetic paper {i}", "subject": interest,
+            "status": "new" if grade is None else rng.choice(statuses),
             "year": year, "first_seen": f"2026-{rng.randint(1, 10):02d}-{rng.randint(1, 28):02d}",
             "subareas": rng.sample(taxonomy[interest], rng.choice([1, 1, 2])),
-            "contribution": rng.choice(contributions), "overall_score": rng.randint(20, 95),
-            "verdict": rng.choice(["Core", "Supporting", "Peripheral"]),
+            "contribution": rng.choice(contributions),
+            "overall_score": None if grade is None else rng.randint(20, 95), "verdict": grade,
             "evidence_basis": rng.choice(["abstract", "fulltext"]),
             "url": f"https://doi.org/{key}", "authors": [a.rsplit("/", 1)[1] for a in team],
         }
@@ -207,7 +212,16 @@ def synthetic_library(n: int, seed: int = 7) -> dict:
                                    "institutions": [{"id": f"I{labs.index(lab)}",
                                                      "name": f"Institute {labs.index(lab)}"}]}
                                   for j, a in enumerate(team)]}
-    return {"warnings": [], "entries": entries, "web": {}, "cache": {"works": works}, "reports": [],
+    web = {}
+    for i in range(n // 10):
+        interest = rng.choices(list(taxonomy), weights)[0]
+        web[f"https://blog{i}.example.org/post"] = {
+            "title": f"Synthetic web source {i}", "site": f"blog{i}.example.org",
+            "status": "included", "tier": rng.choice(["Core", "Supporting", "Peripheral"]),
+            "interest": interest, "subareas": rng.sample(taxonomy[interest], 1),
+            "first_seen": f"2026-{rng.randint(1, 10):02d}-{rng.randint(1, 28):02d}",
+            "date": f"{rng.randint(2018, 2026)}-{rng.randint(1, 12):02d}-01"}
+    return {"warnings": [], "entries": entries, "web": web, "cache": {"works": works}, "reports": [],
             "taxonomy": taxonomy, "details": {}, "landmarks": {}, "pdfs": {}}
 
 
@@ -365,6 +379,28 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
             edges.append({"source": gid, "target": hubs.interest(g["interest"]),
                           "type": "gap_interest"})
 
+    coverage = {"found": 0, "notFound": 0, "mismatch": 0, "noId": 0, "notFetched": 0}
+    label_counts = {"notLabelled": 0, "fitsNone": 0, "stale": 0, "noContribution": 0}
+    for key, e in entries.items():
+        if e.get("status") == "skipped":
+            continue
+        rec = cache.get("works", {}).get(key)
+        if rec is None:
+            coverage["noId" if kg_enrich.openalex_lookup_id(key, e) is None else "notFetched"] += 1
+        elif not rec.get("error"):
+            coverage["found"] += 1
+        else:
+            coverage["mismatch" if str(rec["error"]).startswith("title mismatch") else "notFound"] += 1
+        labels = e.get("subareas")
+        if labels is None:
+            label_counts["notLabelled"] += 1
+        elif not labels:
+            label_counts["fitsNone"] += 1
+        elif any(lab not in taxonomy.get(e.get("subject"), []) for lab in labels):
+            label_counts["stale"] += 1
+        if not e.get("contribution"):
+            label_counts["noContribution"] += 1
+
     new_nodes = [n for n in nodes if n.get("isNew")]
     known = Counter(n["primaryLab"] for n in nodes
                     if n["type"] == "paper" and not n["isNew"] and n["primaryLab"]
@@ -385,7 +421,7 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
         "meta": {
             "built": today, "latestDate": latest, "newSince": new_since, "summary": summary,
             "warnings": lib["warnings"],
-            "synthetic": bool(synthetic),
+            "synthetic": bool(synthetic), "coverage": coverage, "labels": label_counts,
             "counts": {"papers": sum(1 for n in nodes if n["type"] == "paper"),
                        "web": sum(1 for n in nodes if n["type"] == "web"),
                        "new": len(new_nodes),

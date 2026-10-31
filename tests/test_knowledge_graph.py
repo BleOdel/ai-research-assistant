@@ -277,6 +277,31 @@ class BuildTests(GraphFixture):
         data = self.build("--synthetic", "60")
         self.assertEqual(sum(1 for n in data["nodes"] if n["type"] == "paper"), 60)
         self.assertEqual(knowledge_graph.check(self.page.read_text()), [])
+        web = [n for n in data["nodes"] if n["type"] == "web"]
+        self.assertEqual(len(web), 6)
+        self.assertEqual(len(data["interests"]), 12)
+        verdicts = {n.get("verdict") for n in data["nodes"] if n["type"] == "paper"}
+        self.assertTrue({"Peripheral", "Excluded", None} <= verdicts)
+
+    def test_twenty_thousand_items_fit_the_page_budget(self):
+        self.build("--synthetic", "20000")
+        self.assertLess(self.page.stat().st_size, 30 * 1024 * 1024)
+
+    def test_openalex_coverage_counts(self):
+        self.write("research/graph_cache.json", {"works": dict(CACHE["works"], **{
+            "10.1000/d": {"openalex": None, "error": "not found", "fetched": "2026-10-21"},
+            "10.1000/f": {"openalex": None, "error": "title mismatch: OpenAlex returned 'X'",
+                          "fetched": "2026-10-21"}})})
+        cov = self.build()["meta"]["coverage"]
+        # a, b found; d not found; f rejected; e has a DOI but was never fetched
+        self.assertEqual(cov, {"found": 2, "notFound": 1, "mismatch": 1, "noId": 0, "notFetched": 1})
+
+    def test_label_counts(self):
+        labels = self.build()["meta"]["labels"]
+        # d and e never labelled; f labelled with no fit; b's "Retired Area" is no longer listed
+        self.assertEqual(labels["notLabelled"], 2)
+        self.assertEqual(labels["fitsNone"], 1)
+        self.assertEqual(labels["stale"], 1)
 
 
 class CliTests(GraphFixture):
