@@ -212,6 +212,7 @@ const GL = {
   yaw: -0.6, pitch: 0.2, zoom: 1, panX: 0, panY: 0, mode: "rotate", back: null,
   hits: [], clusterHits: [], arcHits: [], counts: { inView: 0, drawn: 0 }, lastDraw: 0, firstDraw: null,
   overlays: [],   /* drawn last and hit-tested first, e.g. the notes' satellites: {draw(g, P, R, cx, cy), hit(x, y)} */
+  input: null,    /* the drawing toolbar: {down(x, y, e) -> bool, move(x, y, e), up(x, y, e)}; a drag it takes never turns the globe */
   insets: () => ({ left: 0, right: 0 }),   /* room the Overview's cards take; overview.js sets it */
   onSelect: (id) => select(id),
   onHover: () => {}, afterDraw: () => {},
@@ -496,8 +497,12 @@ function globeInput() {
   const cv = $("#globe");
   let drag = null, last = null;
   const at = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  cv.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointerdown", (e) => {
+    const captured = !!(GL.input && GL.input.down(...at(e), e));
+    drag = { x: e.clientX, y: e.clientY, moved: 0, captured }; cv.setPointerCapture(e.pointerId);
+  });
   cv.addEventListener("pointermove", (e) => {
+    if (drag && drag.captured) { GL.input.move(...at(e), e); return; }
     if (!drag) { const [x, y] = at(e); GL.onHover(globeHover(x, y), e.clientX, e.clientY); return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
@@ -508,6 +513,7 @@ function globeInput() {
   });
   cv.addEventListener("pointerup", (e) => {
     const d = drag; drag = null;
+    if (d && d.captured) { GL.input.up(...at(e), e); return; }
     if (!d || d.moved > 4) return;
     const [x, y] = at(e), now = performance.now(), hit = globeHitAt(x, y);
     const double = last && now - last.t < 350 && Math.hypot(x - last.x, y - last.y) < 10;

@@ -23,6 +23,9 @@
      cites, and what cites it. The dark set is the prototype's, the researcher's choice. */
   --i1: #2a78d6; --i2: #d0662a; --i3: #14935f; --i4: #c03f8c; --i5: #9c8400; --i6: #6a5fd6;
   --cites: #a35f00; --citedby: #0072a8;
+  /* Mark colours for drawing on the map: Ink, Red, Lime, Green, Violet - hues kept clear of
+     the interest colours and the citation lines, so a mark is never read as data. */
+  --mk1: var(--ink); --mk2: #d70f3a; --mk3: #5e8f00; --mk4: #128a12; --mk5: #8a2be2;
   --globe-hi: #f1f2f4; --globe-lo: #e1e3e8; --globe-edge: #c9ccd4; --globe-line: rgba(11,11,11,0.07);
 }
 @media (prefers-color-scheme: dark) {
@@ -34,6 +37,7 @@
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --i1: #3987e5; --i2: #e07a3c; --i3: #21b07d; --i4: #d44fa0; --i5: #c9b037; --i6: #8b80f5;
     --cites: #ffb040; --citedby: #5ac8ff;
+    --mk1: var(--ink); --mk2: #ff2d55; --mk3: #a3e635; --mk4: #40e040; --mk5: #b45cff;
     --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
   }
 }
@@ -45,6 +49,7 @@
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --i1: #3987e5; --i2: #e07a3c; --i3: #21b07d; --i4: #d44fa0; --i5: #c9b037; --i6: #8b80f5;
   --cites: #ffb040; --citedby: #5ac8ff;
+  --mk1: var(--ink); --mk2: #ff2d55; --mk3: #a3e635; --mk4: #40e040; --mk5: #b45cff;
   --globe-hi: #22222c; --globe-lo: #141419; --globe-edge: #2d2d39; --globe-line: rgba(255,255,255,0.07);
 }
 * { box-sizing: border-box; }
@@ -938,11 +943,37 @@ function moveTrail(step) {
   if (i < 0 || i >= S.trail.length) return;
   S.trailPos = i; select(S.trail[i], true);
 }
-function writeHash(push) {
+/* The filters as plain data: what the address keeps, and what a saved view of the map
+   remembers. filtersFromState puts them back. */
+function filterState() {
   const f = S.filters, sets = {};
   for (const [k, v] of Object.entries(f.sets)) if (v.size) sets[k] = [...v];
-  const state = { v: S.view, f: S.current,
-    s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic, a: f.all } };
+  return { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic, a: f.all };
+}
+/* Every value each filter can take in this library, so a bookmark or a saved view from an
+   older library keeps what still exists instead of filtering everything out. */
+let FACET_VALUES = null;
+function knownFacetValues() {
+  if (!FACET_VALUES) {
+    FACET_VALUES = new Map(FACETS.map(([key]) => [key, new Set()]));
+    for (const n of ITEMS) for (const [key, , get] of FACETS) for (const v of get(n)) FACET_VALUES.get(key).add(String(v));
+  }
+  return FACET_VALUES;
+}
+function filtersFromState(flt) {
+  const st = flt && typeof flt === "object" ? flt : {}, known = knownFacetValues();
+  S.filters.sets = {};
+  for (const [k, v] of Object.entries(st.sets && typeof st.sets === "object" ? st.sets : {})) {
+    if (!known.has(k) || !Array.isArray(v)) continue;
+    const kept = v.map(String).filter((x) => known.get(k).has(x));
+    if (kept.length) S.filters.sets[k] = new Set(kept);
+  }
+  S.filters.yearMin = Number.isInteger(st.yMin) ? st.yMin : null;
+  S.filters.yearMax = Number.isInteger(st.yMax) ? st.yMax : null;
+  S.filters.undated = st.u !== false; S.filters.newOnly = !!st.n; S.filters.offTopic = !!st.o; S.filters.all = !!st.a;
+}
+function writeHash(push) {
+  const state = { v: S.view, f: S.current, s: S.since, d: S.dims, flt: filterState() };
   const h = "#" + new URLSearchParams({ tab: S.tab, view: state.v, focus: state.f || "", note: S.note || "", since: state.s, dims: state.d,
     filters: JSON.stringify(state.flt) }).toString();
   if (h === location.hash) return;
@@ -956,12 +987,7 @@ function readHash() {
   if (/^\d{4}-\d{2}-\d{2}$/.test(p.get("since") || "")) S.since = p.get("since");
   S.dims = p.get("dims") === "2" ? 2 : 3;
   try {
-    const flt = JSON.parse(p.get("filters") || "{}");
-    S.filters.sets = {};
-    for (const [k, v] of Object.entries(flt.sets || {})) if (Array.isArray(v)) S.filters.sets[k] = new Set(v.map(String));
-    S.filters.yearMin = Number.isInteger(flt.yMin) ? flt.yMin : null;
-    S.filters.yearMax = Number.isInteger(flt.yMax) ? flt.yMax : null;
-    S.filters.undated = flt.u !== false; S.filters.newOnly = !!flt.n; S.filters.offTopic = !!flt.o; S.filters.all = !!flt.a;
+    filtersFromState(JSON.parse(p.get("filters") || "{}"));
   } catch (e) { /* a hand-edited hash: keep the defaults */ }
   const focus = p.get("focus");
   return focus || null;
@@ -1604,6 +1630,7 @@ function restoreFromHash() {
 <script data-part="overview.js"></script>
 <script data-part="notes.js"></script>
 <script data-part="editor.js"></script>
+<script data-part="marks.js"></script>
 <script data-part="connects.js"></script>
 <script data-part="ask.js"></script>
 <script data-part="status.js"></script>

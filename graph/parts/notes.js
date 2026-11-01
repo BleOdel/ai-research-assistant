@@ -79,6 +79,7 @@ function setNotes(list) {
 }
 async function notesInit() {
   setNotes(D.notes || []); NT.unreadable = D.notesUnreadable || []; NT.prompts = D.prompts || [];
+  if (typeof marksLoad === "function") marksLoad({ annotations: D.annotations, annotationsVersion: null, annotationsError: D.annotationsError });
   if (location.protocol === "http:" || location.protocol === "https:") {
     /* The token stays in this page's address, so a reload keeps saving on. It is never
        stored or sent anywhere but this helper; it changes every time the helper starts. */
@@ -89,6 +90,7 @@ async function notesInit() {
     if (st.status === 200) {
       NT.serving = true; NT.built = st.data.built;
       setNotes(st.data.notes); NT.unreadable = st.data.unreadable; NT.prompts = st.data.prompts;
+      if (typeof marksLoad === "function") marksLoad(st.data);
       setInterval(beatAndCheck, 60000);
     }
   }

@@ -700,7 +700,7 @@ class TemplateTests(unittest.TestCase):
         prelude = """let pushed = null; const location = {hash: ""}; const history = {pushState: (a, b, h) => { pushed = h; }, replaceState: (a, b, h) => { pushed = h; }};
           const S = {tab: "overview", view: "library", current: null, note: "n-20261101-abcdef", since: "2026-10-01", dims: 3,
             filters: {sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};"""
-        got = run_js(["writeHash"], prelude, "(writeHash(true), new URLSearchParams(pushed.slice(1)).get('note'))")
+        got = run_js(["writeHash", "filterState"], prelude, "(writeHash(true), new URLSearchParams(pushed.slice(1)).get('note'))")
         self.assertEqual(got, "n-20261101-abcdef")
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -973,7 +973,7 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_every_part_parses(self):
-        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "notes.js", "editor.js", "connects.js", "ask.js", "status.js"])
+        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "notes.js", "editor.js", "marks.js", "connects.js", "ask.js", "status.js"])
         for name in PART_NAMES:
             code = (PARTS / name).read_text()
             r = subprocess.run(["node", "--check", "-"], input=code, capture_output=True, text=True)
@@ -988,6 +988,171 @@ class TemplateTests(unittest.TestCase):
         for field in ("title", "kind", "bits"):
             self.assertRegex(hover, rf"esc\({field}", field)
 
+
+
+def hue(hexcolour):
+    r, g, b = (int(hexcolour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    mx, mn = max(r, g, b), min(r, g, b)
+    if mx == mn:
+        return None
+    d = mx - mn
+    h = ((g - b) / d) % 6 if mx == r else (b - r) / d + 2 if mx == g else (r - g) / d + 4
+    return h * 60
+
+
+def hue_gap(a, b):
+    d = abs(a - b) % 360
+    return min(d, 360 - d)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class MarksTests(unittest.TestCase):
+    """Marks drawn on the map: geometry in globe units, views, history and saving."""
+
+    def test_marks_follow_the_globe(self):
+        # Review Focus 1: drawn at one window size, the mark's point must land where its dot lands at another.
+        got = run_js(["toUnits", "fromUnits"], "", """(() => { const a = {cx: 400, cy: 300, R: 200}, b = {cx: 700, cy: 380, R: 260};
+          const dot = (geo) => [geo.cx + 0.3 * geo.R, geo.cy - 0.5 * geo.R];
+          const uv = toUnits(...dot(a), a); return [uv, fromUnits(...uv, b), dot(b)]; })()""")
+        self.assertEqual(got[0], [0.3, -0.5])
+        self.assertEqual(got[1], got[2])
+
+    def test_views_cameras_and_names(self):
+        prelude = ('const KIND_PAPER = "Paper", KIND_WEB = "Web source (not peer-reviewed)";'
+                   'const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];')
+        got = run_js(["wrapAngle", "sameCamera", "cameraOf", "filterKey", "viewAt", "viewName", "shortDate"], prelude, """(() => {
+          const cam = {yaw: 0.1, pitch: 0.2, zoom: 2, panX: 5, panY: -3};
+          const views = [{id: 'v1', camera: cam, filters: {sets: {interest: ['A', 'B']}, u: true}}];
+          return [sameCamera(cam, {...cam, yaw: 0.1 + 2 * Math.PI}), sameCamera(cam, {...cam, zoom: 2.02}), sameCamera(cam, {...cam, panX: 5.5}),
+            cameraOf({yaw: 1, pitch: 2, zoom: 3, panX: 4, panY: 5, other: 6}),
+            viewName({sets: {}}, '2026-11-01'), viewName({sets: {interest: ['A'], type: [KIND_PAPER]}}, '2026-11-01'),
+            viewName({sets: {interest: ['A', 'B'], type: [KIND_WEB]}}, '2026-11-01'), viewName(null, '2026-11-01'),
+            filterKey({sets: {interest: ['B', 'A']}, u: true}) === filterKey({u: true, sets: {interest: ['A', 'B']}}),
+            filterKey({sets: {interest: ['A']}}) === filterKey({sets: {interest: ['B']}}),
+            (viewAt(views, {...cam}, filterKey({u: true, sets: {interest: ['B', 'A']}})) || {}).id,
+            viewAt(views, cam, filterKey({sets: {}}))]; })()""")
+        self.assertEqual(got[:3], [True, False, True])
+        self.assertEqual(got[3], {"yaw": 1, "pitch": 2, "zoom": 3, "panX": 4, "panY": 5})
+        self.assertEqual(got[4:8], ["Whole library · 1 Nov", "A · papers only · 1 Nov", "2 interests · web only · 1 Nov", "Whole library · 1 Nov"])
+        self.assertEqual(got[8:], [True, False, "v1", None])
+
+    def test_geometry(self):
+        names = ["simplify", "markBox", "hitMark", "insideMark", "pointInPolygon", "segDistU", "itemsInMark", "snapTarget"]
+        got = run_js(names, "const MARK_POINTS_MAX = 2000, LABEL_PX = 14;", """(() => {
+          const line = Array.from({length: 5000}, (_, i) => [i / 1000, 0]);
+          const near = simplify([[0, 0], [0.001, 0], [0.002, 0], [0.5, 0], [0.5005, 0]], 0.01);
+          const rect = {kind: 'rect', pts: [[0, 0], [1, 1]]}, ell = {kind: 'ellipse', pts: [[0, 0], [2, 1]]};
+          const label = {kind: 'text', pts: [[0, 0]], text: 'Gaze cluster'};
+          const u = {kind: 'pen', pts: [[0, 0], [3, 0], [3, 3], [2, 3], [2, 1], [1, 1], [1, 3], [0, 3]]};
+          const cands = [{id: 'paper:a', u: 0.2, v: 0.2, score: 50}, {id: 'paper:b', u: 0.8, v: 0.8, score: 90}, {id: 'paper:c', u: 0.5, v: 0.5, score: 70},
+                         {id: 'paper:z', u: 5, v: 5, score: 99}];
+          return [near, simplify(line, 0).length, simplify(line, 0)[1999],
+            hitMark(rect, 1.0, 0.5, 0.02, 100), hitMark(rect, 0.5, 0.5, 0.02, 100), hitMark(label, 0.05, 0, 0.02, 100),
+            insideMark(ell, 1, 0.5), insideMark(ell, 1.9, 0.9), insideMark(u, 1.5, 2), insideMark(u, 0.5, 2), insideMark(u, 1.5, 0.5),
+            itemsInMark(rect, cands, 2), itemsInMark({kind: 'arrow', pts: [[0, 0], [1, 1]], snap: 'paper:x'}, cands, 100),
+            itemsInMark(label, cands, 100), (snapTarget(0.79, 0.81, cands, 0.05) || {}).id, snapTarget(3, 3, cands, 0.05),
+            markBox(label, 100).x1 > 0.9]; })()""")
+        self.assertEqual(got[0], [[0, 0], [0.5, 0], [0.5005, 0]])     # near points dropped, the last kept
+        self.assertEqual((got[1], got[2]), (2000, [4.999, 0]))       # capped, the end kept
+        self.assertEqual(got[3:6], [True, False, True])               # a rectangle's edge, not its middle; a label's box
+        self.assertEqual(got[6:11], [True, False, False, True, True])  # ellipse; the U's notch is outside its loop
+        self.assertEqual(got[11], {"ids": ["paper:b", "paper:c"], "total": 3})
+        self.assertEqual(got[12], {"ids": ["paper:x"], "total": 1})
+        self.assertEqual(got[13], {"ids": [], "total": 0})
+        self.assertEqual((got[14], got[15], got[16]), ("paper:b", None, True))
+
+    def test_history(self):
+        got = run_js(["newHistory", "record", "undoStep", "redoStep", "applySnapshot"], "const HISTORY_MAX = 100;", """(() => {
+          const h = newHistory(), j = JSON.stringify, ids = (vs) => vs.map((v) => v.id + ':' + v.marks.length);
+          const v1 = {id: 'v1', marks: [{id: 'm1'}]}, v2 = {id: 'v1', marks: [{id: 'm1'}, {id: 'm2'}]}, w = {id: 'w', marks: []};
+          let views = [w, v1]; record(h, 'v1', null, j(v1));
+          views = [w, v2]; record(h, 'v1', j(v1), j(v2));
+          const out = [];
+          views = undoStep(views, h); out.push(ids(views));
+          views = undoStep(views, h); out.push(ids(views));
+          views = undoStep(views, h); out.push(ids(views));
+          views = redoStep(views, h); out.push(ids(views));
+          views = redoStep(views, h); out.push(ids(views));
+          views = undoStep(views, h); record(h, 'v1', j(v1), j(v1)); out.push(h.redo.length);
+          for (let i = 0; i < 150; i++) record(h, 'w', j(w), j(w));
+          out.push(h.undo.length);
+          return out; })()""")
+        self.assertEqual(got, [["w:0", "v1:1"], ["w:0"], ["w:0"], ["w:0", "v1:1"], ["w:0", "v1:2"], 0, 100])
+
+    def test_mark_colours(self):
+        # Designer's call 16: five fixed colours that are never mistaken for data.
+        for name, block in (("light", r":root \{(.*?)\n\}"), ("system dark", r"@media \(prefers-color-scheme: dark\) \{(.*?)\n\}"),
+                            ("dark", r':root\[data-theme="dark"\] \{(.*?)\n\}')):
+            body = re.search(block, TEMPLATE, re.S).group(1)
+            for k in range(1, 6):
+                self.assertRegex(body, rf"--mk{k}:", f"{name} --mk{k}")
+            self.assertRegex(body, r"--mk1:\s*var\(--ink\)", name)
+        dark = re.search(r':root\[data-theme="dark"\] \{(.*?)\n\}', TEMPLATE, re.S).group(1)
+        tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", dark))
+        data = [hue(tokens[f"i{k}"]) for k in range(1, 7)] + [hue(tokens["cites"]), hue(tokens["citedby"])]
+        marks = [hue(tokens[f"mk{k}"]) for k in range(2, 6)]
+        for m in marks:
+            self.assertGreaterEqual(min(hue_gap(m, d) for d in data), 25, m)
+        for i, a in enumerate(marks):
+            for b in marks[i + 1:]:
+                self.assertGreaterEqual(hue_gap(a, b), 30, (a, b))
+        self.assertIn('MARK_NAMES = ["Ink", "Red", "Lime", "Green", "Violet"]', PAGE_SOURCE)
+
+    def test_filter_state_round_trip(self):
+        prelude = """const FACETS = [["interest", "Interest", (n) => [n.interest]], ["type", "Kind", (n) => [n.kind]]];
+          const ITEMS = [{interest: 'A', kind: 'Paper'}, {interest: 'B', kind: 'Paper'}]; let FACET_VALUES = null;
+          const S = {filters: {sets: {interest: new Set(['A'])}, yearMin: 2019, yearMax: 2024, undated: false, newOnly: true, offTopic: false, all: true}};"""
+        got = run_js(["filterState", "filtersFromState", "knownFacetValues"], prelude, """(() => {
+          const before = JSON.stringify(filterState()); filtersFromState(JSON.parse(before));
+          const same = JSON.stringify(filterState()) === before;
+          filtersFromState({sets: {interest: ['Gone', 'B'], nope: ['x']}, yMin: 'x'});
+          const old = filterState();
+          filtersFromState(null);
+          return [same, old.sets, old.yMin, filterState()]; })()""")
+        self.assertTrue(got[0])
+        self.assertEqual((got[1], got[2]), ({"interest": ["B"]}, None))     # what the library no longer has is dropped
+        self.assertEqual(got[3], {"sets": {}, "yMin": None, "yMax": None, "u": True, "n": False, "o": False, "a": False})
+
+    def test_marks_without_the_helper(self):
+        # Review Focus 3: no helper, no request; the page says marks are not kept.
+        prelude = """let calls = 0; const NT = {serving: false}; const AN = {views: [{id: 'v1', marks: []}], version: null, error: null, save: 'unsaved', onChange: []};
+          function noteApi() { calls++; return Promise.resolve({status: 200, data: {}}); } function marksNotify() {}"""
+        got = run_js(["saveMarks"], prelude, "saveMarks().then(() => [AN.save, calls])")
+        self.assertEqual(got, ["off", 0])
+
+    def test_marks_save_one_at_a_time_and_conflict(self):
+        prelude = """let calls = [], release, answer = null; const NT = {serving: true};
+          const AN = {views: [{id: 'v1', marks: []}], version: 'v0', error: null, save: 'unsaved', inFlight: false, pending: false, conflict: null, onChange: []};
+          function marksNotify() {} function globeRequestDraw() {}
+          function noteApi(path, body) { calls.push(JSON.parse(JSON.stringify(body)));
+            if (answer) return Promise.resolve(answer);
+            return new Promise((r) => { release = () => r({status: 200, data: {version: 'v' + calls.length}}); }); }
+          const tick = () => new Promise((r) => setTimeout(r, 0));"""
+        got = run_js(["saveMarks", "keepMine", "useFilesMarks", "saveAgain"], prelude, """(async () => { const out = [];
+          const first = saveMarks(); AN.views = [{id: 'v1', marks: [{id: 'm1'}]}]; saveMarks();
+          out.push(calls.length); release(); await tick(); out.push(calls.length, calls[1] && calls[1].version); release(); await first; await tick();
+          out.push(AN.save, AN.version);
+          answer = {status: 409, data: {conflict: true, disk: {views: [{id: 'disk', marks: []}]}, diskVersion: 'd1'}};
+          await saveMarks(); out.push(AN.save, AN.views[0].id);
+          answer = {status: 200, data: {version: 'v9'}}; await keepMine(); out.push(calls[calls.length - 1].version, AN.save, AN.version);
+          answer = {status: 409, data: {conflict: true, disk: {views: [{id: 'disk', marks: []}]}, diskVersion: 'd2'}}; await saveMarks();
+          useFilesMarks(); out.push(AN.views[0].id, AN.version, AN.save);
+          answer = {status: 409, data: {deleted: true, error: 'x'}}; await saveMarks(); out.push(AN.save);
+          answer = {status: 200, data: {version: 'v10'}}; await saveAgain(); out.push(calls[calls.length - 1].version, AN.save);
+          return out; })()""")
+        self.assertEqual(got[:3], [1, 2, "v1"])           # the second waited, then sent the first's version
+        self.assertEqual(got[3:5], ["saved", "v2"])
+        self.assertEqual(got[5:7], ["conflict", "v1"])    # the page's marks are kept until the researcher chooses
+        self.assertEqual(got[7:10], ["d1", "saved", "v9"])
+        self.assertEqual(got[10:13], ["disk", "d2", "saved"])
+        self.assertEqual(got[13], "deleted")
+        self.assertEqual(got[14:], [None, "saved"])
+
+    def test_globe_hands_drags_to_the_toolbar(self):
+        src = page_function("globeInput")
+        self.assertIn("GL.input", src)
+        self.assertIn("input: null", PAGE_SOURCE.split("const GL = {", 1)[1].split("};", 1)[0])
+        self.assertIn("marksLoad(", page_function("notesInit"))
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
