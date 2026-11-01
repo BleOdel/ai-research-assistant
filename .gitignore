@@ -69,3 +69,7 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# The researcher's notes on the library map (tools/kg_notes.py): personal writing,
+# never committed.
+notes/*

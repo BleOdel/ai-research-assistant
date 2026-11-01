@@ -40,6 +40,7 @@ from pathlib import Path
 import kg_enrich
 import kg_gaps
 import kg_labs
+import kg_notes
 import state
 
 ROOT = state.ROOT
@@ -47,6 +48,7 @@ TEMPLATE = ROOT / "graph" / "template.html"
 PAGE = ROOT / "graph" / "index.html"
 FULLTEXT = ROOT / "research" / "fulltext"
 VENDOR = ROOT / "graph" / "vendor"
+NOTES_DIR = ROOT / "notes"
 PARTS = ROOT / "graph" / "parts"
 SLOT = "[GRAPH_JSON]"
 VENDOR_TAG = re.compile(r'<script data-vendor="([\w.-]+)"></script>')
@@ -417,7 +419,13 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
                  "papers": [pid(p) for p in l["papers"]],
                  "bridges": [pid(p) for p in l["bridges"]]} for l in labs["labs"]]
     all_nodes = list(hubs.nodes.values()) + nodes
+    # The researcher's notes, read-only here: the page shows them even when the helper
+    # that saves them (--serve) is not running. A made-up library has none.
+    notes, unreadable = ([], []) if synthetic else kg_notes.load(NOTES_DIR)
+    notes.sort(key=lambda n: n.get("updated") or "", reverse=True)
     return {
+        "notes": notes, "notesUnreadable": unreadable,
+        "prompts": [] if synthetic else kg_notes.load_prompts(NOTES_DIR),
         "meta": {
             "built": today, "latestDate": latest, "newSince": new_since, "summary": summary,
             "warnings": lib["warnings"],

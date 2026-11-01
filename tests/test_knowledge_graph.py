@@ -287,6 +287,25 @@ class BuildTests(GraphFixture):
         self.build("--synthetic", "20000")
         self.assertLess(self.page.stat().st_size, 30 * 1024 * 1024)
 
+    def test_notes_are_embedded(self):
+        import kg_notes
+        # The same dict as tests/test_kg_notes.py's NOTE, copied: an import of that
+        # module breaks under discover -s tests.
+        note = {"id": "n-20261101-a1b2c3", "title": "Gaze noise <b>", "links": ["paper:10.1000/a"],
+                "in_report": None, "dismissed": [], "created": "2026-11-01T10:00:00Z",
+                "updated": "2026-11-01T10:05:00Z", "archived": None, "body": "Claim: x", "extra": []}
+        (self.root / "notes").mkdir()
+        (self.root / "notes" / "n-20261101-a1b2c3.md").write_text(kg_notes.render(note))
+        (self.root / "notes" / "n-20261101-ffffff.md").write_text("broken")
+        (self.root / "notes" / "guide.json").write_text('[{"name": "Method", "question": "How was it measured?"}]')
+        data = self.build()
+        self.assertEqual([n["id"] for n in data["notes"]], ["n-20261101-a1b2c3"])
+        self.assertEqual(data["notes"][0]["file"], "notes/n-20261101-a1b2c3.md")
+        self.assertEqual(len(data["notes"][0]["version"]), 16)
+        self.assertEqual(len(data["notesUnreadable"]), 1)
+        self.assertEqual(data["prompts"], [{"name": "Method", "question": "How was it measured?"}])
+        self.assertNotIn("<b>", self.page.read_text().split('id="data"', 1)[1].split("</script>", 1)[0])
+
     def test_openalex_coverage_counts(self):
         self.write("research/graph_cache.json", {"works": dict(CACHE["works"], **{
             "10.1000/d": {"openalex": None, "error": "not found", "fetched": "2026-10-21"},

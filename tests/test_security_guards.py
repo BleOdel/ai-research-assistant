@@ -191,5 +191,11 @@ class RealRepoTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+class NotesIgnoreRuleTests(unittest.TestCase):
+    def test_notes_are_never_committed(self):
+        # The researcher's notes are personal writing (library map, part 2).
+        self.assertIn("notes/*", security_guards.REQUIRED_IGNORE_RULES)
+
+
 if __name__ == "__main__":
     unittest.main()
