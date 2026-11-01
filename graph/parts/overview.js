@@ -159,7 +159,8 @@ function renderMapCard() {
 }
 function renderSelCard() {
   const card = $("#selcard"), id = S.current, n = id ? byId.get(id) : null;
-  if (!n || (n.type !== "paper" && n.type !== "web")) { card.hidden = true; card.replaceChildren(); return; }
+  /* the note editor takes this place while it is open */
+  if (!n || (n.type !== "paper" && n.type !== "web") || (typeof editorOpen === "function" && editorOpen())) { card.hidden = true; card.replaceChildren(); return; }
   card.hidden = false;
   const i = GL.index ? GL.index.get(id) : undefined;
   const near = (list) => (i == null ? [] : list[i].map((j) => GL.model.ids[j]));
@@ -263,6 +264,7 @@ function renderOverview() {
     else if (store.get("kg-min") == null && window.matchMedia("(max-width: 900px)").matches) S.min.cards["globe-legend"] = true;
   }
   renderMapCard(); renderSelCard(); renderHighlightChip(); renderGlobeLegend();
+  if (typeof editorOpen === "function" && editorOpen()) renderEditor();
 }
 /* The globe makes room for the "On your map" card. The selection card floats over it
    instead: moving the globe on every click would move what was just clicked. */

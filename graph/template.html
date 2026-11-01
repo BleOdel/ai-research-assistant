@@ -162,6 +162,19 @@ h2:first-child { margin-top: 0; }
 .ocard .steps .linkbtn { padding: 3px 0; }
 #mapcard { top: 12px; left: 12px; width: 300px; max-height: calc(100% - 150px); overflow: auto; }
 #selcard { top: 12px; right: 12px; width: 320px; max-height: calc(100% - 150px); overflow: auto; }
+#noteeditor { top: 12px; right: 12px; width: 380px; max-height: calc(100% - 150px); overflow: auto; }
+#noteeditor .ed-title { width: 100%; font-weight: 600; padding: 5px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); margin-top: 6px; }
+#noteeditor .ed-body { width: 100%; margin-top: 6px; padding: 6px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); font: 13px/1.5 system-ui; resize: vertical; }
+#noteeditor .ed-state.warn { color: var(--gap); }
+#noteeditor .ed-chips { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+#noteeditor .ed-chip.done .linkbtn { color: var(--ink); text-decoration: none; }
+#noteeditor .ed-check { border-left: 3px solid var(--axis); padding: 2px 0 2px 8px; margin: 6px 0; font-size: 13px; }
+#noteeditor .ed-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin: 3px 0; }
+#noteeditor .ed-row .warn { color: var(--gap); }
+#noteeditor .ed-form { display: grid; gap: 4px; margin-top: 6px; }
+#noteeditor .ed-form input { padding: 4px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); }
+#noteeditor .ed-conflict { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; font-size: 12.5px; }
+#noteeditor .ed-conflict pre { white-space: pre-wrap; max-height: 160px; overflow: auto; background: var(--plane); padding: 6px; border-radius: 6px; }
 .seg { display: flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; margin-top: 4px; }
 .seg button { flex: 1; border: none; border-radius: 0; border-right: 1px solid var(--axis); padding: 4px 6px; line-height: 1.25; box-shadow: none; font-size: 12.5px; }
 .seg button:last-child { border-right: none; }
@@ -243,6 +256,7 @@ h2:first-child { margin-top: 0; }
   </div>
   <section id="mapcard" class="ocard" aria-label="On your map"></section>
   <section id="selcard" class="ocard" aria-label="Selected item" aria-live="polite" hidden></section>
+  <section id="noteeditor" class="ocard" aria-label="Note" hidden></section>
   <div id="ringkey" hidden></div>
   <div id="highlight-chip" hidden></div>
   <section id="globe-legend" class="ocard" aria-label="How to read the globe"></section>
@@ -1513,7 +1527,11 @@ function onKey(e) {
   if (e.key === "Escape") {
     if (typing) { document.activeElement.blur(); return; }
     /* On the Overview, Esc leaves the selection there; Explore's list and focus are not on screen. */
-    if (S.tab === "overview") { if (S.current != null || S.highlight) globeClear(); return; }
+    if (S.tab === "overview") {
+      if (typeof editorOpen === "function" && editorOpen()) closeEditor();
+      else if (S.current != null || S.highlight) globeClear();
+      return;
+    }
     if (S.listOpen) closeList(); else clearFocus();
     return;
   }

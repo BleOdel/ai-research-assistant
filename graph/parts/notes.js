@@ -66,7 +66,7 @@ async function noteApi(path, body) {
     try { data = await r.json(); } catch (e) { /* not JSON */ }
     return { status: r.status, data };
   } catch (e) {
-    return { status: 0, data: { error: "The helper is not answering, so this was not saved." } };
+    return { status: 0, data: { error: "the helper is not answering." } };
   }
 }
 function setNotes(list) {

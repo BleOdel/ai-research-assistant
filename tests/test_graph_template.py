@@ -24,7 +24,7 @@ EMPTY = {"meta": {"counts": {}, "summary": "", "newSince": "2026-10-21", "built"
 
 def page_function(name):
     """The source of one top-level function in the page script or its parts."""
-    m = re.search(rf"^function {name}\(.*?^}}$", PAGE_SOURCE, re.S | re.M)
+    m = re.search(rf"^(?:async )?function {name}\(.*?^}}$", PAGE_SOURCE, re.S | re.M)
     if not m:
         raise AssertionError(f"function {name} not found in the template")
     return m.group(0)
@@ -713,6 +713,43 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got[0], {"x": 400, "y": 96, "align": "center"})        # top fits
         self.assertEqual(got[1], {"x": 6, "y": 300, "align": "left"})           # left edge of the circle
         self.assertIsNone(got[2])                                               # nowhere on screen
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_prompts(self):
+        got = run_js(["promptDone", "addPromptLine", "customPromptError"],
+                     'const PRESETS = [["Claim", ""], ["Evidence", ""], ["Against", ""], ["Gap", ""], ["Next step", ""]];',
+                     """[promptDone('Claim: x', 'Claim'), promptDone('text\\nnext step: y', 'Next step'), promptDone('I claim: no', 'Claim'),
+            addPromptLine('', 'Gap'), addPromptLine('One line', 'Gap'),
+            customPromptError('Method', []), customPromptError('claim', []), customPromptError('Method', [{name: 'method'}]),
+            customPromptError('', []), customPromptError('x'.repeat(25), [])]""")
+        self.assertEqual(got, [True, True, False, "Gap: ", "One line\n\nGap: ", "",
+                               "That prompt already exists.", "That prompt already exists.",
+                               "Give the prompt a name.", "Keep the name to 24 characters or fewer."])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_checks_show_their_basis(self):
+        ctx = """{kind: (l) => l.split(':')[0], lab: (l) => ({'paper:a': 'L1', 'paper:b': 'L1', 'paper:c': 'L2'})[l] || null,
+                  labName: () => 'Lab One', newEvidence: () => []}"""
+        got = run_js(["checksFor", "promptDone"], "", f"""(() => {{ const c = {ctx}; const k = (n) => checksFor(n, c).map((x) => [x.kind, x.basis]);
+          return [k({{body: 'Only 3% of systems detect it.', links: []}}),
+            k({{body: 'x', links: ['paper:a', 'paper:b']}}),
+            k({{body: 'Against: y', links: ['paper:a', 'paper:c']}}),
+            k({{body: 'x', links: ['web:w1', 'web:w2']}}),
+            k({{body: 'x', links: ['paper:a', 'paper:b', 'paper:b2']}})]; }})()""")
+        self.assertEqual(got[0], [["claim", 'the words "Only", "3%"']])
+        self.assertEqual(got[1], [["onegroup", "both linked papers are from Lab One"],
+                                  ["noagainst", '2 linked papers, no "Against:" line']])
+        self.assertEqual(got[2], [])
+        self.assertEqual(got[3], [["webonly", "every linked item is a web source (not peer-reviewed)"]])
+        self.assertEqual(got[4], [["noagainst", '3 linked papers, no "Against:" line']])   # b2 has no group: not one group
+
+    def test_failed_save_keeps_the_text(self):
+        # Review Focus 3: the helper stops while the researcher types.
+        src = page_function("saveDraft")
+        self.assertIn('"failed"', src)
+        self.assertIn("Not saved", PAGE_SOURCE)
+        self.assertIn("Export", PAGE_SOURCE)
+        self.assertRegex(TEMPLATE, r'id="noteeditor"')
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
