@@ -36,7 +36,7 @@ function annotHint(tool, save) {
   const said = AN.error ? "Marks cannot be saved: " + AN.error : {
     saved: "Marks saved.", saving: "Saving…", unsaved: "Saving…",
     off: "Marks are not kept: saving is off (run /graph to save). Save as image keeps a picture.",
-    failed: "Not saved: " + AN.msg + " Save as image keeps a picture.",
+    failed: (/^Not saved/.test(AN.msg) ? "" : "Not saved: ") + AN.msg + " Save as image keeps a picture.",
     conflict: "Your marks changed somewhere else.", deleted: "Your saved marks were deleted elsewhere.",
   }[save] || "";
   return (TOOL_HINTS[tool] || TOOL_HINTS.select) + (said ? " " + said : "");
@@ -106,8 +106,25 @@ function afterHistory() {
   if (NT.serving) AN.timer = setTimeout(saveMarks, 800);
   marksNotify(); globeRequestDraw();
 }
-function annotUndo() { if (AN.history && AN.history.undo.length) { AN.views = undoStep(AN.views, AN.history); afterHistory(); } }
-function annotRedo() { if (AN.history && AN.history.redo.length) { AN.views = redoStep(AN.views, AN.history); afterHistory(); } }
+/* Undo and redo change only the view on screen (or bring back a deleted one): a change made
+   out of sight would be lost for good once the next mark clears redo. */
+function undoBlocked(step, views, active) {
+  if (!step || step.id === active) return null;
+  const v = views.find((x) => x.id === step.id);
+  return v ? "The last change was in the view " + v.name + ": Back to it to undo it there." : null;
+}
+function annotUndo() {
+  if (!AN.history || !AN.history.undo.length) return;
+  const why = undoBlocked(AN.history.undo[AN.history.undo.length - 1], AN.views, AN.active);
+  if (why) { AN.note = why; marksNotify(); return; }
+  AN.views = undoStep(AN.views, AN.history); afterHistory();
+}
+function annotRedo() {
+  if (!AN.history || !AN.history.redo.length) return;
+  const why = undoBlocked(AN.history.redo[AN.history.redo.length - 1], AN.views, AN.active);
+  if (why) { AN.note = why.replace("undo it", "redo it"); marksNotify(); return; }
+  AN.views = redoStep(AN.views, AN.history); afterHistory();
+}
 function deleteSelected() {
   const id = AN.selected;
   if (!id) return;
@@ -137,9 +154,10 @@ function labelInput(x, y, at) {
   AN.drawing = { kind: "label", cancel: () => finish(false) };
   input.focus();
 }
-GL.input = {
-  down(x, y, e) {
-    if (S.tab !== "overview" || e.button > 0) return false;
+/* A press on the globe: the tool takes it (true), or it turns the globe as usual (false).
+   A minimised toolbar never draws, so a hidden pen cannot catch a drag. */
+function annotDown(x, y, e) {
+    if (S.tab !== "overview" || e.button > 0 || S.min.cards.annotbar) return false;
     const geo = globeGeometry(), [u, v] = toUnits(x, y, geo), tol = 6 / geo.R, view = activeView();
     if (AN.tool === "select") {
       const sel = selectedMark();
@@ -167,7 +185,9 @@ GL.input = {
     if (hit) { changeView((vw) => { vw.marks = vw.marks.filter((m) => m.id !== hit.id); }); if (AN.selected === hit.id) AN.selected = null; }
     ADRAG = { mode: "none" };
     return true;
-  },
+}
+GL.input = {
+  down: annotDown,
   move(x, y) {
     if (!ADRAG) return;
     const geo = globeGeometry(), [u, v] = toUnits(x, y, geo), d = AN.drawing;
@@ -259,6 +279,7 @@ function crowds(tb, cards) {
 }
 function renderAnnotbar() {
   const tb = $("#annotbar"), min = !!S.min.cards.annotbar;
+  if (min && AN.tool !== "select") { setTool("select"); return; }   /* minimised (M or ×): back to Select */
   tb.classList.toggle("min", min);
   $("#globe").classList.toggle("draw-mode", AN.tool !== "select");
   for (const b of document.querySelectorAll(".ann-colour")) b.setAttribute("aria-pressed", String(+b.dataset.c === AN.colour));

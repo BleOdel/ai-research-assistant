@@ -113,12 +113,13 @@ function showRebuilt() {
 }
 /* Asks about unsaved text once: having asked, the browser's own leave-page check stands down. */
 function reloadAfterRebuild() {
-  if (NT.dirty && !window.confirm("Your note has unsaved changes. Reload anyway?")) return;
+  const marks = typeof marksUnsaved === "function" && marksUnsaved();
+  if ((NT.dirty || marks) && !window.confirm((NT.dirty ? "Your note has" : "Your marks on the map have") + " unsaved changes. Reload anyway?")) return;
   NT.leaving = true;
   location.reload();
 }
 function warnBeforeLeaving(e) {
-  if (NT.dirty && !NT.leaving) { e.preventDefault(); e.returnValue = ""; }
+  if ((NT.dirty || (typeof marksUnsaved === "function" && marksUnsaved())) && !NT.leaving) { e.preventDefault(); e.returnValue = ""; }
 }
 window.addEventListener("beforeunload", warnBeforeLeaving);
 

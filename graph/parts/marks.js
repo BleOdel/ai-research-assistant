@@ -37,19 +37,22 @@ function filterKey(flt) {
     ? Object.fromEntries(Object.keys(v).sort().filter((k) => !(Array.isArray(v[k]) && !v[k].length)).map((k) => [k, norm(v[k])])) : v;
   return JSON.stringify(norm(flt || {}));
 }
-function viewAt(views, camera, fkey) {
-  return views.find((v) => sameCamera(v.camera, camera) && filterKey(v.filters) === fkey) || null;
+/* NORM puts a view's saved filters as the page would restore them (restorableFilters), so a
+   view whose filters name something the library has since lost is still found. */
+function viewAt(views, camera, fkey, norm) {
+  return views.find((v) => sameCamera(v.camera, camera) && filterKey(norm ? norm(v.filters) : v.filters) === fkey) || null;
 }
 /* "<what the filters show> · <date>", e.g. "Whole library · 1 Nov". */
 function viewName(flt, today) {
   const sets = (flt && flt.sets) || {}, interests = sets.interest || [], kinds = sets.type || [];
-  const parts = [interests.length === 1 ? interests[0] : interests.length ? interests.length + " interests" : "Whole library"];
-  if (kinds.length === 1) parts.push(kinds[0] === KIND_WEB ? "web only" : "papers only");
-  return parts.concat(shortDate(today)).join(" · ");
+  let head = interests.length === 1 ? interests[0] : interests.length ? interests.length + " interests" : "Whole library";
+  const tail = (kinds.length === 1 ? [kinds[0] === KIND_WEB ? "web only" : "papers only"] : []).concat(shortDate(today)).map((t) => " · " + t).join("");
+  if (head.length + tail.length > 80) head = head.slice(0, 79 - tail.length).trimEnd() + "…";   /* a saved name holds 80 characters */
+  return head + tail;
 }
 function activeView() {
   if (!GL.model) return null;
-  return viewAt(AN.views, cameraOf(GL), filterKey(filterState()));
+  return viewAt(AN.views, cameraOf(GL), filterKey(filterState()), restorableFilters);
 }
 
 /* ---------- geometry, in globe units ---------- */
@@ -252,15 +255,37 @@ async function saveMarks() {
   AN.pending = false;
   marksNotify();
 }
+/* Keep mine, view by view: the file's views stay, mine replace theirs where both have one,
+   and a view this tab deleted stays deleted. */
+function mergeViews(mine, disk, deleted) {
+  const byId = new Map(mine.map((v) => [v.id, v])), seen = new Set();
+  const out = disk.filter((v) => !deleted.has(v.id)).map((v) => { seen.add(v.id); return byId.get(v.id) || v; });
+  return out.concat(mine.filter((v) => !seen.has(v.id)));
+}
 function keepMine() {
+  const here = new Set(AN.views.map((v) => v.id));
+  const deleted = new Set((AN.history ? AN.history.undo : []).map((s) => s.id).filter((id) => !here.has(id)));
+  AN.views = mergeViews(AN.views, AN.conflict.disk.views, deleted);
   AN.version = AN.conflict.diskVersion; AN.conflict = null;
   return saveMarks();
 }
 function useFilesMarks() {
   AN.views = AN.conflict.disk.views; AN.version = AN.conflict.diskVersion; AN.conflict = null;
+  /* this tab's undo steps describe views the file has replaced: undoing them would overwrite it */
+  AN.history = newHistory(); clearTimeout(AN.timer);
   AN.selected = null; AN.save = "saved";
   marksNotify(); globeRequestDraw();
 }
+/* Whether leaving the page now would lose marks: a save not yet made or not accepted, or
+   marks drawn while saving is off. */
+function marksUnsaved() {
+  return ["unsaved", "saving", "failed", "conflict", "deleted"].includes(AN.save)
+    || (AN.save === "off" && !!(AN.history && AN.history.undo.length));
+}
+/* A tab hidden (closed, switched away, the laptop shut) saves at once rather than after the pause. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && AN.save === "unsaved") { clearTimeout(AN.timer); saveMarks(); }
+});
 /* Saving back on (the helper answered again): marks drawn while it was off save now. */
 function resumeMarksSaving() {
   if (NT.serving && (AN.save === "off" || AN.save === "failed") && AN.history && AN.history.undo.length) saveMarks();

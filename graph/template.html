@@ -1003,17 +1003,25 @@ function knownFacetValues() {
   }
   return FACET_VALUES;
 }
-function filtersFromState(flt) {
-  const st = flt && typeof flt === "object" ? flt : {}, known = knownFacetValues();
-  S.filters.sets = {};
+/* FLT with the filter values this library no longer has taken out. "(none)" stays: it is
+   how a filter with every value unticked is kept. */
+function restorableFilters(flt) {
+  const st = flt && typeof flt === "object" ? flt : {}, known = knownFacetValues(), sets = {};
   for (const [k, v] of Object.entries(st.sets && typeof st.sets === "object" ? st.sets : {})) {
     if (!known.has(k) || !Array.isArray(v)) continue;
-    const kept = v.map(String).filter((x) => known.get(k).has(x));
-    if (kept.length) S.filters.sets[k] = new Set(kept);
+    const kept = v.map(String).filter((x) => x === "(none)" || known.get(k).has(x));
+    if (kept.length) sets[k] = kept;
   }
-  S.filters.yearMin = Number.isInteger(st.yMin) ? st.yMin : null;
-  S.filters.yearMax = Number.isInteger(st.yMax) ? st.yMax : null;
-  S.filters.undated = st.u !== false; S.filters.newOnly = !!st.n; S.filters.offTopic = !!st.o; S.filters.all = !!st.a;
+  /* the shape filterState gives, so a saved view and the page compare equal */
+  return { sets, yMin: Number.isInteger(st.yMin) ? st.yMin : null, yMax: Number.isInteger(st.yMax) ? st.yMax : null,
+    u: st.u !== false, n: !!st.n, o: !!st.o, a: !!st.a };
+}
+function filtersFromState(flt) {
+  const st = restorableFilters(flt);
+  S.filters.sets = {};
+  for (const [k, v] of Object.entries(st.sets)) S.filters.sets[k] = new Set(v);
+  S.filters.yearMin = st.yMin; S.filters.yearMax = st.yMax;
+  S.filters.undated = st.u; S.filters.newOnly = st.n; S.filters.offTopic = st.o; S.filters.all = st.a;
 }
 function writeHash(push) {
   const state = { v: S.view, f: S.current, s: S.since, d: S.dims, flt: filterState() };

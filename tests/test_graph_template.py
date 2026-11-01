@@ -1116,7 +1116,7 @@ class MarksTests(unittest.TestCase):
         prelude = """const FACETS = [["interest", "Interest", (n) => [n.interest]], ["type", "Kind", (n) => [n.kind]]];
           const ITEMS = [{interest: 'A', kind: 'Paper'}, {interest: 'B', kind: 'Paper'}]; let FACET_VALUES = null;
           const S = {filters: {sets: {interest: new Set(['A'])}, yearMin: 2019, yearMax: 2024, undated: false, newOnly: true, offTopic: false, all: true}};"""
-        got = run_js(["filterState", "filtersFromState", "knownFacetValues"], prelude, """(() => {
+        got = run_js(["filterState", "filtersFromState", "restorableFilters", "knownFacetValues"], prelude, """(() => {
           const before = JSON.stringify(filterState()); filtersFromState(JSON.parse(before));
           const same = JSON.stringify(filterState()) === before;
           filtersFromState({sets: {interest: ['Gone', 'B'], nope: ['x']}, yMin: 'x'});
@@ -1142,7 +1142,7 @@ class MarksTests(unittest.TestCase):
             if (answer) return Promise.resolve(answer);
             return new Promise((r) => { release = () => r({status: 200, data: {version: 'v' + calls.length}}); }); }
           const tick = () => new Promise((r) => setTimeout(r, 0));"""
-        got = run_js(["saveMarks", "keepMine", "useFilesMarks", "saveAgain"], prelude, """(async () => { const out = [];
+        got = run_js(["saveMarks", "keepMine", "useFilesMarks", "saveAgain", "mergeViews", "newHistory"], prelude, """(async () => { const out = [];
           const first = saveMarks(); AN.views = [{id: 'v1', marks: [{id: 'm1'}]}]; saveMarks();
           out.push(calls.length); release(); await tick(); out.push(calls.length, calls[1] && calls[1].version); release(); await first; await tick();
           out.push(AN.save, AN.version);
@@ -1216,10 +1216,12 @@ class MarksTests(unittest.TestCase):
     def test_first_mark_creates_a_view(self):
         prelude = """const KIND_PAPER = "Paper", KIND_WEB = "Web"; const GL = {model: {}, yaw: 0.1, pitch: 0.2, zoom: 2, panX: 0, panY: 0};
           const S = {filters: {sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};
+          const FACETS = [], ITEMS = []; let FACET_VALUES = null;
           const AN = {views: [], history: null, onChange: [], save: 'off'}; const NT = {serving: false}; const HISTORY_MAX = 100;
           function marksNotify() {} function globeRequestDraw() {} const crypto = {getRandomValues: (a) => a.fill(171)};"""
         names = ["ensureView", "addMark", "activeView", "viewAt", "sameCamera", "wrapAngle", "cameraOf", "filterKey", "filterState",
-                 "viewName", "shortDate", "newViewId", "hex6", "marksChanged", "record", "newHistory", "undoStep", "applySnapshot"]
+                 "viewName", "shortDate", "newViewId", "hex6", "marksChanged", "record", "newHistory", "undoStep", "applySnapshot",
+                 "restorableFilters", "knownFacetValues"]
         got = run_js(names, prelude, """(() => {
           addMark({id: 'm-000001', kind: 'rect', colour: 1, width: 1, pts: [[0, 0], [0.1, 0.1]]});
           const v = AN.views[0], again = ensureView();
@@ -1235,7 +1237,7 @@ class MarksTests(unittest.TestCase):
           const S = {filters: {sets: {}, yearMin: 2000, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};
           const PEN_WIDTHS = [2, 4, 7], LABEL_PX = 14; function css() { return '#000'; }
           const calls = []; const g = new Proxy({}, {get: (t, k) => k in t ? t[k] : (...a) => calls.push([k, ...a.map((x) => typeof x === 'number' ? Math.round(x) : x)]), set: (t, k, v) => { t[k] = v; return true; }});"""
-        got = run_js(["filtersFromState", "knownFacetValues", "drawMarks", "drawArrowHead", "fromUnits", "markBox"], prelude, """(() => {
+        got = run_js(["filtersFromState", "restorableFilters", "knownFacetValues", "drawMarks", "drawArrowHead", "fromUnits", "markBox"], prelude, """(() => {
           filtersFromState({sets: {interest: ['Gone interest']}, yMin: 'x'}); const a = [Object.keys(S.filters.sets).length, S.filters.yearMin];
           filtersFromState(null);
           drawMarks(g, {marks: [{id: 'm-1', kind: 'arrow', colour: 0, width: 1, pts: [[0, 0], [0.5, 0.25]], snap: 'paper:gone'}]}, {cx: 100, cy: 100, R: 100}, ['#111'], null, null);
@@ -1308,6 +1310,84 @@ class MarksTests(unittest.TestCase):
         got = run_js(["crowds"], "", """[crowds([12, 438, 588, 549], [[12, 56, 312, 608], null]),
           crowds([246, 730, 1155, 792], [[12, 56, 312, 600], [1068, 56, 1388, 553]]), crowds([0, 0, 10, 10], [])]""")
         self.assertEqual(got, [True, False, False])
+
+    def test_back_to_an_old_view_shows_its_marks(self):
+        # Final review, Critical 1: after filtersFromState dropped a gone value, the view's
+        # filter key no longer matched, so its marks never showed; and "(none)" was dropped.
+        prelude = """const FACETS = [["interest", "Interest", (n) => [n.interest]], ["status", "Status", (n) => [n.status]]];
+          const ITEMS = [{interest: 'A', status: 'Core'}]; let FACET_VALUES = null;
+          const S = {filters: {sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};"""
+        names = ["filtersFromState", "restorableFilters", "knownFacetValues", "filterState", "filterKey", "viewAt", "sameCamera", "wrapAngle"]
+        got = run_js(names, prelude, """(() => { const cam = {yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0}, out = [];
+          for (const sets of [{interest: ['Gone interest']}, {interest: ['A', 'Gone']}, {status: ['(none)']}, {interest: ['A']}]) {
+            const views = [{id: 'v', camera: cam, filters: {sets, u: true}}];
+            filtersFromState(views[0].filters);
+            out.push(!!viewAt(views, cam, filterKey(filterState()), restorableFilters));
+          }
+          filtersFromState({sets: {status: ['(none)']}}); out.push([...S.filters.sets.status]);
+          return out; })()""")
+        self.assertEqual(got, [True, True, True, True, ["(none)"]])
+        self.assertIn("restorableFilters", page_function("activeView"))
+
+    def test_a_click_that_wobbles_does_not_turn_the_globe(self):
+        # Final review, Important 2: 1-2 px of jitter on a click turned the globe and hid the marks.
+        got = run_js(["dragDelta"], "", """(() => { const d = {moved: 0}; const out = [];
+          out.push(dragDelta(d, 1, 0), dragDelta(d, 0, 2), dragDelta(d, 1, 1), dragDelta(d, 3, 0), dragDelta(d, 2, 2)); return out; })()""")
+        self.assertEqual(got, [None, None, [2, 3], [3, 0], [2, 2]])   # nothing until past 4 px, then all of it at once
+        self.assertIn("dragDelta(", page_function("globeInput"))
+
+    def test_use_the_files_marks_forgets_this_tabs_history(self):
+        # Final review, Important 3: undo after "Use the file's" overwrote the other tab's work.
+        prelude = """const NT = {serving: true}; let cleared = 0; function clearTimeout() { cleared++; } function marksNotify() {} function globeRequestDraw() {}
+          const AN = {views: [{id: 'mine', marks: []}], history: {undo: [{id: 'mine', before: null, after: '{}'}], redo: []}, timer: 7,
+            conflict: {disk: {views: [{id: 'theirs', marks: []}]}, diskVersion: 'd'}};"""
+        got = run_js(["useFilesMarks", "newHistory"], prelude, "(useFilesMarks(), [AN.history.undo.length, AN.history.redo.length, cleared, AN.views[0].id])")
+        self.assertEqual(got, [0, 0, 1, "theirs"])
+
+    def test_keep_mine_keeps_the_other_tabs_views(self):
+        # Final review, Important 4: "Keep mine" deleted views the other tab had added.
+        got = run_js(["mergeViews"], "", """(() => { const v = (id, n) => ({id, marks: Array(n).fill({})});
+          const mine = [v('a', 2), v('b', 1)], disk = [v('a', 5), v('c', 3), v('d', 1)];
+          return mergeViews(mine, disk, new Set(['d'])).map((x) => x.id + ':' + x.marks.length); })()""")
+        self.assertEqual(got, ["a:2", "c:3", "b:1"])     # mine wins where both have it; theirs kept; what I deleted stays deleted
+        self.assertIn("mergeViews(", page_function("keepMine"))
+
+    def test_undo_never_changes_a_view_off_screen(self):
+        # Final review, Important 5: undo removed a mark from a view not on screen, unseen.
+        got = run_js(["undoBlocked"], "", """(() => { const views = [{id: 'a', name: 'Gaze'}, {id: 'b', name: 'Other'}];
+          return [undoBlocked({id: 'a'}, views, 'a'), undoBlocked({id: 'a'}, views, 'b'), undoBlocked({id: 'gone'}, views, 'b'), undoBlocked(null, views, 'a')]; })()""")
+        self.assertEqual(got, [None, "The last change was in the view Gaze: Back to it to undo it there.", None, None])
+        for fn in ("annotUndo", "annotRedo"):
+            self.assertIn("undoBlocked(", page_function(fn))
+
+    def test_leaving_with_unsaved_marks_asks(self):
+        # Final review, Important 6: closing or reloading within the save delay lost marks silently.
+        got = run_js(["marksUnsaved"], "", """(() => { const out = []; const AN = globalThis.AN = {history: {undo: [{}]}};
+          for (const s of ['saved', 'unsaved', 'saving', 'failed', 'conflict', 'deleted', 'off']) { AN.save = s; out.push(marksUnsaved()); }
+          AN.history = {undo: []}; AN.save = 'off'; out.push(marksUnsaved()); return out; })()""".replace("const AN = globalThis.AN =", "globalThis.AN ="))
+        self.assertEqual(got, [False, True, True, True, True, True, True, False])
+        prelude = """const NT = {dirty: false, leaving: false}; let unsaved = true; function marksUnsaved() { return unsaved; }
+          let asked = 0, reloads = 0; const window = {confirm: () => { asked++; return false; }}; const location = {reload: () => { reloads++; }};"""
+        got = run_js(["warnBeforeLeaving", "reloadAfterRebuild"], prelude, """(() => { let stopped = false;
+          warnBeforeLeaving({preventDefault: () => { stopped = true; }}); reloadAfterRebuild(); return [stopped, asked, reloads]; })()""")
+        self.assertEqual(got, [True, 1, 0])
+
+    def test_a_minimised_toolbar_never_draws(self):
+        # Final review, Important 7: M hid the toolbar with the pen still drawing.
+        prelude = """const S = {tab: 'overview', min: {cards: {annotbar: true}}}; const AN = {tool: 'pen'};"""
+        got = run_js(["annotDown"], prelude, "annotDown(10, 10, {button: 0})")
+        self.assertFalse(got)
+        self.assertIn("annotDown", PAGE_SOURCE.split("GL.input = {", 1)[1].split("};", 1)[0])
+
+    def test_view_names_fit_and_errors_say_not_saved_once(self):
+        # Final review, Important 8: a long interest name made the default name too long to save.
+        prelude = 'const KIND_PAPER = "Paper", KIND_WEB = "Web";'
+        hints = re.search(r"^const TOOL_HINTS = \{.*?^\};", PAGE_SOURCE, re.M | re.S).group(0)
+        got = run_js(["viewName", "shortDate"], prelude, """(() => { const n = viewName({sets: {interest: ['X'.repeat(120)], type: [KIND_PAPER]}}, '2026-11-01');
+          return [n.length, n.endsWith(' · papers only · 1 Nov'), n.includes('…')]; })()""")
+        self.assertEqual(got, [80, True, True])
+        got = run_js(["annotHint"], "const AN = {error: null, msg: 'Not saved: view 1 needs a name.'};" + hints, "annotHint('pen', 'failed')")
+        self.assertEqual(got.count("Not saved"), 1)
 
     def test_globe_hands_drags_to_the_toolbar(self):
         src = page_function("globeInput")

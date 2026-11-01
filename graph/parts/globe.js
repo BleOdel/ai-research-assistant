@@ -493,6 +493,16 @@ function globeClear() {
   GL.onSelect(null);
   globeRequestDraw();
 }
+/* A press turns or moves the globe only once it has travelled 4 px, then by all of it: the
+   wobble of a click must not move the camera (it would hide the marks of a saved view). */
+function dragDelta(drag, dx, dy) {
+  drag.moved += Math.abs(dx) + Math.abs(dy);
+  drag.px = (drag.px || 0) + dx; drag.py = (drag.py || 0) + dy;
+  if (drag.moved <= 4) return null;
+  const d = [drag.px, drag.py];
+  drag.px = 0; drag.py = 0;
+  return d;
+}
 function globeInput() {
   const cv = $("#globe");
   let drag = null, last = null;
@@ -504,8 +514,10 @@ function globeInput() {
   cv.addEventListener("pointermove", (e) => {
     if (drag && drag.captured) { GL.input.move(...at(e), e); return; }
     if (!drag) { const [x, y] = at(e); GL.onHover(globeHover(x, y), e.clientX, e.clientY); return; }
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    const step = dragDelta(drag, e.clientX - drag.x, e.clientY - drag.y);
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!step) return;
+    const [dx, dy] = step;
     if (GL.mode === "pan") { GL.panX += dx; GL.panY += dy; }
     else { const v = dragRotate(GL.yaw, GL.pitch, dx, dy, GL.zoom); GL.yaw = v.yaw; GL.pitch = v.pitch; }
     GL.onHover(null);
