@@ -663,6 +663,29 @@ class TemplateTests(unittest.TestCase):
         dupes = [i + 1 for i in range(1, len(lines)) if lines[i].strip().startswith("@") and lines[i] == lines[i - 1]]
         self.assertEqual(dupes, [])
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_links_and_orbits(self):
+        has = "(id) => ['paper:p1', 'web:w1', 'web:w2', 'lab:L1', 'subarea:XR/Immersive:Eye/gaze'].includes(id)"
+        got = run_js(["parseLink", "linkNodeId", "resolveLinks", "noteOrbit", "orbitWords"], "",
+                     f"""(() => {{ const has = {has};
+          const n = (links, in_report) => ({{links, in_report: in_report || null}});
+          return [linkNodeId('subarea:XR/Immersive::Eye/gaze'), linkNodeId('group:L1'), parseLink('nonsense'),
+            noteOrbit(n([]), has), noteOrbit(n(['web:w1', 'group:L1']), has), noteOrbit(n(['paper:p1']), has),
+            noteOrbit(n(['paper:gone']), has), noteOrbit(n([], 'r1'), has),
+            resolveLinks(n(['paper:gone']), has)[0].missing,
+            orbitWords(n(['paper:p1']), has), orbitWords(n(['web:w1', 'web:w2']), has), orbitWords(n([]), has)]; }})()""")
+        self.assertEqual(got, ["subarea:XR/Immersive:Eye/gaze", "lab:L1", None,
+                               "outer", "outer", "middle", "outer", "inner", True,
+                               "Middle orbit · backed by 1 paper",
+                               "Outer orbit · linked to 2 web sources, no papers yet",
+                               "Outer orbit · an idea, no papers yet"])
+
+    def test_rebuilt_banner_and_note_in_the_address(self):
+        self.assertRegex(TEMPLATE, r'id="rebuilt"')
+        self.assertIn("The library was rebuilt", PAGE_SOURCE)
+        self.assertIn("note:", page_function("writeHash"))
+        self.assertIn("beforeunload", PAGE_SOURCE)
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
@@ -674,7 +697,7 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_every_part_parses(self):
-        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "connects.js", "ask.js", "status.js"])
+        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "notes.js", "editor.js", "connects.js", "ask.js", "status.js"])
         for name in PART_NAMES:
             code = (PARTS / name).read_text()
             r = subprocess.run(["node", "--check", "-"], input=code, capture_output=True, text=True)

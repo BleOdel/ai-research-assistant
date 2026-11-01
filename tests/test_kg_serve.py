@@ -80,6 +80,13 @@ class RequestTests(HelperFixture):
             self.assertEqual(self.call("GET", bad, headers=cookie)[0], 404, bad)
         self.assertEqual(self.call("GET", "/research/fulltext/a.pdf")[0], 403)
 
+    def test_a_reloaded_page_gets_its_token_back(self):
+        # The page drops the token from the address; after a reload it asks for it again
+        # with the cookie, which only the helper's own pages carry.
+        self.assertEqual(self.call("GET", "/api/session", headers={"Cookie": "kgt=tok"})[1], {"token": "tok"})
+        self.assertEqual(self.call("GET", "/api/session")[0], 403)
+        self.assertEqual(self.call("GET", "/api/session", headers={"Cookie": "kgt=nope"})[0], 403)
+
     def test_state(self):
         status, body, _ = self.call("GET", "/api/state", headers={"X-KG-Token": "tok"})
         self.assertEqual(status, 200)

@@ -160,6 +160,13 @@ class Handler(BaseHTTPRequestHandler):
             if not (target.is_relative_to(folder.resolve()) and target.suffix.lower() == ".pdf" and target.is_file()):
                 raise Refused(404, "Not found.")
             return self.send_file(target, "application/pdf")
+        if path == "/api/session":
+            # A reloaded page has lost the token from its address; the cookie (sent only
+            # by this helper's own pages, SameSite=Strict) gets it back.
+            if not self.page_token_ok()[0]:
+                raise Refused(403, "Open the map from the address the helper printed.")
+            self.server.last_activity = time.monotonic()
+            return self.send_json(200, {"token": self.server.token})
         if path == "/api/ping":
             self.require_header_token()
             return self.send_json(200, {"ok": True})

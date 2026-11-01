@@ -66,6 +66,8 @@ body.tabs-min { --tabs-h: 28px; }
 #tabs [role=tab] { border: none; border-radius: 0; background: none; padding: 0; color: var(--muted); border-bottom: 2px solid transparent; box-shadow: none; }
 #tabs [role=tab][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
 #theme-toggle { margin-left: auto; }
+#rebuilt { position: fixed; z-index: 9; top: 6px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--focus); border-radius: 999px; padding: 4px 6px 4px 14px; font-size: 13px; box-shadow: 0 2px 12px var(--ring); }
+#rebuilt[hidden] { display: none; }
 #tabs-min { display: none; align-items: center; gap: 12px; height: var(--tabs-h); padding: 0 14px; border-bottom: 1px solid var(--hair); background: var(--surface); font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
 #tabs-min button { border: none; background: none; padding: 0; color: var(--muted); }
 #tabs-min button[aria-current="page"] { color: var(--ink); font-weight: 600; }
@@ -227,6 +229,7 @@ h2:first-child { margin-top: 0; }
   <button data-tab="overview">Overview</button><button data-tab="connects">How it connects</button><button data-tab="explore">Explore</button><button data-tab="ask">Ask</button><button data-tab="status">Status</button>
   <button id="tabs-show" class="linkbtn" title="Show the tabs again">Show tabs</button>
 </nav>
+<div id="rebuilt" role="status" hidden></div>
 <section id="tab-overview" class="tabpane" aria-label="Overview" hidden>
   <canvas id="globe" role="img" aria-label="Research globe: each region is a research interest, height is publication year. The cards and the list in Explore give the same information as text."></canvas>
   <div id="globe-nav" role="toolbar" aria-label="Zoom and move the globe">
@@ -424,7 +427,7 @@ const FACETS = [
 const S = {
   view: "library", focus: null, since: D.meta.newSince, dims: 3, highlight: null, highlightWhy: "",
   filters: { sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false },
-  tab: "overview", min: { tabs: false, cards: {} },
+  tab: "overview", min: { tabs: false, cards: {} }, note: null,
   current: null, trail: [], trailPos: -1, listIds: null, listWhy: "", listOpen: false, sort: ["year", -1],
 };
 function isNew(n) {
@@ -919,7 +922,7 @@ function writeHash(push) {
   for (const [k, v] of Object.entries(f.sets)) if (v.size) sets[k] = [...v];
   const state = { v: S.view, f: S.current,
     s: S.since, d: S.dims, flt: { sets, yMin: f.yearMin, yMax: f.yearMax, u: f.undated, n: f.newOnly, o: f.offTopic, a: f.all } };
-  const h = "#" + new URLSearchParams({ tab: S.tab, view: state.v, focus: state.f || "", since: state.s, dims: state.d,
+  const h = "#" + new URLSearchParams({ tab: S.tab, view: state.v, focus: state.f || "", note: S.note || "", since: state.s, dims: state.d,
     filters: JSON.stringify(state.flt) }).toString();
   if (h === location.hash) return;
   if (push) history.pushState(null, "", h); else history.replaceState(null, "", h);
@@ -928,6 +931,7 @@ function readHash() {
   if (!location.hash) return false;
   const p = new URLSearchParams(location.hash.slice(1));
   if (VIEWS.includes(p.get("view"))) S.view = p.get("view");
+  S.note = p.get("note") || null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(p.get("since") || "")) S.since = p.get("since");
   S.dims = p.get("dims") === "2" ? 2 : 3;
   try {
@@ -1573,6 +1577,8 @@ function restoreFromHash() {
 </script>
 <script data-part="globe.js"></script>
 <script data-part="overview.js"></script>
+<script data-part="notes.js"></script>
+<script data-part="editor.js"></script>
 <script data-part="connects.js"></script>
 <script data-part="ask.js"></script>
 <script data-part="status.js"></script>
@@ -1588,6 +1594,7 @@ if (window.matchMedia("(max-width: 1000px)").matches) { $("#drawer").classList.a
 recomputeVisible();
 renderSummary();
 restoreFromHash();
+notesInit();        /* embedded notes now; the helper's, if it is running, a moment later */
 initToolbar();      /* after the view note has its text, so it can sit above it */
 setNavMode("rotate");
 fitCanvas();
