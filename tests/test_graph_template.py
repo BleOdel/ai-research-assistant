@@ -858,6 +858,24 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got, ["../research/fulltext/a b.pdf?t=abc", None])
         self.assertNotIn("/api/session", PAGE_SOURCE)
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_satellites_are_drawn_as_the_prototype_icon(self):
+        # Researcher, 2026-11-01: "I like the satalite icon used in the prototype" - a
+        # diamond body between two solar panels; an idea (outer orbit) has a hollow body.
+        prelude = """function ctx() { const calls = []; return { calls, save() { calls.push('save'); }, restore() { calls.push('restore'); },
+          translate(x, y) { calls.push(['translate', x, y]); }, rotate(a) { calls.push(['rotate', Math.round(a * 1000) / 1000]); },
+          fillRect(x, y, w, h) { calls.push(['fill', w > h ? 'panel' : 'body']); }, strokeRect() { calls.push(['stroke', 'body']); },
+          set fillStyle(v) {}, set strokeStyle(v) {}, set lineWidth(v) {} }; }"""
+        got = run_js(["drawSatIcon"], prelude, """(() => { const a = ctx(), b = ctx();
+          drawSatIcon(a, 10, 20, 5.5, '#3987e5', false, '#141419'); drawSatIcon(b, 10, 20, 5.5, '#3987e5', true, '#141419');
+          const kinds = (c) => c.calls.filter((x) => Array.isArray(x) && (x[0] === 'fill' || x[0] === 'stroke')).map((x) => x.join(' '));
+          return [kinds(a), kinds(b), a.calls.some((x) => Array.isArray(x) && x[0] === 'rotate' && x[1] === 0.785), a.calls[0], a.calls[a.calls.length - 1]]; })()""")
+        self.assertEqual(got[0], ["fill panel", "fill panel", "fill body"])
+        self.assertEqual(got[1], ["fill panel", "fill panel", "fill body", "stroke body"])   # hollow: background fill, then outline
+        self.assertTrue(got[2])                                                             # the body is a diamond
+        self.assertEqual((got[3], got[4]), ("save", "restore"))
+        self.assertIn("drawSatIcon(", page_function("drawSatellites"))
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:

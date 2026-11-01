@@ -158,13 +158,24 @@ function satColour(note) {
   }
   return css("--muted");
 }
+/* A note's icon, as in the prototype: a diamond body between two solar panels, S the
+   size. An idea (outer orbit) has a hollow body, filled with the background BG. */
+function drawSatIcon(g, x, y, s, colour, hollow, bg) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = colour; g.strokeStyle = colour; g.lineWidth = 1.6;
+  g.fillRect(-s * 2.3, -s * 0.28, s * 1.5, s * 0.56); g.fillRect(s * 0.8, -s * 0.28, s * 1.5, s * 0.56);   /* solar panels */
+  g.rotate(Math.PI / 4);
+  if (hollow) { g.fillStyle = bg; g.fillRect(-s * 0.6, -s * 0.6, s * 1.2, s * 1.2); g.strokeRect(-s * 0.6, -s * 0.6, s * 1.2, s * 1.2); }
+  else g.fillRect(-s * 0.6, -s * 0.6, s * 1.2, s * 1.2);
+  g.restore();
+}
 function drawSatellites(g, P, R, cx, cy) {
   SAT.hits = []; SAT.shellHits = [];
   if (!NT.notes.size || !GL.model) return;
   const notes = [...NT.notes.values()], orbitOf = new Map(notes.map((n) => [n.id, noteOrbit(n, noteHas)]));
   const pick = pickSatellites(notes, { selected: S.note, hasNewEvidence: (id) => (NT.evidence.get(id) || []).length > 0,
     linkedVisible: (id) => (NT.notes.get(id).links || []).some((l) => VISIBLE.has(linkNodeId(l))), orbit: (id) => orbitOf.get(id) });
-  const now = performance.now(), muted = css("--muted"), ink = css("--ink"), cites = css("--cites");
+  const now = performance.now(), muted = css("--muted"), ink = css("--ink"), cites = css("--cites"), bg = css("--plane");
   /* the shells, labelled, with how many more each holds */
   g.lineWidth = 1; g.font = "10.5px system-ui"; g.textAlign = "center";
   for (const orbit of ["inner", "middle", "outer"]) {
@@ -200,11 +211,13 @@ function drawSatellites(g, P, R, cx, cy) {
       if (q[2] < 0) continue;
       g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
     }
-    const r = selected ? 8 : 6;
-    g.lineWidth = 2; g.strokeStyle = colour; g.fillStyle = colour;
-    g.beginPath(); g.arc(p[0], p[1], r, 0, 2 * Math.PI);
-    if (orbit === "outer") g.stroke(); else g.fill();
-    if (selected) { g.strokeStyle = ink; g.lineWidth = 1.5; g.beginPath(); g.arc(p[0], p[1], r + 4, 0, 2 * Math.PI); g.stroke(); }
+    const size = selected ? 7.5 : 5.5, r = size * 2.3;   /* r: half the icon's width, for the rings and hit-testing */
+    drawSatIcon(g, p[0], p[1], size, colour, orbit === "outer", bg);
+    if (selected) {
+      g.strokeStyle = ink; g.lineWidth = 1.4; g.beginPath(); g.arc(p[0], p[1], r + 3, 0, 2 * Math.PI); g.stroke();
+      const label = n.title.length > 34 ? n.title.slice(0, 32) + "…" : n.title;
+      g.fillStyle = ink; g.font = "600 12px system-ui"; g.textAlign = "left"; g.fillText(label, p[0] + r + 8, p[1] + 4);
+    }
     /* new evidence: three pulses when the map opens, then a steady ring */
     if ((NT.evidence.get(id) || []).length) {
       if (SAT.pulseStart == null) SAT.pulseStart = now;
@@ -216,7 +229,7 @@ function drawSatellites(g, P, R, cx, cy) {
         animating = true;
       } else { g.beginPath(); g.arc(p[0], p[1], r + 3, 0, 2 * Math.PI); g.stroke(); }
     }
-    SAT.hits.push([p[0], p[1], r + 4, id]);
+    SAT.hits.push([p[0], p[1], r, id]);
   }
   if (animating) requestAnimationFrame(() => globeDraw());
 }
