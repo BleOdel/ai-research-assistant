@@ -310,3 +310,99 @@ function annotInit() {
   renderAnnotbar();
 }
 annotInit();
+
+/* ---------- saved views: the chip, going back, the list, notes and pictures ---------- */
+/* "Annotated view: <name> · " while the view last shown with marks is not the one on screen. */
+function viewChipText(views, last, active) {
+  if (!last || last === active) return null;
+  const v = views.find((x) => x.id === last);
+  return v && v.marks.length ? "Annotated view: " + v.name + " · " : null;
+}
+function renderViewChip() {
+  const chip = $("#view-chip"), text = viewChipText(AN.views, AN.last, AN.active);
+  chip.hidden = !text;
+  if (text) chip.replaceChildren(text, el("button", { class: "linkbtn", on: { click: () => backToView(AN.last) } }, "Back to it"));
+}
+/* The view's filters first (they decide what is drawn), then the globe turns to its camera. */
+function backToView(id) {
+  const v = AN.views.find((x) => x.id === id);
+  if (!v) return;
+  AN.last = id;
+  filtersFromState(v.filters);
+  refreshData();
+  const c = v.camera;
+  GL.back = null;
+  globeTween({ yaw: GL.yaw, pitch: GL.pitch, zoom: GL.zoom, panX: GL.panX, panY: GL.panY },
+    { yaw: GL.yaw + wrapAngle(c.yaw - GL.yaw), pitch: GL.pitch + wrapAngle(c.pitch - GL.pitch), zoom: c.zoom, panX: c.panX, panY: c.panY });
+}
+function renameView(id, name) {
+  const v = AN.views.find((x) => x.id === id), t = String(name || "").trim();
+  if (!v || !t || t.length > 80) return false;
+  const before = JSON.stringify(v);
+  v.name = t;
+  marksChanged(id, before);
+  return true;
+}
+function deleteView(id) {
+  const v = AN.views.find((x) => x.id === id);
+  if (!v || !window.confirm("Delete the view " + v.name + " and its " + v.marks.length + " " + (v.marks.length === 1 ? "mark" : "marks") + "?")) return;
+  const before = JSON.stringify(v);
+  AN.views = AN.views.filter((x) => x.id !== id);
+  if (AN.last === id) AN.last = null;
+  marksChanged(id, before);
+}
+/* A note that starts linked to what the mark holds: at most 100, highest scored first. */
+function noteFromMark(markId) {
+  const view = activeView(), mark = view && view.marks.find((m) => m.id === markId);
+  if (!mark) return false;
+  const r = itemsInMark(mark, visibleCands(), 100);
+  AN.note = r.total > r.ids.length ? "Linked the " + r.ids.length + " highest-scored of " + r.total + " items in the mark." : "";
+  marksNotify();
+  openEditor(null, r.ids);
+  return true;
+}
+/* ＋ Note: the selected mark's items, else the highlight, else the selected item, else nothing. */
+function noteFromToolbar() {
+  if (AN.selected && noteFromMark(AN.selected)) return;
+  AN.note = "";
+  openEditor(null, S.highlight ? [...S.highlight] : S.current ? [S.current] : []);
+}
+function imageName(view) {
+  const slug = view ? String(view.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) : "";
+  return "library-map-" + (slug || "view") + ".png";
+}
+/* The globe with its marks as a PNG, on the page's background, without the selection box. */
+function saveImage() {
+  const cv = $("#globe"), was = AN.selected;
+  AN.selected = null; globeDraw();
+  const out = document.createElement("canvas");
+  out.width = cv.width; out.height = cv.height;
+  const g = out.getContext("2d");
+  g.fillStyle = css("--plane"); g.fillRect(0, 0, out.width, out.height); g.drawImage(cv, 0, 0);
+  download(imageName(activeView()), "image/png", out.toDataURL("image/png"));
+  AN.selected = was; globeDraw();
+}
+/* The Views rows in the notes list: go to, rename, delete. */
+AN.renaming = null;
+function viewRows(q) {
+  const needle = String(q || "").toLowerCase();
+  const views = AN.views.filter((v) => !needle || v.name.toLowerCase().includes(needle))
+    .sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
+  if (!views.length) return [el("p", { class: "note" }, AN.views.length ? "No views match." : "No saved views yet. Draw on the globe to save one.")];
+  return views.map((v) => {
+    const name = AN.renaming === v.id
+      ? el("input", { type: "text", maxlength: "80", value: v.name, "aria-label": "View name", on: { keydown: (e) => {
+        if (e.key === "Enter") { e.preventDefault(); renameView(v.id, e.target.value); AN.renaming = null; renderNotesList(); }
+        else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); AN.renaming = null; renderNotesList(); }
+      } } })
+      : el("strong", {}, v.name);
+    return el("div", { class: "nl-row" }, name,
+      el("div", { class: "note muted" }, v.marks.length + " " + (v.marks.length === 1 ? "mark" : "marks") + " · updated " + shortDate(String(v.updated).slice(0, 10))),
+      el("div", { class: "actions" },
+        el("button", { class: "linkbtn", on: { click: () => { NL.open = false; renderNotesList(); backToView(v.id); } } }, "Go to"),
+        el("button", { class: "linkbtn", on: { click: () => { AN.renaming = v.id; renderNotesList(); const i = $("#noteslist input[aria-label='View name']"); if (i) i.focus(); } } }, "Rename"),
+        el("button", { class: "linkbtn", on: { click: () => { deleteView(v.id); renderNotesList(); } } }, "Delete")));
+  });
+}
+AN.onChange.push(renderViewChip);
+AN.onChange.push(() => { if (NL.open && NL.filter.views) renderNotesList(); });

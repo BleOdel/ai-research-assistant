@@ -1215,6 +1215,80 @@ class MarksTests(unittest.TestCase):
         self.assertEqual(got[0], [1, True, True, True])
         self.assertEqual(got[1], 0)        # undoing the first mark removes the view it made
 
+    def test_old_views_still_open(self):
+        # Review Focus 5: a view from an older library, and an arrow whose paper is gone.
+        prelude = """const FACETS = [["interest", "Interest", (n) => [n.interest]]]; const ITEMS = [{interest: 'A'}]; let FACET_VALUES = null;
+          const S = {filters: {sets: {}, yearMin: 2000, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};
+          const PEN_WIDTHS = [2, 4, 7], LABEL_PX = 14; function css() { return '#000'; }
+          const calls = []; const g = new Proxy({}, {get: (t, k) => k in t ? t[k] : (...a) => calls.push([k, ...a.map((x) => typeof x === 'number' ? Math.round(x) : x)]), set: (t, k, v) => { t[k] = v; return true; }});"""
+        got = run_js(["filtersFromState", "knownFacetValues", "drawMarks", "drawArrowHead", "fromUnits", "markBox"], prelude, """(() => {
+          filtersFromState({sets: {interest: ['Gone interest']}, yMin: 'x'}); const a = [Object.keys(S.filters.sets).length, S.filters.yearMin];
+          filtersFromState(null);
+          drawMarks(g, {marks: [{id: 'm-1', kind: 'arrow', colour: 0, width: 1, pts: [[0, 0], [0.5, 0.25]], snap: 'paper:gone'}]}, {cx: 100, cy: 100, R: 100}, ['#111'], null, null);
+          return [a, calls.filter((c) => c[0] === 'lineTo')[0]]; })()""")
+        self.assertEqual(got[0], [0, None])
+        self.assertEqual(got[1], ["lineTo", 150, 125])        # drawn to its stored end, though its paper is gone
+
+    def test_note_from_a_mark(self):
+        prelude = """let opened = null; const AN = {selected: null, note: '', onChange: []}; const S = {highlight: null, current: null};
+          function openEditor(id, links) { opened = links; } function marksNotify() {}
+          const view = {id: 'v1', marks: [{id: 'm-r', kind: 'rect', pts: [[0, 0], [1, 1]]}, {id: 'm-big', kind: 'rect', pts: [[-9, -9], [9, 9]]}]};
+          function activeView() { return view; }
+          let cands = [{id: 'paper:a', u: 0.2, v: 0.2, score: 50}, {id: 'paper:b', u: 0.8, v: 0.8, score: 90}, {id: 'paper:z', u: 5, v: 5, score: 99}];
+          function visibleCands() { return cands; }"""
+        got = run_js(["noteFromMark", "noteFromToolbar", "itemsInMark", "insideMark", "pointInPolygon"], prelude, """(() => { const out = [];
+          noteFromMark('m-r'); out.push(opened, AN.note);
+          cands = Array.from({length: 150}, (_, i) => ({id: 'paper:p' + String(i).padStart(3, '0'), u: 0, v: 0, score: i}));
+          noteFromMark('m-big'); out.push(opened.length, opened[0], AN.note);
+          AN.selected = null; S.highlight = new Set(['paper:h']); noteFromToolbar(); out.push(opened);
+          S.highlight = null; S.current = 'paper:c'; noteFromToolbar(); out.push(opened);
+          S.current = null; noteFromToolbar(); out.push(opened);
+          cands = [{id: 'paper:a', u: 0.2, v: 0.2, score: 50}]; AN.selected = 'm-r'; noteFromToolbar(); out.push(opened);
+          return out; })()""")
+        self.assertEqual(got[0], ["paper:b", "paper:a"])                  # highest score first
+        self.assertEqual(got[1], "")
+        self.assertEqual(got[2:5], [100, "paper:p149", "Linked the 100 highest-scored of 150 items in the mark."])
+        self.assertEqual(got[5:8], [["paper:h"], ["paper:c"], []])
+        self.assertEqual(got[8], ["paper:a"])                             # the selected mark comes first
+
+    def test_view_chip_and_image_name(self):
+        got = run_js(["viewChipText", "imageName"], "", """(() => { const views = [{id: 'v1', name: 'Whole library · 1 Nov', marks: [{}]}, {id: 'v2', name: 'B', marks: []}];
+          return [viewChipText(views, 'v1', null), viewChipText(views, 'v1', 'v1'), viewChipText(views, 'v2', null), viewChipText(views, null, null),
+            viewChipText(views, 'gone', null), imageName({name: 'XR/Immersive Security · papers only · 1 Nov'}), imageName(null)]; })()""")
+        self.assertEqual(got[0], "Annotated view: Whole library · 1 Nov · ")
+        self.assertEqual(got[1:5], [None, None, None, None])               # on screen already, no marks, none, or gone
+        self.assertEqual(got[5:], ["library-map-xr-immersive-security-papers-only-1-nov.png", "library-map-view.png"])
+        self.assertIn("viewChipText(", page_function("renderViewChip"))
+        self.assertRegex(TEMPLATE, r'id="view-chip"')
+
+    def test_rename_and_delete_views(self):
+        prelude = """let changed = [], answer = true, asked = null; const window = {confirm: (m) => { asked = m; return answer; }};
+          const AN = {views: [{id: 'v1', name: 'Old', marks: [{}, {}]}, {id: 'v2', name: 'Keep', marks: []}], last: 'v1', onChange: []};
+          function marksChanged(id, before) { changed.push([id, before ? JSON.parse(before).name : null]); }"""
+        got = run_js(["renameView", "deleteView"], prelude, """(() => { const out = [];
+          renameView('v1', '  New name  '); out.push(AN.views[0].name, changed.length);
+          renameView('v1', '   '); renameView('v1', 'x'.repeat(81)); out.push(AN.views[0].name, changed.length);
+          answer = false; deleteView('v1'); out.push(AN.views.length, asked);
+          answer = true; deleteView('v1'); out.push(AN.views.map((v) => v.id), AN.last, changed[changed.length - 1]);
+          return out; })()""")
+        self.assertEqual(got[0:2], ["New name", 1])
+        self.assertEqual(got[2:4], ["New name", 1])                        # blank or too long: not renamed
+        self.assertEqual(got[4:6], [2, "Delete the view New name and its 2 marks?"])
+        self.assertEqual(got[6:], [["v2"], None, ["v1", "New name"]])      # undo can bring it back
+
+    def test_marks_save_when_the_helper_returns(self):
+        # Found in the browser: marks drawn while the helper was down stayed unsaved after it came back.
+        prelude = """let saves = 0; const NT = {serving: false}; const AN = {save: 'off', history: {undo: [{}], redo: []}};
+          function saveMarks() { saves++; }"""
+        got = run_js(["resumeMarksSaving"], prelude, """(() => { const out = [];
+          resumeMarksSaving(); out.push(saves);                 /* still no helper */
+          NT.serving = true; resumeMarksSaving(); out.push(saves);
+          AN.save = 'saved'; resumeMarksSaving(); out.push(saves);
+          AN.save = 'failed'; resumeMarksSaving(); out.push(saves);
+          AN.save = 'off'; AN.history = {undo: [], redo: []}; resumeMarksSaving(); out.push(saves);   /* nothing drawn */
+          return out; })()""")
+        self.assertEqual(got, [0, 1, 1, 2, 2])
+
     def test_globe_hands_drags_to_the_toolbar(self):
         src = page_function("globeInput")
         self.assertIn("GL.input", src)

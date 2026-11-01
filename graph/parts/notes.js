@@ -305,9 +305,12 @@ function renderNotesList() {
     NL.msg ? el("p", { class: "note warn", role: "alert" }, NL.msg) : null,
     search, el("div", { class: "actions" }, sort),
     el("div", { class: "nl-chips" }, chip("All", {}), chip("In a report", { orbit: "inner" }), chip("Backed by papers", { orbit: "middle" }),
-      chip("Ideas", { orbit: "outer" }), ...interests.map((i) => chip(i, { interest: i })), chip("Archived", { archived: true })),
-    rows.length ? null : el("p", { class: "note" }, NT.notes.size ? "No notes match." : "No notes yet. ＋ New note starts one."),
-    ...rows.map((n) => el("div", { class: "nl-row" },
+      chip("Ideas", { orbit: "outer" }), ...interests.map((i) => chip(i, { interest: i })), chip("Archived", { archived: true }),
+      typeof viewRows === "function" ? chip("Views", { views: true }) : null),
+    /* Views: the saved views of marks drawn on the globe, listed with the notes. */
+    ...(NL.filter.views && typeof viewRows === "function" ? viewRows(NL.q) : []),
+    NL.filter.views || rows.length ? null : el("p", { class: "note" }, NT.notes.size ? "No notes match." : "No notes yet. ＋ New note starts one."),
+    ...(NL.filter.views ? [] : rows).map((n) => el("div", { class: "nl-row" },
       el("button", { class: "linkbtn nl-title", on: { click: () => { NL.open = false; openEditor(n.id); } } }, n.title),
       el("div", { class: "note muted" }, ({ inner: "In a report", middle: "Backed by papers", outer: "Idea" })[n.orbit] + " · " + (n.links || []).length + " linked · updated "
         + (n.updated ? shortDate(n.updated.slice(0, 10)) : "never") + ((NT.evidence.get(n.id) || []).length ? " · new evidence" : "")),

@@ -215,7 +215,8 @@ h2:first-child { margin-top: 0; }
 .key { font-weight: 600; white-space: nowrap; }
 #ringkey, #highlight-chip { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); top: 12px; background: var(--surface); border: 1px solid var(--axis); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 #highlight-chip { top: 44px; }
-#ringkey[hidden], #highlight-chip[hidden], #globe-tip[hidden] { display: none; }
+#view-chip { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); top: 76px; background: var(--surface); border: 1px solid var(--axis); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+#ringkey[hidden], #highlight-chip[hidden], #view-chip[hidden], #globe-tip[hidden] { display: none; }
 #globe-tip { position: fixed; z-index: 7; pointer-events: none; background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 9px; font-size: 12.5px; max-width: 300px; box-shadow: 0 2px 10px var(--ring); }
 #globe-legend { left: 12px; bottom: 12px; max-width: min(520px, calc(50% - 170px)); font-size: 12px; color: var(--ink-2); padding: 8px 12px; }
 #globe-notice { right: 12px; bottom: 12px; max-width: min(360px, calc(50% - 170px)); font-size: 12px; color: var(--ink-2); padding: 8px 12px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -312,6 +313,7 @@ h2:first-child { margin-top: 0; }
   <section id="noteslist" class="ocard" aria-label="Notes" hidden></section>
   <div id="ringkey" hidden></div>
   <div id="highlight-chip" hidden></div>
+  <div id="view-chip" hidden></div>
   <section id="globe-legend" class="ocard" aria-label="How to read the globe"></section>
   <div id="globe-notice" class="ocard" aria-live="polite"></div>
   <div id="globe-tip" role="tooltip" hidden></div>

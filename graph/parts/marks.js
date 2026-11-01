@@ -261,6 +261,11 @@ function useFilesMarks() {
   AN.selected = null; AN.save = "saved";
   marksNotify(); globeRequestDraw();
 }
+/* Saving back on (the helper answered again): marks drawn while it was off save now. */
+function resumeMarksSaving() {
+  if (NT.serving && (AN.save === "off" || AN.save === "failed") && AN.history && AN.history.undo.length) saveMarks();
+}
+NT.onChange.push(resumeMarksSaving);
 /* After the file was deleted elsewhere (/reset notes): only on the researcher's word. */
 function saveAgain() {
   AN.version = null;
