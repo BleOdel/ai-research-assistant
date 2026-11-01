@@ -3,7 +3,8 @@
 
 A page opened from disk cannot write files, so `python3 tools/knowledge_graph.py --serve`
 starts this small server. It serves the built page and the PDFs the page links to, and
-accepts note, archive and prompt writes into notes/ - nothing else, nowhere else.
+accepts note, archive, prompt and annotation writes into notes/ - nothing else, nowhere
+else.
 
 Safety:
 - it binds to 127.0.0.1 and answers only requests whose Host is 127.0.0.1:<port> or
@@ -113,12 +114,12 @@ class Handler(BaseHTTPRequestHandler):
             raise Refused(403, "Open the map from the address the helper printed.")
         self.server.last_activity = time.monotonic()
 
-    def read_json(self) -> dict:
+    def read_json(self, limit: int = MAX_BODY) -> dict:
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             raise Refused(400, "The request's length was not valid.") from None
-        if length < 0 or length > MAX_BODY:
+        if length < 0 or length > limit:
             raise Refused(413, "That is too large to save.")
         try:
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -180,8 +181,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             self.require_header_token()
             notes, unreadable = kg_notes.load(root / "notes")
+            marks, marks_version, marks_error = kg_notes.load_annotations(root / "notes")
             return self.send_json(200, {"built": self.built(), "notes": notes, "unreadable": unreadable,
-                                        "prompts": kg_notes.load_prompts(root / "notes")})
+                                        "prompts": kg_notes.load_prompts(root / "notes"), "annotations": marks,
+                                        "annotationsVersion": marks_version, "annotationsError": marks_error})
         raise Refused(404, "Not found.")
 
     def built(self):
@@ -197,10 +200,12 @@ class Handler(BaseHTTPRequestHandler):
         self.require_header_token()
         path = urlsplit(self.path).path
         routes = {"/api/note": self.save_note, "/api/note/archive": self.archive_note,
-                  "/api/prompts": self.save_prompts, "/api/heartbeat": self.heartbeat}
+                  "/api/prompts": self.save_prompts, "/api/annotations": self.save_annotations,
+                  "/api/heartbeat": self.heartbeat}
         if path not in routes:
             raise Refused(404, "Not found.")
-        routes[path](self.read_json())
+        # Marks are one file holding every saved view, so they get a larger limit than a note.
+        routes[path](self.read_json(kg_notes.MAX_ANNOT_BYTES if path == "/api/annotations" else MAX_BODY))
 
     def heartbeat(self, _body):
         self.send_json(200, {"built": self.built()})
@@ -299,6 +304,30 @@ class Handler(BaseHTTPRequestHandler):
         with state.Lock(path):
             state.atomic_write(path, json.dumps(clean, ensure_ascii=False, indent=2) + "\n")
         self.send_json(200, {"prompts": clean})
+
+
+    def save_annotations(self, body):
+        """Save notes/annotations.json whole, against the version the page loaded: the same
+        rules as a note - never over a change made elsewhere, never over a file that cannot
+        be read, never bringing back a file deleted elsewhere."""
+        doc = body.get("annotations")
+        problems = kg_notes.validate_annotations(doc)
+        if problems:
+            raise Refused(400, "Not saved: " + "; ".join(problems[:3]) + ".")
+        path = self.server.root / "notes" / kg_notes.ANNOTATIONS
+        with state.Lock(path):
+            disk, disk_version, error = kg_notes.load_annotations(path.parent)
+            if error:
+                raise Refused(409, f"notes/{kg_notes.ANNOTATIONS} could not be read; fix or remove it first.")
+            given = body.get("version")
+            if disk_version is None and given is not None:
+                raise Refused(409, "Your saved marks were deleted elsewhere.", {"deleted": True})
+            if disk_version != given:
+                raise Refused(409, "Your marks changed somewhere else since this page loaded them.",
+                              {"conflict": True, "disk": disk, "diskVersion": disk_version})
+            text = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+            state.atomic_write(path, text)
+        self.send_json(200, {"version": kg_notes.version(text)})
 
 
 def make_server(root: Path, token: str, port: int = 0) -> ThreadingHTTPServer:

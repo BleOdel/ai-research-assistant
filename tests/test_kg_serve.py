@@ -16,6 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 import kg_serve  # noqa: E402
 
+VIEW = {"id": "v-20261101-a1b2c3", "name": "Whole library · 1 Nov", "created": "2026-11-01T10:00:00Z",
+        "updated": "2026-11-01T10:05:00Z", "camera": {"yaw": -0.6, "pitch": 0.2, "zoom": 1, "panX": 0, "panY": 0},
+        "filters": {"sets": {}}, "marks": [{"id": "m-00000b", "kind": "rect", "colour": 1, "width": 0, "pts": [[0, 0], [0.2, 0.3]]}]}
+
 
 class HelperFixture(unittest.TestCase):
     """A helper serving a temp repo layout on a free port, called over real HTTP."""
@@ -84,7 +88,7 @@ class RequestTests(HelperFixture):
     def test_state(self):
         status, body, _ = self.call("GET", "/api/state", headers={"X-KG-Token": "tok"})
         self.assertEqual(status, 200)
-        self.assertEqual(set(body), {"built", "notes", "unreadable", "prompts"})
+        self.assertEqual(set(body), {"built", "notes", "unreadable", "prompts", "annotations", "annotationsVersion", "annotationsError"})
         self.assertEqual(self.call("GET", "/api/ping", headers={"X-KG-Token": "tok"})[1], {"ok": True})
 
     def test_save_creates_then_conflicts(self):
@@ -186,6 +190,40 @@ class RequestTests(HelperFixture):
         self.assertEqual(st, 500)
         self.assertIn("RuntimeError", r["error"])
         self.assertNotIn("disk on fire", r["error"])
+
+    def test_annotations_save_and_conflict(self):
+        st, r, _ = self.api("/api/annotations", {"annotations": {"views": [VIEW]}, "version": None})
+        self.assertEqual(st, 200)
+        v1 = r["version"]
+        self.assertEqual(json.loads((self.root / "notes" / "annotations.json").read_text())["views"][0]["id"], VIEW["id"])
+        _, s, _ = self.call("GET", "/api/state", headers={"X-KG-Token": "tok"})
+        self.assertEqual((s["annotationsVersion"], s["annotationsError"]), (v1, None))
+        self.assertEqual(s["annotations"]["views"][0]["id"], VIEW["id"])
+        st, r, _ = self.api("/api/annotations", {"annotations": {"views": []}, "version": "stale"})
+        self.assertEqual((st, r["conflict"], r["diskVersion"]), (409, True, v1))
+        self.assertEqual(len(json.loads((self.root / "notes" / "annotations.json").read_text())["views"]), 1)   # not overwritten
+        st, r, _ = self.api("/api/annotations", {"annotations": {"views": []}, "version": v1})
+        self.assertEqual(st, 200)
+        self.assertNotEqual(r["version"], v1)
+
+    def test_annotations_never_overwrite_a_broken_or_deleted_file(self):
+        (self.root / "notes").mkdir(exist_ok=True)
+        (self.root / "notes" / "annotations.json").write_text("{hand-broken")
+        st, r, _ = self.api("/api/annotations", {"annotations": {"views": []}, "version": None})
+        self.assertEqual(st, 409)
+        self.assertIn("could not be read", r["error"])
+        self.assertEqual((self.root / "notes" / "annotations.json").read_text(), "{hand-broken")
+        (self.root / "notes" / "annotations.json").unlink()
+        st, r, _ = self.api("/api/annotations", {"annotations": {"views": []}, "version": "abc"})
+        self.assertEqual((st, r.get("deleted")), (409, True))
+        self.assertFalse((self.root / "notes" / "annotations.json").exists())
+
+    def test_annotations_are_checked(self):
+        self.assertEqual(self.api("/api/annotations", {"annotations": {"views": "no"}, "version": None})[0], 400)
+        self.assertEqual(self.api("/api/annotations", {"annotations": {"views": []}}, token=None)[0], 403)
+        big = {"annotations": {"views": []}, "version": None, "pad": "x" * (300 * 1024)}
+        self.assertEqual(self.api("/api/annotations", big)[0], 200)          # over a note's limit, under the 4 MB one
+        self.assertEqual(self.api("/api/note", big)[0], 413)
 
     def test_prompts_are_checked(self):
         st, r, _ = self.api("/api/prompts", {"prompts": [{"name": "Method", "question": "How?"}]})
