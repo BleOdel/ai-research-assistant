@@ -361,10 +361,14 @@ Leave the tracker itself alone; resetting it is not part of the `reports` scope.
 
 ```bash
 rm -f notes/*.md notes/guide.json notes/annotations.json
+python3 tools/knowledge_graph.py
 ```
 
-Leave the `notes/` folder itself. If the library map's helper is running
-(`graph/.serve.json` exists), the open page will show the notes gone after a reload.
+The rebuild matters: the built page (`graph/index.html`) carries every note's text so it
+can show notes without the helper, so until it is rebuilt the deleted notes would still
+show there. Leave the `notes/` folder itself. If the library map's helper is running, an
+open page with one of the deleted notes in its editor will refuse to save it and offer
+Export or Save as new.
 
 ---
 

@@ -39,6 +39,22 @@ class NoteFormatTests(unittest.TestCase):
                          ["n-20261101-eeeeee.md", "n-20261101-ffffff.md"])
         self.assertTrue(all(b["error"] for b in bad))
 
+    def test_wrong_types_are_unreadable_not_loaded(self):
+        # Review: "updated: 20261101" crashed the whole build; "links: paper:abc" (a plain
+        # string) broke the satellites, the list and Status; an id that is not a note id
+        # loaded a note that could never be saved.
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+        good = kg_notes.render(NOTE)
+        (d / "n-20261101-a1b2c3.md").write_text(good)
+        (d / "n-20261101-aaaaa1.md").write_text(good.replace('"n-20261101-a1b2c3"', '"n-20261101-aaaaa1"').replace('updated: "2026-11-01T10:05:00Z"', "updated: 20261101"))
+        (d / "n-20261101-aaaaa2.md").write_text(good.replace('"n-20261101-a1b2c3"', '"n-20261101-aaaaa2"').replace('links: ["paper:10.1/x", "subarea:XR/Immersive::Eye/gaze"]', "links: paper:abc"))
+        (d / "foo.md").write_text(good.replace('"n-20261101-a1b2c3"', '"foo"'))
+        notes, bad = kg_notes.load(d)
+        self.assertEqual([n["id"] for n in notes], ["n-20261101-a1b2c3"])
+        self.assertEqual(len(bad), 3)
+        self.assertTrue(all(b["error"] for b in bad))
+
     def test_validation(self):
         self.assertEqual(kg_notes.validate(NOTE), [])
         for change in ({"id": "../etc/passwd"}, {"title": ""}, {"title": "x" * 201}, {"links": ["http://x"]},

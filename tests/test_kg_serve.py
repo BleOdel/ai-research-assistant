@@ -62,30 +62,24 @@ class HelperFixture(unittest.TestCase):
 
 
 class RequestTests(HelperFixture):
-    def test_page_needs_the_token_and_sets_the_cookie(self):
+    def test_page_and_pdfs_need_the_token_and_no_cookie_is_set(self):
+        # Review: browsers send 127.0.0.1 cookies to every local server, so a token in a
+        # cookie reached other local web tools. The token stays in the page's own address.
         self.assertEqual(self.call("GET", "/")[0], 403)
         status, _, headers = self.call("GET", "/?t=tok")
         self.assertEqual(status, 200)
-        self.assertIn("HttpOnly", headers["Set-Cookie"])
-        self.assertIn("SameSite=Strict", headers["Set-Cookie"])
-        self.assertEqual(self.call("GET", "/index.html", headers={"Cookie": "kgt=tok"})[0], 200)
+        self.assertIsNone(headers.get("Set-Cookie"))
+        self.assertEqual(self.call("GET", "/index.html", headers={"Cookie": "kgt=tok"})[0], 403)
+        self.assertEqual(self.call("GET", "/api/session", headers={"Cookie": "kgt=tok"})[0], 404)
 
     def test_pdfs_only_from_their_two_folders(self):
-        cookie = {"Cookie": "kgt=tok"}
-        self.assertEqual(self.call("GET", "/research/fulltext/a.pdf", headers=cookie)[0], 200)
-        self.assertEqual(self.call("GET", "/reports/r1/report.pdf", headers=cookie)[0], 200)
+        self.assertEqual(self.call("GET", "/research/fulltext/a.pdf?t=tok")[0], 200)
+        self.assertEqual(self.call("GET", "/reports/r1/report.pdf?t=tok")[0], 200)
         for bad in ("/research/fulltext/../../secret.txt", "/research/fulltext/%2e%2e/%2e%2e/secret.txt",
                     "/reports/r1/../../secret.txt", "/research/seen_sources.json", "/secret.txt",
                     "/reports/r1/notes.pdf"):
-            self.assertEqual(self.call("GET", bad, headers=cookie)[0], 404, bad)
+            self.assertEqual(self.call("GET", bad + "?t=tok")[0], 404, bad)
         self.assertEqual(self.call("GET", "/research/fulltext/a.pdf")[0], 403)
-
-    def test_a_reloaded_page_gets_its_token_back(self):
-        # The page drops the token from the address; after a reload it asks for it again
-        # with the cookie, which only the helper's own pages carry.
-        self.assertEqual(self.call("GET", "/api/session", headers={"Cookie": "kgt=tok"})[1], {"token": "tok"})
-        self.assertEqual(self.call("GET", "/api/session")[0], 403)
-        self.assertEqual(self.call("GET", "/api/session", headers={"Cookie": "kgt=nope"})[0], 403)
 
     def test_state(self):
         status, body, _ = self.call("GET", "/api/state", headers={"X-KG-Token": "tok"})
@@ -121,6 +115,27 @@ class RequestTests(HelperFixture):
         self.assertTrue(r2["note"]["archived"])
         st, r3, _ = self.api("/api/note/archive", {"id": r["note"]["id"], "archived": False, "version": r2["version"]})
         self.assertIsNone(r3["note"]["archived"])
+
+    def test_editing_keeps_archived(self):
+        # Review: the editor's save never sent "archived", so typing in an archived note
+        # restored it silently.
+        st, r, _ = self.api("/api/note", {"note": {"title": "T", "links": [], "body": ""}})
+        st, r2, _ = self.api("/api/note/archive", {"id": r["note"]["id"], "archived": True, "version": r["version"]})
+        draft = {k: r["note"][k] for k in ("id", "title", "links", "in_report", "dismissed", "body")}
+        st, r3, _ = self.api("/api/note", {"note": {**draft, "body": "edited"}, "version": r2["version"]})
+        self.assertEqual(st, 200)
+        self.assertEqual(r3["note"]["archived"], r2["note"]["archived"])
+
+    def test_a_deleted_note_is_not_recreated(self):
+        # Review: a page open on a note deleted elsewhere (/reset notes, by hand) brought it
+        # back on the next autosave.
+        st, r, _ = self.api("/api/note", {"note": {"title": "T", "links": [], "body": ""}})
+        path = self.root / "notes" / f"{r['note']['id']}.md"
+        path.unlink()
+        st, r2, _ = self.api("/api/note", {"note": {**r["note"], "body": "typed after"}, "version": r["version"]})
+        self.assertEqual(st, 409)
+        self.assertTrue(r2["deleted"])
+        self.assertFalse(path.exists())
 
     def test_unreadable_note_is_never_overwritten(self):
         (self.root / "notes").mkdir(exist_ok=True)
@@ -190,6 +205,18 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(second.stdout.strip().splitlines()[-1], addr)        # same helper, not a new one
         self.assertTrue((self.root / "graph" / "index.html").exists())          # it rebuilt on start
         self.wait_until_stopped()                                               # stopped itself when idle
+
+    def test_the_token_is_private_to_this_user(self):
+        # Review: the token was on the helper's command line (visible to every user in ps)
+        # and in a world-readable graph/.serve.json.
+        r = self.run_graph("--serve", "--no-open", env=dict(os.environ, KG_IDLE_SECONDS="3"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        record = json.loads(self.record.read_text())
+        self.assertEqual(self.record.stat().st_mode & 0o077, 0)
+        args = subprocess.run(["ps", "-o", "args=", "-p", str(record["pid"])], capture_output=True, text=True).stdout
+        self.assertTrue(args.strip())
+        self.assertNotIn(record["token"], args)
+        self.wait_until_stopped()
 
     def test_a_stale_record_is_replaced(self):
         self.record.write_text(json.dumps({"port": 1, "token": "x", "pid": 999999, "started": 0}))

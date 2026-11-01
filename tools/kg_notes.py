@@ -146,6 +146,11 @@ def load(folder: Path) -> tuple[list[dict], list[dict]]:
             note = parse(text)
             if note["id"] != path.stem:
                 raise NoteError("the id does not match the file name")
+            # A hand edit can parse yet hold the wrong kinds of value ("updated: 20261101",
+            # "links: paper:abc"); such a note is listed as unreadable, never loaded.
+            problems = validate(note)
+            if problems:
+                raise NoteError("; ".join(problems))
         except (NoteError, OSError, UnicodeDecodeError) as exc:
             unreadable.append({"file": rel, "error": str(exc)})
             continue

@@ -30,6 +30,7 @@ graph/index.html. Stdlib only.
 
 import argparse
 import json
+import os
 import random
 import re
 import sys
@@ -530,7 +531,6 @@ def build_parser() -> argparse.ArgumentParser:
                         help="start the local helper that saves notes, and print its address")
     parser.add_argument("--no-open", action="store_true", help="with --serve: do not open a browser")
     parser.add_argument("--serve-foreground", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--token", help=argparse.SUPPRESS)
     return parser
 
 
@@ -545,10 +545,12 @@ def main(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
 
     if args.serve_foreground:
-        if not args.token:
-            print("--serve-foreground needs --token", file=sys.stderr)
+        # The token arrives in the environment: a command line is visible to every user.
+        token = os.environ.get("KG_SERVE_TOKEN")
+        if not token:
+            print("--serve-foreground is started by --serve", file=sys.stderr)
             return 2
-        kg_serve.run_foreground(ROOT, args.token, rebuild=write_page)
+        kg_serve.run_foreground(ROOT, token, rebuild=write_page)
         return 0
     if args.serve:
         try:

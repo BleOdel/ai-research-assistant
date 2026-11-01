@@ -297,12 +297,14 @@ class BuildTests(GraphFixture):
         (self.root / "notes").mkdir()
         (self.root / "notes" / "n-20261101-a1b2c3.md").write_text(kg_notes.render(note))
         (self.root / "notes" / "n-20261101-ffffff.md").write_text("broken")
+        (self.root / "notes" / "n-20261101-eeeeee.md").write_text(
+            kg_notes.render({**note, "id": "n-20261101-eeeeee"}).replace('updated: "2026-11-01T10:05:00Z"', "updated: 20261101"))
         (self.root / "notes" / "guide.json").write_text('[{"name": "Method", "question": "How was it measured?"}]')
         data = self.build()
         self.assertEqual([n["id"] for n in data["notes"]], ["n-20261101-a1b2c3"])
         self.assertEqual(data["notes"][0]["file"], "notes/n-20261101-a1b2c3.md")
         self.assertEqual(len(data["notes"][0]["version"]), 16)
-        self.assertEqual(len(data["notesUnreadable"]), 1)
+        self.assertEqual(len(data["notesUnreadable"]), 2)   # the broken file and the badly typed one
         self.assertEqual(data["prompts"], [{"name": "Method", "question": "How was it measured?"}])
         self.assertNotIn("<b>", self.page.read_text().split('id="data"', 1)[1].split("</script>", 1)[0])
 
@@ -416,6 +418,9 @@ class DocsDriftTests(unittest.TestCase):
         self.assertIn("Notes reset will delete", text)
         self.assertRegex(text, r"(?s)`all`.*separate.*notes")     # all asks separately before clearing notes
         self.assertIn("DELETE NOTES", text)
+        # Deleting the files is not enough: the built page carries every note's text.
+        notes_reset = text.split("### Notes reset", 1)[1].split("---", 1)[0]
+        self.assertIn("python3 tools/knowledge_graph.py", notes_reset)
 
     def test_every_search_command_refreshes_the_graph(self):
         commands = REPO_ROOT / ".claude" / "commands"

@@ -93,23 +93,33 @@ function markDirty() {
 /* Save the draft. A failure never touches the text: it says why and offers Export. */
 async function saveDraft(opts) {
   if (!NT.serving) { ED.state = "readonly"; renderEditorParts(); return; }
+  /* One save at a time: a second one would carry the old version (a conflict with itself)
+     or, for a new note, create a second file. It runs when this one is done. */
+  if (ED.inFlight) { ED.pending = opts || {}; return; }
   if (!ED.draft.title.trim()) { ED.state = "unsaved"; ED.msg = "Give the note a title to save it."; renderEditorParts(); return; }
   const sent = JSON.stringify(ED.draft), before = ED.id ? noteOrbit(NT.notes.get(ED.id), noteHas) : null;
   ED.state = "saving"; ED.msg = ""; renderEditorParts();
+  ED.inFlight = true;
   const r = await noteApi("/api/note", { note: { ...ED.draft, id: ED.id }, version: ED.version, keepUpdated: !!(opts && opts.keepUpdated) });
+  ED.inFlight = false;
   if (r.status === 200) {
     const note = r.data.note;
     NT.notes.set(note.id, note);
     ED.id = note.id; ED.version = r.data.version; S.note = note.id; writeHash(false);
     NT.dirty = JSON.stringify(ED.draft) !== sent;   /* typed on while it saved */
     ED.state = NT.dirty ? "unsaved" : "saved";
+    if (ED.pending) { const again = ED.pending; ED.pending = null; if (NT.dirty || again.keepUpdated) { saveDraft(again); return; } }
     if (NT.dirty) { clearTimeout(ED.timer); ED.timer = setTimeout(() => saveDraft(), 1500); }
     satMove(note.id, before || "outer", noteOrbit(note, noteHas));
     notesChanged();
+  } else if (r.status === 409 && r.data.deleted) {
+    ED.pending = null; ED.state = "failed";
+    ED.msg = "this note was deleted elsewhere since you opened it. Export keeps a copy; Save as new keeps it as a new note.";
   } else if (r.status === 409 && r.data.conflict) {
+    ED.pending = null;
     ED.state = "conflict"; ED.conflict = { disk: r.data.disk, diskVersion: r.data.diskVersion };
   } else {
-    ED.state = "failed"; ED.msg = (r.data && r.data.error) || "The helper refused the save.";
+    ED.pending = null; ED.state = "failed"; ED.msg = (r.data && r.data.error) || "The helper refused the save.";
   }
   renderEditorParts();
 }
@@ -204,6 +214,7 @@ function renderEditorParts() {
   /* actions */
   const note = ED.id ? NT.notes.get(ED.id) : null;
   E.actions.replaceChildren(
+    ED.state === "failed" && /deleted elsewhere/.test(ED.msg) ? el("button", { on: { click: () => { ED.id = null; ED.version = null; saveDraft(); } } }, "Save as new") : null,
     note ? el("button", { disabled: !saving, on: { click: () => archiveNote(note) } }, note.archived ? "Restore" : "Archive") : null,
     el("button", { on: { click: exportDraft } }, "Export"), el("button", { on: { click: closeEditor } }, "Close"));
 }

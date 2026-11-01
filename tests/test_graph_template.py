@@ -33,7 +33,7 @@ def page_function(name):
 def run_js(names, prelude, expression):
     """Evaluate EXPRESSION in node after PRELUDE and the named page functions."""
     script = prelude + "\n" + "\n".join(page_function(n) for n in names) + \
-        f"\nconsole.log(JSON.stringify({expression}));"
+        f"\nPromise.resolve({expression}).then((v) => console.log(JSON.stringify(v)));"   # awaits async code
     result = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     if result.returncode:
         raise AssertionError(result.stderr)
@@ -825,6 +825,38 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("Write a note about this", page_function("renderSelCard"))
         self.assertIn("notesLine(", page_function("renderMapCard"))
         self.assertIn('["notes", "papers", "linked to"]', PAGE_SOURCE)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_a_save_waits_for_the_one_in_flight(self):
+        # Review: a save scheduled while one was in flight went out with the old version
+        # (a conflict with itself) or, for a new note, created a second file.
+        prelude = """let calls = [], release; const NT = {serving: true, dirty: true, notes: new Map()}; const S = {};
+          const ED = {id: null, version: null, draft: {title: 'T', body: 'a', links: [], in_report: null, dismissed: []}, state: 'unsaved', msg: ''};
+          function renderEditorParts() {} function noteOrbit() { return 'outer'; } function noteHas() { return true; }
+          function satMove() {} function notesChanged() {} function writeHash() {}
+          function noteApi(path, body) { calls.push(JSON.parse(JSON.stringify(body))); return new Promise((r) => { release = () => r({status: 200,
+            data: {note: {...body.note, id: body.note.id || 'n-20261101-000001'}, version: 'v' + calls.length}}); }); }"""
+        got = run_js(["saveDraft"], prelude, """(async () => {
+          const first = saveDraft(); ED.draft.body = 'ab'; NT.dirty = true; const second = saveDraft();
+          const during = calls.length; release(); await first; await second; await new Promise((r) => setTimeout(r, 0));
+          if (calls.length > 1) { release(); await new Promise((r) => setTimeout(r, 0)); }
+          return [during, calls.length, calls[1] && calls[1].note.id, calls[1] && calls[1].version, ED.draft.body]; })()""")
+        self.assertEqual(got, [1, 2, "n-20261101-000001", "v1", "ab"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_heartbeat_turns_saving_back_on(self):
+        # Review: one failed heartbeat (a laptop waking from sleep) left saving off for good.
+        prelude = """let answer = {status: 0, data: {}}; const NT = {serving: true, built: 1, onChange: []};
+          function noteApi() { return Promise.resolve(answer); } function notesChanged() {} function showRebuilt() {}"""
+        got = run_js(["beatAndCheck"], prelude, """(async () => { await beatAndCheck(); const off = NT.serving;
+          answer = {status: 200, data: {built: 1}}; await beatAndCheck(); return [off, NT.serving]; })()""")
+        self.assertEqual(got, [False, True])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_pdf_links_carry_the_token(self):
+        got = run_js(["pdfHref"], "const NT = {token: 'abc'};", "[pdfHref('../research/fulltext/a b.pdf'), pdfHref(null)]")
+        self.assertEqual(got, ["../research/fulltext/a b.pdf?t=abc", None])
+        self.assertNotIn("/api/session", PAGE_SOURCE)
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]

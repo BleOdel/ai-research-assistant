@@ -27,9 +27,14 @@ Design, 2026-10-30. Builds on the library knowledge graph
   new evidence, the notes list, `/reset notes`. Decisions made while building it:
   - note files are `notes/n-YYYYMMDD-xxxxxx.md` with JSON values in the front matter;
     sub-area links are `subarea:<interest>::<sub-area>`, since names contain "/";
-  - the helper takes its token once from the address, then a SameSite=Strict cookie; every
-    write needs the token in a header, a 127.0.0.1/localhost Host and no foreign Origin; a
-    reloaded page gets its token back through the cookie;
+  - the token stays in the page's address (no cookie: browsers send 127.0.0.1 cookies to
+    every local server), and the page adds it to its PDF links; every write needs the token
+    in a header, a 127.0.0.1/localhost Host and no foreign Origin; the helper gets the token
+    through its environment, not its command line, and `graph/.serve.json` is readable by
+    this user only;
+  - an edit never changes whether a note is archived, and a note deleted elsewhere is never
+    recreated by a save (the page offers Export or Save as new); `/reset notes` rebuilds the
+    page so deleted notes do not linger in it;
   - new evidence and suggested papers are computed in the page with one matcher, so they
     never disagree; the word list is plain English only, rarity does the rest;
   - a note pulses three times when the map opens, then keeps a ring; the editor shows the

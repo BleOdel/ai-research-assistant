@@ -54,6 +54,10 @@ function orbitWords(note, has, reportTitle) {
 function noteHas(id) { return byId.has(id) || !!labOf(id); }
 function reportTitleOf(slug) { const r = byId.get("report:" + slug); return r ? r.title : slug; }
 function notesChanged() { for (const fn of NT.onChange) fn(); }
+/* A PDF link, opened through the helper: it needs the token like the page did. */
+function pdfHref(url) {
+  return url && NT.token ? url + "?t=" + encodeURIComponent(NT.token) : url;
+}
 
 /* ---------- the helper ---------- */
 /* Never throws: a helper that has stopped answers {status: 0}. */
@@ -75,16 +79,9 @@ function setNotes(list) {
 async function notesInit() {
   setNotes(D.notes || []); NT.unreadable = D.notesUnreadable || []; NT.prompts = D.prompts || [];
   if (location.protocol === "http:" || location.protocol === "https:") {
-    const url = new URL(location.href), t = url.searchParams.get("t");
-    if (t) {
-      NT.token = t;
-      /* The token leaves the address at once, so no bookmark or screenshot carries it. */
-      url.searchParams.delete("t");
-      history.replaceState(null, "", url.pathname + url.search + location.hash);
-    } else {
-      const s = await noteApi("/api/session");   /* after a reload: the cookie gets it back */
-      if (s.status === 200) NT.token = s.data.token;
-    }
+    /* The token stays in this page's address, so a reload keeps saving on. It is never
+       stored or sent anywhere but this helper; it changes every time the helper starts. */
+    NT.token = new URL(location.href).searchParams.get("t");
   }
   if (NT.token) {
     const st = await noteApi("/api/state");
@@ -99,7 +96,9 @@ async function notesInit() {
 /* Every minute: keep the helper awake, and notice a rebuild made by another command. */
 async function beatAndCheck() {
   const r = await noteApi("/api/heartbeat", {});
-  if (r.status !== 200) { NT.serving = false; notesChanged(); return; }
+  if (r.status !== 200) { if (NT.serving) { NT.serving = false; notesChanged(); } return; }
+  /* back after a gap (a laptop waking from sleep): saving comes back on */
+  if (!NT.serving) { NT.serving = true; notesChanged(); }
   if (NT.built != null && r.data.built != null && r.data.built !== NT.built) showRebuilt();
 }
 function showRebuilt() {

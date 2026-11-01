@@ -129,8 +129,8 @@ map" card or "Write a note about this" on a paper's card; the notes list (from t
 - **Saving.** Notes are Markdown files in `notes/` (gitignored), one per note, with a
   small front-matter block; your custom prompts are `notes/guide.json`. The page saves
   them through a helper that `/graph` starts (`python3 tools/knowledge_graph.py --serve`,
-  `tools/kg_serve.py`). It listens on 127.0.0.1 only, needs a random token that leaves the
-  address bar as soon as the page loads, writes only into `notes/` (atomically), serves
+  `tools/kg_serve.py`). It listens on 127.0.0.1 only, needs a random token (new every time it
+  starts, kept in the page's address and nowhere else), writes only into `notes/` (atomically), serves
   the page and the PDFs it links to read-only, and stops 30 minutes after the page
   closes. A note edited somewhere else since you opened it is never overwritten: the page
   shows both versions and you choose. A link to something the library no longer has is

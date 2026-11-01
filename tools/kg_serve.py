@@ -10,8 +10,12 @@ Safety:
   localhost:<port> (so a web page cannot reach it through a DNS trick);
 - every write needs the run's random token in an X-KG-Token header, which a page on
   another site cannot set, and a request carrying a foreign Origin is refused;
-- the page and the PDFs need the token once in the address; the helper then sets an
-  HttpOnly, SameSite=Strict cookie so the page's PDF links work;
+- the page and the PDFs need the token in their address (?t=); there is no cookie,
+  because browsers send 127.0.0.1 cookies to every local server, so a cookie would hand
+  the token to other local web tools;
+- the token reaches the background helper through its environment, not its command line
+  (which every user on the machine can list), and graph/.serve.json is readable by this
+  user only;
 - file names come from the note id (checked against kg_notes.ID_RE), never from the
   request path; PDFs are served read-only from research/fulltext/ and
   reports/<slug>/report.pdf only, after resolving the path inside those folders;
@@ -28,11 +32,11 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 import webbrowser
 from datetime import datetime, timezone
-from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -99,13 +103,9 @@ class Handler(BaseHTTPRequestHandler):
     def token_ok(self, value) -> bool:
         return isinstance(value, str) and secrets.compare_digest(value, self.server.token)
 
-    def page_token_ok(self) -> tuple[bool, bool]:
-        """(authorised, came from the address) for the page and its PDFs."""
-        q = parse_qs(urlsplit(self.path).query).get("t", [None])[0]
-        if self.token_ok(q):
-            return True, True
-        jar = cookies.SimpleCookie(self.headers.get("Cookie", ""))
-        return (self.token_ok(jar["kgt"].value) if "kgt" in jar else False), False
+    def page_token_ok(self) -> bool:
+        """The page and its PDFs carry the token in their address."""
+        return self.token_ok(parse_qs(urlsplit(self.path).query).get("t", [None])[0])
 
     def require_header_token(self):
         if not self.token_ok(self.headers.get("X-KG-Token")):
@@ -138,18 +138,16 @@ class Handler(BaseHTTPRequestHandler):
         self.check_host()
         root, path = self.server.root, urlsplit(self.path).path
         if path in ("/", "/index.html"):
-            ok, from_address = self.page_token_ok()
-            if not ok:
+            if not self.page_token_ok():
                 raise Refused(403, "Open the map from the address the helper printed.")
             self.server.last_activity = time.monotonic()
             page = root / "graph" / "index.html"
             if not page.is_file():
                 raise Refused(503, "The map is not built yet: run python3 tools/knowledge_graph.py.")
-            cookie = {"Set-Cookie": f"kgt={self.server.token}; HttpOnly; SameSite=Strict; Path=/"} if from_address else None
-            return self.send_file(page, "text/html; charset=utf-8", cookie)
+            return self.send_file(page, "text/html; charset=utf-8")
         pdf = PDF_FULLTEXT.match(path) or PDF_REPORT.match(path)
         if pdf:
-            if not self.page_token_ok()[0]:
+            if not self.page_token_ok():
                 raise Refused(403, "Open the map from the address the helper printed.")
             self.server.last_activity = time.monotonic()
             if PDF_FULLTEXT.match(path):
@@ -160,13 +158,6 @@ class Handler(BaseHTTPRequestHandler):
             if not (target.is_relative_to(folder.resolve()) and target.suffix.lower() == ".pdf" and target.is_file()):
                 raise Refused(404, "Not found.")
             return self.send_file(target, "application/pdf")
-        if path == "/api/session":
-            # A reloaded page has lost the token from its address; the cookie (sent only
-            # by this helper's own pages, SameSite=Strict) gets it back.
-            if not self.page_token_ok()[0]:
-                raise Refused(403, "Open the map from the address the helper printed.")
-            self.server.last_activity = time.monotonic()
-            return self.send_json(200, {"token": self.server.token})
         if path == "/api/ping":
             self.require_header_token()
             return self.send_json(200, {"ok": True})
@@ -206,6 +197,10 @@ class Handler(BaseHTTPRequestHandler):
     def current(self, path: Path, version) -> dict | None:
         """The note on disk, after checking the save was made against it."""
         if not path.exists():
+            # Saved against a version, yet gone: deleted elsewhere (/reset notes, by hand).
+            # Never bring it back silently.
+            if version is not None:
+                raise Refused(409, "This note was deleted elsewhere since you opened it.", {"deleted": True})
             return None
         text = path.read_text(encoding="utf-8")
         try:
@@ -249,6 +244,8 @@ class Handler(BaseHTTPRequestHandler):
             note["body"] = given.get("body", "")
             note["extra"] = disk["extra"] if disk else []
             note["created"] = (disk or {}).get("created") or given.get("created") or now
+            # Archiving belongs to /api/note/archive; an edit never changes it.
+            note["archived"] = (disk or {}).get("archived")
             note["updated"] = ((disk or {}).get("updated") or given.get("updated") or now) if body.get("keepUpdated") else now
             for key in ("links", "dismissed"):
                 note[key] = note[key] if note[key] is not None else []
@@ -348,9 +345,8 @@ def start(root: Path, open_browser: bool) -> str:
     record = running(root)
     if record is None:
         token = secrets.token_hex(16)
-        subprocess.Popen([sys.executable, str(Path(root) / "tools" / "knowledge_graph.py"),
-                          "--serve-foreground", "--token", token],
-                         cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        subprocess.Popen([sys.executable, str(Path(root) / "tools" / "knowledge_graph.py"), "--serve-foreground"],
+                         cwd=root, env={**os.environ, "KG_SERVE_TOKEN": token}, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
@@ -370,13 +366,25 @@ def start(root: Path, open_browser: bool) -> str:
     return address(record)
 
 
+def _write_private(path: Path, text: str) -> None:
+    """Write atomically, readable by this user only: the record holds the token."""
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")   # mode 0600
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
 def run_foreground(root: Path, token: str, rebuild) -> None:
     """The helper itself: rebuild the page, serve until idle, then tidy up."""
     rebuild()
     server = make_server(root, token)
     server.timeout = 1
     record = {"port": server.server_address[1], "token": token, "pid": os.getpid(), "started": time.time()}
-    state.atomic_write(serve_file(root), json.dumps(record) + "\n")
+    _write_private(serve_file(root), json.dumps(record) + "\n")
     try:
         while time.monotonic() - server.last_activity <= idle_seconds():
             server.handle_request()

@@ -1319,7 +1319,7 @@ function paperDetail(n) {
       ["Lab", n.labs && n.labs.length ? labsOf(n) : "No author data"],
       ["Cites", n.citesIn ? countBtn(lineage.up, "Library papers this one cites", plural(n.citesIn, "library paper")) : "No library papers"],
       ["Cited by", n.citedByIn ? countBtn(lineage.down, "Library papers citing this one", plural(n.citedByIn, "library paper")) : "No library papers"],
-      ["Links", [link("Source", n.url), n.pdf ? " · " : null, n.pdf ? link("Saved PDF", n.pdf) : null]]]),
+      ["Links", [link("Source", n.url), n.pdf ? " · " : null, n.pdf ? link("Saved PDF", pdfHref(n.pdf)) : null]]]),
     n.matchedByName ? el("p", { class: "small muted" }, "Some authors were matched to the library by name only, so their lab may be wrong.") : null,
     n.reports && n.reports.length ? el("div", {}, el("h2", {}, "Used in"), el("ul", {}, n.reports.map((r) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select("report:" + r.slug) } }, r.title), el("div", { class: "small muted" }, r.sections.join("; ")))))) : null,
     el("div", { class: "actions" },
@@ -1399,7 +1399,7 @@ function reportDetail(r) {
   const cited = ITEMS.filter((n) => (n.reports || []).some((x) => x.slug === r.slug)).map((n) => n.id);
   const qs = D.nodes.filter((g) => g.type === "gap" && g.report === r.slug);
   return el("div", {}, el("span", { class: "tag" }, "Report"), el("h3", {}, r.title),
-    dl([["Library papers cited", countBtn(cited, "Cited in " + r.title)], ["Open questions", el("button", { class: "linkbtn", title: "Highlight them in the Gaps view", on: { click: () => { setView("gaps"); highlightSet(qs.map((g) => g.id), "open questions in " + r.title); } } }, String(qs.length))], ["PDF", r.pdf ? link("Open report", r.pdf) : "Not compiled"]]),
+    dl([["Library papers cited", countBtn(cited, "Cited in " + r.title)], ["Open questions", el("button", { class: "linkbtn", title: "Highlight them in the Gaps view", on: { click: () => { setView("gaps"); highlightSet(qs.map((g) => g.id), "open questions in " + r.title); } } }, String(qs.length))], ["PDF", r.pdf ? link("Open report", pdfHref(r.pdf)) : "Not compiled"]]),
     el("div", { class: "actions" }, el("button", { on: { click: () => highlightSet(cited, "papers cited in " + r.title) } }, "Highlight its papers")),
     qs.length ? el("div", {}, el("h2", {}, "Open questions"), el("ul", {}, qs.map((g) => el("li", {}, el("button", { class: "linkbtn", on: { click: () => select(g.id) } }, g.text))))) : null);
 }
