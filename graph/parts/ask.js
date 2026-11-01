@@ -37,6 +37,13 @@ function parseQuestion(q, ctx) {
     return { ok: false, message, closest };
   };
   let m;
+  /* questions about the notes: answered from the notes, not the filtered items */
+  if (/\bnotes? with new evidence\b/.test(text)) {
+    return { ok: true, notes: true, ids: (ctx.notes || []).filter((n) => n.evidence > 0).map((n) => n.id), steps: ["Notes with new evidence"] };
+  }
+  if (/\b(?:notes?|ideas?) with no papers?\b/.test(text)) {
+    return { ok: true, notes: true, ids: (ctx.notes || []).filter((n) => n.orbit === "outer").map((n) => n.id), steps: ["Notes in the outer orbit: no papers linked"] };
+  }
   if ((m = text.match(/same (?:lab|research group) as (.+)$/))) {
     const t = titleMatch(m[1]);
     if (t.error) return nope(t.error);
@@ -149,7 +156,8 @@ function askContext() {
     ASK_CITES = new Map();
     for (const e of D.edges) if (e.type === "cites") { if (!ASK_CITES.has(e.source)) ASK_CITES.set(e.source, []); ASK_CITES.get(e.source).push(e.target); }
   }
-  return { items: ITEMS, interests: D.interests, labs: D.labs, gaps: D.gaps, since: S.since, citesOf: (it) => ASK_CITES.get(it.id) || [] };
+  return { items: ITEMS, interests: D.interests, labs: D.labs, gaps: D.gaps, since: S.since, citesOf: (it) => ASK_CITES.get(it.id) || [],
+    notes: [...NT.notes.values()].filter((n) => !n.archived).map((n) => ({ id: n.id, orbit: noteOrbit(n, noteHas), evidence: (NT.evidence.get(n.id) || []).length })) };
 }
 function runAsk(q) {
   ASK.q = q;
@@ -161,7 +169,12 @@ function renderAsk() {
   const input = el("input", { type: "search", class: "ask", value: ASK.q, placeholder: examples[0], "aria-label": "Ask about your library",
     on: { keydown: (e) => { if (e.key === "Enter") runAsk(e.target.value); } } });
   const out = [];
-  if (r && r.ok) {
+  if (r && r.ok && r.notes) {
+    out.push(el("p", {}, el("strong", {}, plural(r.ids.length, "note")), " answer \"", ASK.q, "\":"),
+      el("ol", { class: "small" }, ...r.steps.map((s) => el("li", {}, s))),
+      el("div", { class: "actions" }, el("button", { on: { click: () => { setTab("overview", true); openNotesList({ ids: r.ids }); } } }, "Show in the notes list"),
+        el("button", { on: { click: () => runAsk("") } }, "Clear")));
+  } else if (r && r.ok) {
     out.push(el("p", {}, el("strong", {}, plural(r.ids.length, "item")), " answer \"", ASK.q, "\":"),
       el("ol", { class: "small" }, ...r.steps.map((s) => el("li", {}, s))),
       el("div", { class: "actions" },

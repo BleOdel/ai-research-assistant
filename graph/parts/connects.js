@@ -10,9 +10,10 @@ const SCHEMA_LINKS = [
   ["subareas", "interests", "part of"], ["papers", "papers", "cites"],
   ["papers", "groups", "from"], ["papers", "reports", "used in"],
   ["gaps", "subareas", "about"], ["gaps", "reports", "open question in"],
+  ["notes", "papers", "linked to"], ["notes", "reports", "written into"],
 ];
 const SCHEMA_KINDS = [
-  ["interests", "Research interests", 360, 40], ["subareas", "Sub-areas", 360, 140],
+  ["interests", "Research interests", 360, 40], ["subareas", "Sub-areas", 360, 140], ["notes", "Your notes", 110, 140],
   ["papers", "Papers", 230, 255], ["web", "Web sources", 570, 255],
   ["groups", "Research groups", 95, 375], ["reports", "Your reports", 285, 375], ["gaps", "Gaps", 555, 375],
 ];
@@ -23,7 +24,7 @@ function schemaCounts(data) {
     subareas: data.nodes.filter((n) => n.type === "subarea" && !/__(unlabelled|unassigned|stale)$/.test(String(n.id))).length,
     papers: by("paper"), web: by("web"),
     groups: data.labs.filter((l) => l.papers.length > 1).length, reports: by("report"), gaps: by("gap"),
-    cites: data.edges.filter((e) => e.type === "cites").length };
+    cites: data.edges.filter((e) => e.type === "cites").length, notes: (data.notes || []).filter((n) => !n.archived).length };
 }
 /* What "Show on the map" will show under the current filters, and what they hide. */
 function showOnMapLabel(shown, total) {
@@ -33,7 +34,7 @@ function showOnMapLabel(shown, total) {
 }
 const CN = { on: null };
 function renderConnects() {
-  const pane = $("#tab-connects"), counts = schemaCounts(D);
+  const pane = $("#tab-connects"), counts = schemaCounts({ ...D, notes: [...NT.notes.values()] });
   const pos = Object.fromEntries(SCHEMA_KINDS.map(([k, , x, y]) => [k, [x, y]]));
   const name = Object.fromEntries(SCHEMA_KINDS.map(([k, label]) => [k, label]));
   const svg = svgEl("svg", { id: "schema", viewBox: "0 0 720 420", role: "img", "aria-label": "The kinds of thing in your library and how they link" });
@@ -69,6 +70,7 @@ function renderConnects() {
       groups: ["Open the Research groups view", () => { setTab("explore", true); setView("groups"); }],
       reports: ["Open the Library view", () => { setTab("explore", true); setView("library"); }],
       gaps: ["Open the Gaps view", () => { setTab("explore", true); setView("gaps"); }],
+      notes: ["Open the notes list", () => { setTab("overview", true); openNotesList({}); }],
     }[key];
     detail.append(el("h3", {}, name[key] + " · " + counts[key].toLocaleString()),
       el("p", { class: "small muted", style: "margin:0 0 4px" }, "Connects to:"),

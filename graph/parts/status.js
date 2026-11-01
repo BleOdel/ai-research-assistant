@@ -2,7 +2,8 @@
 
    Every problem sits next to the command that fixes it. */
 
-function statusRows(data, counts) {
+function statusRows(data, counts, notesInfo) {
+  const ni = notesInfo || { serving: false, missing: 0 }, notes = data.notes || [], bad = data.notesUnreadable || [];
   const m = data.meta, cov = m.coverage || {}, lab = m.labels || {}, warn = m.warnings || [];
   const n = (v) => (v || 0).toLocaleString();
   const missing = (cov.notFound || 0) + (cov.mismatch || 0) + (cov.noId || 0) + (cov.notFetched || 0);
@@ -21,6 +22,12 @@ function statusRows(data, counts) {
       fix: "Run /rank, which labels what it scores." },
     { label: "Citation links", value: n(data.edges.filter((e) => e.type === "cites").length), problem: false, fix: "" },
     { label: "When it next refreshes", value: "After your next /research, /rank, /synthesize, /update or /websearch, or when you run /graph.", problem: false, fix: "" },
+    { label: "Notes", value: n(notes.length) + " notes · " + n(notes.filter((x) => x.archived).length) + " archived · "
+      + n(ni.missing) + " with missing links" + (bad.length ? " · " + n(bad.length) + " could not be read: " + bad.map((b) => b.file).join(", ") : ""),
+    problem: bad.length > 0 || ni.missing > 0,
+    fix: "Fix or remove the files that could not be read; open a note with missing links to remove them." },
+    { label: "Saving", value: ni.serving ? "on (the helper is running)" : "off: the page was opened from disk", problem: !ni.serving,
+      fix: "Run python3 tools/knowledge_graph.py --serve, then open the address it prints." },
     { label: "Warnings from the build", value: warn.length ? warn.join("; ") : "None", problem: warn.length > 0,
       fix: "The rest of the map was built; fix the file the warning names and run /graph again." },
   ];
@@ -32,7 +39,9 @@ function statusCounts() {
   return { shown, shortlist, offTopic, other: Math.max(0, ITEMS.length - shown - shortlist - offTopic) };
 }
 function renderStatus() {
-  const rows = statusRows(D, statusCounts());
+  const notes = [...NT.notes.values()];
+  const rows = statusRows({ ...D, notes, notesUnreadable: NT.unreadable }, statusCounts(),
+    { serving: NT.serving, missing: notes.filter((x) => resolveLinks(x, noteHas).some((l) => l.missing)).length });
   const fixCell = (text) => {
     const td = el("td", { class: "fix" });
     /* Commands in a fix read as code, so they can be copied exactly. */

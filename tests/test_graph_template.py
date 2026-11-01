@@ -433,7 +433,7 @@ class TemplateTests(unittest.TestCase):
              'labs: [{papers:[1,2]},{papers:[3]}]}')
         got = run_js(["schemaCounts"], "", f"schemaCounts({d})")
         self.assertEqual(got, {"interests": 1, "subareas": 2, "papers": 1, "web": 1, "groups": 1,
-                               "reports": 1, "gaps": 1, "cites": 2})
+                               "reports": 1, "gaps": 1, "cites": 2, "notes": 0})
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_status_rows_pair_problems_with_fixes(self):
@@ -780,6 +780,51 @@ class TemplateTests(unittest.TestCase):
         # 27 related papers once filled the editor with check rows.
         got = run_js(["evidenceRows"], "", "[evidenceRows([1, 2, 3, 4, 5], false), evidenceRows([1, 2, 3, 4, 5], true), evidenceRows([1, 2], false)]")
         self.assertEqual(got, [{"shown": [1, 2, 3], "more": 2}, {"shown": [1, 2, 3, 4, 5], "more": 0}, {"shown": [1, 2], "more": 0}])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_notes_line_and_filter(self):
+        got = run_js(["notesLine", "filterNotes"], "", """[notesLine(6, 1), notesLine(1, 0), notesLine(0, 0),
+          filterNotes([{id: 'a', title: 'Gaze', body: '', orbit: 'outer', archived: null}, {id: 'b', title: 'x', body: 'gaze too', orbit: 'middle', archived: null},
+                       {id: 'c', title: 'Gaze old', body: '', orbit: 'outer', archived: '2026-10-01'}], 'GAZE', {}).map((n) => n.id),
+          filterNotes([{id: 'a', orbit: 'outer', title: '', body: '', archived: null}, {id: 'c', orbit: 'outer', title: '', body: '', archived: '2026-01-01'}], '', {archived: true}).map((n) => n.id),
+          filterNotes([{id: 'a', orbit: 'outer', title: '', body: '', archived: null, interest: 'X'}, {id: 'b', orbit: 'middle', title: '', body: '', archived: null, interest: 'Y'}], '', {orbit: 'middle'}).map((n) => n.id),
+          filterNotes([{id: 'a', orbit: 'outer', title: '', body: '', archived: null, interest: 'X'}, {id: 'b', orbit: 'middle', title: '', body: '', archived: null, interest: 'Y'}], '', {interest: 'X'}).map((n) => n.id),
+          filterNotes([{id: 'a', orbit: 'outer', title: '', body: '', archived: null}, {id: 'b', orbit: 'outer', title: '', body: '', archived: null}], '', {ids: ['b']}).map((n) => n.id)]""")
+        self.assertEqual(got, ["✦ 6 notes · 1 with new evidence", "✦ 1 note", "No notes yet", ["a", "b"], ["c"], ["b"], ["a"], ["b"]])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_status_reports_notes(self):
+        d = ('{meta: {built: "2026-11-01", newSince: "2026-10-24", warnings: [], coverage: {}, labels: {}, counts: {}}, edges: [], '
+             'notes: [{}, {archived: "2026-10-01"}], notesUnreadable: [{file: "notes/n-x.md", error: "no front matter"}]}')
+        rows = run_js(["statusRows"], "", f"statusRows({d}, {{shown: 1, shortlist: 0, offTopic: 0, other: 0}}, {{serving: false, missing: 1}})")
+        by = {r["label"]: r for r in rows}
+        self.assertIn("2 notes", by["Notes"]["value"])
+        self.assertIn("1 archived", by["Notes"]["value"])
+        self.assertIn("1 could not be read: notes/n-x.md", by["Notes"]["value"])
+        self.assertIn("1 with missing links", by["Notes"]["value"])
+        self.assertTrue(by["Notes"]["problem"])
+        self.assertIn("python3 tools/knowledge_graph.py --serve", by["Saving"]["fix"])
+        on = run_js(["statusRows"], "", f"statusRows({d}, {{shown: 1, shortlist: 0, offTopic: 0, other: 0}}, {{serving: true, missing: 0}})")
+        self.assertEqual({r["label"]: r for r in on}["Saving"]["value"], "on (the helper is running)")
+        two = run_js(["statusRows"], "", f"statusRows({d}, {{shown: 1, shortlist: 0, offTopic: 0, other: 0}})")   # Part 1's call
+        self.assertIn("Saving", {r["label"] for r in two})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_ask_about_notes(self):
+        ctx = """{since: "2026-10-01", interests: [{name: "XR Security"}], gaps: [], labs: [], items: [],
+          notes: [{id: "n1", orbit: "outer", evidence: 0}, {id: "n2", orbit: "middle", evidence: 2}]}"""
+        prelude = "function passes() { return true; } function isNew() { return false; } const S = {};"
+        got = run_js(["parseQuestion", "askExamples"], prelude,
+                     f"[parseQuestion('notes with new evidence', {ctx}), parseQuestion('notes with no papers', {ctx}), parseQuestion('ideas with no papers', {ctx})]")
+        self.assertEqual((got[0]["ids"], got[0]["steps"], got[0]["notes"]), (["n2"], ["Notes with new evidence"], True))
+        self.assertEqual((got[1]["ids"], got[1]["steps"]), (["n1"], ["Notes in the outer orbit: no papers linked"]))
+        self.assertEqual(got[2]["ids"], ["n1"])
+
+    def test_notes_on_the_page(self):
+        self.assertRegex(TEMPLATE, r'id="noteslist"')
+        self.assertIn("Write a note about this", page_function("renderSelCard"))
+        self.assertIn("notesLine(", page_function("renderMapCard"))
+        self.assertIn('["notes", "papers", "linked to"]', PAGE_SOURCE)
 
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]

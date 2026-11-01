@@ -162,6 +162,12 @@ h2:first-child { margin-top: 0; }
 .ocard .steps .linkbtn { padding: 3px 0; }
 #mapcard { top: 12px; left: 12px; width: 300px; max-height: calc(100% - 150px); overflow: auto; }
 #selcard { top: 12px; right: 12px; width: 320px; max-height: calc(100% - 150px); overflow: auto; }
+#noteslist { top: 12px; right: 12px; width: 340px; max-height: calc(100% - 150px); overflow: auto; }
+#noteslist input[type=search] { width: 100%; padding: 4px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); }
+#noteslist .nl-chips { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; margin: 4px 0 8px; }
+#noteslist .nl-chips [aria-pressed="true"] { color: var(--ink); font-weight: 600; text-decoration: none; }
+#noteslist .nl-row { border-top: 1px solid var(--hair); padding: 6px 0; }
+#noteslist .nl-title { font-weight: 600; text-decoration: none; color: var(--ink); }
 #noteeditor { top: 12px; right: 12px; width: 380px; max-height: calc(100% - 150px); overflow: auto; }
 #noteeditor .ed-title { width: 100%; font-weight: 600; padding: 5px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); margin-top: 6px; }
 #noteeditor .ed-body { width: 100%; margin-top: 6px; padding: 6px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--plane); font: 13px/1.5 system-ui; resize: vertical; }
@@ -257,6 +263,7 @@ h2:first-child { margin-top: 0; }
   <section id="mapcard" class="ocard" aria-label="On your map"></section>
   <section id="selcard" class="ocard" aria-label="Selected item" aria-live="polite" hidden></section>
   <section id="noteeditor" class="ocard" aria-label="Note" hidden></section>
+  <section id="noteslist" class="ocard" aria-label="Notes" hidden></section>
   <div id="ringkey" hidden></div>
   <div id="highlight-chip" hidden></div>
   <section id="globe-legend" class="ocard" aria-label="How to read the globe"></section>

@@ -232,3 +232,65 @@ function satMove(id, from, to) {
 }
 GL.overlays.push({ draw: drawSatellites, hit: satHit });
 NT.onChange.push(() => globeRequestDraw());
+
+/* ---------- the notes list: the precise counterpart to the satellites ---------- */
+function notesLine(total, withEvidence) {
+  if (!total) return "No notes yet";
+  return "✦ " + total + " " + (total === 1 ? "note" : "notes") + (withEvidence ? " · " + withEvidence + " with new evidence" : "");
+}
+/* Q matches the title and the text, ignoring case. FILTER: {orbit, interest, archived, ids}.
+   Archived notes show only when asked for. */
+function filterNotes(notes, q, filter) {
+  const f = filter || {}, needle = String(q || "").toLowerCase();
+  return notes.filter((n) => (f.archived ? !!n.archived : !n.archived)
+    && (!f.orbit || n.orbit === f.orbit) && (!f.interest || n.interest === f.interest)
+    && (!f.ids || f.ids.includes(n.id))
+    && (!needle || (String(n.title || "") + "\n" + String(n.body || "")).toLowerCase().includes(needle)));
+}
+function noteInterest(note) {
+  for (const l of note.links || []) { const n = byId.get(linkNodeId(l)); if (n && (n.type === "paper" || n.type === "web")) return interestOf(n); }
+  return null;
+}
+const NL = { open: false, q: "", filter: {}, sort: "updated" };
+MIN_CARDS.push("noteslist");
+function openNotesList(filter) {
+  NL.open = true; NL.filter = filter || {}; NL.q = "";
+  if (S.min.cards.noteslist) { S.min.cards.noteslist = false; applyMin(true); }
+  renderNotesList();
+}
+function renderNotesList() {
+  const card = $("#noteslist");
+  if (!NL.open || (typeof editorOpen === "function" && editorOpen())) { card.hidden = true; return; }
+  card.hidden = false;
+  const all = [...NT.notes.values()].map((n) => ({ ...n, orbit: noteOrbit(n, noteHas), interest: noteInterest(n) }));
+  const rows = filterNotes(all, NL.q, NL.filter).sort((a, b) => NL.sort === "title" ? a.title.localeCompare(b.title)
+    : NL.sort === "orbit" ? ["inner", "middle", "outer"].indexOf(a.orbit) - ["inner", "middle", "outer"].indexOf(b.orbit)
+      : String(b.updated || "").localeCompare(String(a.updated || "")));
+  const withEv = all.filter((n) => !n.archived && (NT.evidence.get(n.id) || []).length).length;
+  const chip = (label, filter) => el("button", { class: "linkbtn", "aria-pressed": String(JSON.stringify(filter) === JSON.stringify(NL.filter)),
+    on: { click: () => { NL.filter = filter; renderNotesList(); } } }, label);
+  const interests = [...new Set(all.map((n) => n.interest).filter(Boolean))];
+  const search = el("input", { type: "search", placeholder: "Search notes", value: NL.q, "aria-label": "Search notes",
+    on: { input: (e) => { NL.q = e.target.value; renderNotesList(); const s = $("#noteslist input[type=search]"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); } } });
+  const sort = el("select", { "aria-label": "Sort notes", on: { change: (e) => { NL.sort = e.target.value; renderNotesList(); } } },
+    ...[["updated", "Recently updated"], ["title", "Title"], ["orbit", "Orbit"]].map(([v, l]) => { const o = el("option", { value: v }, l); if (NL.sort === v) o.selected = true; return o; }));
+  const body = [
+    el("p", { class: "note", style: "margin-top:0" }, notesLine(all.filter((n) => !n.archived).length, withEv) + ". ",
+      el("button", { class: "linkbtn", on: { click: () => openEditor(null) } }, "＋ New note")),
+    search, el("div", { class: "actions" }, sort),
+    el("div", { class: "nl-chips" }, chip("All", {}), chip("In a report", { orbit: "inner" }), chip("Backed by papers", { orbit: "middle" }),
+      chip("Ideas", { orbit: "outer" }), ...interests.map((i) => chip(i, { interest: i })), chip("Archived", { archived: true })),
+    rows.length ? null : el("p", { class: "note" }, NT.notes.size ? "No notes match." : "No notes yet. ＋ New note starts one."),
+    ...rows.map((n) => el("div", { class: "nl-row" },
+      el("button", { class: "linkbtn nl-title", on: { click: () => { NL.open = false; openEditor(n.id); } } }, n.title),
+      el("div", { class: "note muted" }, ({ inner: "In a report", middle: "Backed by papers", outer: "Idea" })[n.orbit] + " · " + (n.links || []).length + " linked · updated "
+        + (n.updated ? shortDate(n.updated.slice(0, 10)) : "never") + ((NT.evidence.get(n.id) || []).length ? " · new evidence" : "")),
+      NT.serving ? el("button", { class: "linkbtn", on: { click: async () => {
+        const r = await noteApi("/api/note/archive", { id: n.id, archived: !n.archived, version: n.version });
+        if (r.status === 200) { NT.notes.set(n.id, r.data.note); notesChanged(); }
+      } } }, n.archived ? "Restore" : "Archive") : null)),
+  ];
+  cardFrame("noteslist", "Notes", cardChip("Notes", all.filter((n) => !n.archived).length, withEv ? withEv + " with new evidence" : ""), body);
+  if (cardOpen("noteslist")) card.firstChild.append(el("button", { title: "Close", "aria-label": "Close the notes list", on: { click: () => { NL.open = false; renderNotesList(); } } }, "×"));
+}
+NT.onChange.push(() => { if (NL.open) renderNotesList(); });

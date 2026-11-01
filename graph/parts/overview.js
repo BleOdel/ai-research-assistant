@@ -139,6 +139,9 @@ function renderMapCard() {
     el("div", { class: "note", style: "margin-top:2px" }, "of " + ITEMS.length.toLocaleString() + " in the library, across " + plural(INTERESTS.length, "research interest")),
     el("div", { class: "note", style: "margin-top:10px" }, "Show"), seg, kindNote ? el("p", { class: "note" }, kindNote) : null,
     shortlist, newLine,
+    el("p", { class: "note" }, el("button", { class: "linkbtn", on: { click: () => openNotesList({}) } },
+      notesLine([...NT.notes.values()].filter((n) => !n.archived).length, [...NT.evidence.values()].filter((v) => v.length).length)),
+    " · ", el("button", { class: "linkbtn", on: { click: () => openEditor(null) } }, "＋ Note")),
     el("p", { class: "note" }, "In the library: " + libraryLine(D.labs.filter((l) => l.papers.length > 1).length, D.gaps.length) + " · ",
       el("button", { class: "linkbtn", on: { click: () => { setTab("explore", true); setView("groups"); } } }, "groups"), " ",
       el("button", { class: "linkbtn", on: { click: () => { setTab("explore", true); setView("gaps"); } } }, "gaps")),
@@ -193,6 +196,7 @@ function renderSelCard() {
     const c = GL.model.clusters[GL.model.cluster[i]];
     step("Show the same sub-area", c.members.map((j) => GL.model.ids[j]), c.name);
   }
+  steps.push(el("button", { class: "linkbtn", on: { click: () => openEditor(null, [id]) } }, "Write a note about this"));
   steps.push(el("button", { class: "linkbtn", on: { click: () => { setTab("explore", true); select(id); } } }, "Open full details"));
   body.push(el("div", { class: "steps" }, ...steps));
   cardFrame("selcard", "Selected", cardChip("Selected", null, n.title), body);
@@ -264,6 +268,7 @@ function renderOverview() {
     else if (store.get("kg-min") == null && window.matchMedia("(max-width: 900px)").matches) S.min.cards["globe-legend"] = true;
   }
   renderMapCard(); renderSelCard(); renderHighlightChip(); renderGlobeLegend();
+  if (typeof renderNotesList === "function") renderNotesList();
   if (typeof editorOpen === "function" && editorOpen()) renderEditor();
 }
 /* The globe makes room for the "On your map" card. The selection card floats over it
