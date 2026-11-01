@@ -410,6 +410,13 @@ class DocsDriftTests(unittest.TestCase):
                 for flag in re.findall(r"(?<![\w-])--[a-z][a-z-]*", line.split("knowledge_graph.py", 1)[1]):
                     self.assertIn(flag, real, f"{doc.relative_to(REPO_ROOT)}: {line.strip()}")
 
+    def test_reset_has_a_notes_scope(self):
+        text = (REPO_ROOT / ".claude" / "commands" / "reset.md").read_text()
+        self.assertIn("`notes`", text)
+        self.assertIn("Notes reset will delete", text)
+        self.assertRegex(text, r"(?s)`all`.*separate.*notes")     # all asks separately before clearing notes
+        self.assertIn("DELETE NOTES", text)
+
     def test_every_search_command_refreshes_the_graph(self):
         commands = REPO_ROOT / ".claude" / "commands"
         for name in ("research", "rank", "synthesize", "update", "websearch", "graph"):

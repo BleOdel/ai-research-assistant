@@ -20,7 +20,9 @@ Check `$ARGUMENTS` for a scope keyword:
   (`research/fulltext/`)
 - `reports` - deletes all compiled synthesis reports under `reports/` only
 - `blog` - deletes web-scan output and discovery state under `blog/` only
-- `all` - all five of the above
+- `notes` - deletes your notes on the library map (`notes/`) only
+- `all` - the five scopes above, and then notes too, but only after a separate question
+  (notes are your own writing and cannot be rebuilt)
 
 If `$ARGUMENTS` is empty or does not contain a recognized scope keyword, ask:
 
@@ -51,9 +53,14 @@ If `$ARGUMENTS` is empty or does not contain a recognized scope keyword, ask:
 >   tracked `blog/template.html` and `blog/README.md` are NOT deleted. The academic
 >   track under `research/` and `reports/` is NOT affected.
 >
-> - **`all`** - All five of the above.
+> - **`notes`** - Deletes your notes on the library map: every note file in `notes/`,
+>   your custom guide prompts (`notes/guide.json`) and any saved annotations. Notes are
+>   your own writing; nothing can rebuild them.
 >
-> Reply with `profile`, `documents`, `research`, `reports`, `blog`, or `all`.
+> - **`all`** - The first five, and then your notes too if you say so to a separate
+>   question.
+>
+> Reply with `profile`, `documents`, `research`, `reports`, `blog`, `notes`, or `all`.
 
 Wait for the user's response before continuing.
 
@@ -167,6 +174,23 @@ reports/<topic-slug-2>/
 (or "reports/ is already empty - nothing to delete.")
 ```
 
+### If scope includes `notes`:
+
+Count the note files (`notes/*.md`) and list what else is there (`notes/guide.json`,
+`notes/annotations.json`).
+
+```
+## Notes reset will delete:
+
+notes/ - <N> notes (<titles of up to five, then "and N more">)
+notes/guide.json - your <K> custom guide prompts
+notes/annotations.json - your saved annotations (if present)
+
+(or "notes/ is already empty - nothing to delete.")
+```
+
+For `all`, do not include notes in this list. They get their own question in Step 2.
+
 ---
 
 ## Step 2: Require Explicit Confirmation
@@ -182,6 +206,16 @@ Wait for the user's response.
 - If the user types exactly `RESET`: proceed to Step 3.
 - If the user types anything else: abort and tell them "Reset cancelled. Nothing was
   changed."
+
+**For `all`, ask a separate question about notes** once `RESET` is confirmed, and only
+if `notes/` holds any notes:
+
+> Your <N> notes are your own writing and cannot be rebuilt.
+>
+> Type **`DELETE NOTES`** to delete them too, or anything else to keep them.
+
+Anything other than exactly `DELETE NOTES` keeps the notes; the rest of the reset goes
+ahead.
 
 ---
 
@@ -323,6 +357,15 @@ python3 tools/state.py upsert --file tracker --key <topic_slug> \
 
 Leave the tracker itself alone; resetting it is not part of the `reports` scope.
 
+### Notes reset
+
+```bash
+rm -f notes/*.md notes/guide.json notes/annotations.json
+```
+
+Leave the `notes/` folder itself. If the library map's helper is running
+(`graph/.serve.json` exists), the open page will show the notes gone after a reload.
+
 ---
 
 ## Step 4: Confirm What Was Done and Next Steps
@@ -349,6 +392,10 @@ Then tell the user what to do next based on what was reset:
 **If documents were reset:**
 > The `documents/` folder is now empty. Add your CV/LinkedIn export/publications and
 > run `/setup` (Path A) to populate your profile from them. See `documents/README.md`.
+
+**If notes were reset:**
+> Your notes, custom guide prompts and annotations are deleted. The library map shows no
+> satellites until you write a new note.
 
 **If research was reset:**
 > Discovery state and the cached full-text PDFs are cleared. Run `/research <topic>`

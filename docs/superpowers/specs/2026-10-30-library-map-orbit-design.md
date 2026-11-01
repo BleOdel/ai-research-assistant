@@ -22,8 +22,19 @@ Design, 2026-10-30. Builds on the library knowledge graph
     prototype's (#3987e5, #e07a3c, #21b07d, #d44fa0, #c9b037, #8b80f5; lines #ffb040 and
     #5ac8ff), the researcher's choice on 2026-10-31, over an earlier rule that kept the
     lines 25 degrees of hue from every interest colour.
-- **Part 2** (notes as satellites, the `--serve` helper, the editor and guide,
-  new-evidence, `/reset notes`) and **Part 3** (the annotation toolbar): not built yet.
+- **Part 2, built 2026-11-01** (plan `docs/superpowers/plans/2026-11-01-orbit-notes.md`):
+  notes as satellites, the `--serve` helper, the editor and guide, suggested papers,
+  new evidence, the notes list, `/reset notes`. Decisions made while building it:
+  - note files are `notes/n-YYYYMMDD-xxxxxx.md` with JSON values in the front matter;
+    sub-area links are `subarea:<interest>::<sub-area>`, since names contain "/";
+  - the helper takes its token once from the address, then a SameSite=Strict cookie; every
+    write needs the token in a header, a 127.0.0.1/localhost Host and no foreign Origin; a
+    reloaded page gets its token back through the cookie;
+  - new evidence and suggested papers are computed in the page with one matcher, so they
+    never disagree; the word list is plain English only, rarity does the rest;
+  - a note pulses three times when the map opens, then keeps a ring; the editor shows the
+    first three new-evidence rows and "Show all N".
+- **Part 3** (the annotation toolbar): not built yet.
 
 ## Intent
 

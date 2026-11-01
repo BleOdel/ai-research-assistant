@@ -271,8 +271,23 @@ No AI is used; a question it cannot read exactly, it says so.
 **Status** says when the map was built, what is shown and hidden, OpenAlex coverage and
 missing labels, each with the command that fixes it.
 
-The address bar keeps the tab, view, selection and filters, so a bookmark reopens the
-same picture.
+**Notes.** Write ideas next to the evidence: "＋ Note" on the card, or "Write a note about
+this" on a paper's card. Each note orbits the globe as a satellite: outer for an idea with
+no papers, middle once a paper backs it, inner once you mark it as written into a report.
+Thin lines tie it to what it links. The guide offers five prompts (Claim, Evidence,
+Against, Gap, Next step) plus your own, checks your note and says why ("reads like a
+factual claim, and nothing is linked: the words "only", "3%""), suggests papers that share
+rare words with it, and flags papers first seen since you last edited it that share its
+sub-area. Notes save as you type through a small helper that `/graph` starts
+(`python3 tools/knowledge_graph.py --serve`); it runs only on your computer, writes only
+into `notes/`, and stops by itself 30 minutes after the page closes. Opened from disk
+instead, the page shows your notes read-only and Export keeps a copy of anything you type.
+If a note changed elsewhere since you opened it (by hand, by Claude, in another tab), the
+page shows both versions and lets you choose. `/reset notes` deletes them, and `/reset
+all` asks separately first.
+
+The address bar keeps the tab, view, selection, note and filters, so a bookmark reopens
+the same picture.
 
 The labels behind it are the `subareas` and `contribution` fields scoring adds to each
 source. `/graph` lists any that are missing or name a sub-area your profile no longer

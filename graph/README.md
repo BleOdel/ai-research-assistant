@@ -95,13 +95,47 @@ sub-areas" and "scored but never used in a report". A question with a word it ca
 read says so, rather than answering a different question. Answers open on the map or
 as a list you can export.
 
-**Status** says when the map was built, what is shown and hidden and why, OpenAlex
+**Status** says whether notes are saving and how many notes there are (and any file that
+could not be read). It also says when the map was built, what is shown and hidden and why, OpenAlex
 coverage, missing sub-area and contribution labels, and the build's warnings, each
 problem with the command that fixes it.
 
 The address bar records the tab, view, selection, filters and date, so a bookmark
 reopens the same picture. Bookmarks from the earlier Simple/Advanced page still open, on
 Overview or Explore respectively.
+
+## Notes
+
+Notes are your own writing next to the evidence. Start one with "＋ Note" on the "On your
+map" card or "Write a note about this" on a paper's card; the notes list (from the card's
+"✦ N notes" line) has search, sort, filters by orbit and interest, archive and restore.
+
+- **Satellites.** Each note orbits the globe on one of three labelled shells: outer, an
+  idea with no papers linked; middle, backed by at least one paper in the library; inner,
+  marked as written into a report. Only a linked paper moves a note in: a web source,
+  research group or sub-area draws a line but is not peer-reviewed backing. A note sits
+  above what it links, with a thin line to each; it moves only when that changes, and then
+  glides to its new shell once. At most 30 notes orbit at once (the selected one, those
+  with new evidence, those linked to what is shown, then the most recent); each shell says
+  how many more it holds, and clicking that opens the list.
+- **The guide.** Five prompts (Claim, Evidence, Against, Gap, Next step) plus your own,
+  each a line you write; a prompt shows ✓ once its line exists. Checks say what they are
+  based on: a factual-sounding claim with nothing linked, every linked paper from one
+  research group, only web sources, two or more papers and nothing against yet.
+  Suggested papers share rare words with your note, and new evidence is a paper first seen
+  since you last edited the note that shares a sub-area with a linked paper or matches the
+  note strongly; "Link it" adds it, "Dismiss" hides it for good. A note with new evidence
+  pulses three times when the map opens, then keeps a ring.
+- **Saving.** Notes are Markdown files in `notes/` (gitignored), one per note, with a
+  small front-matter block; your custom prompts are `notes/guide.json`. The page saves
+  them through a helper that `/graph` starts (`python3 tools/knowledge_graph.py --serve`,
+  `tools/kg_serve.py`). It listens on 127.0.0.1 only, needs a random token that leaves the
+  address bar as soon as the page loads, writes only into `notes/` (atomically), serves
+  the page and the PDFs it links to read-only, and stops 30 minutes after the page
+  closes. A note edited somewhere else since you opened it is never overwritten: the page
+  shows both versions and you choose. A link to something the library no longer has is
+  kept and shown as missing. Without the helper, notes show read-only and Export keeps a
+  copy of anything you type; nothing is ever discarded without a warning.
 
 ## Performance
 
