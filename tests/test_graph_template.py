@@ -686,6 +686,34 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("note:", page_function("writeHash"))
         self.assertIn("beforeunload", PAGE_SOURCE)
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_satellite_placement_and_cap(self):
+        got = run_js(["hash01", "satDirection", "pickSatellites"], "const SAT_CAP = 30;",
+                     """(() => { const pos = (id) => ({a: [1, 0, 0], b: [0, 1, 0]})[id] || null;
+          const d1 = satDirection({id: 'n-1', links: ['paper:a', 'paper:b']}, (l) => pos(l.split(':')[1]));
+          const d2 = satDirection({id: 'n-2', links: []}, pos), d3 = satDirection({id: 'n-2', links: []}, pos);
+          const notes = Array.from({length: 50}, (_, i) => ({id: 'n' + i, updated: '2026-10-' + String(10 + (i % 20)).padStart(2, '0'), archived: i === 3 ? '2026-10-01' : null}));
+          const r = pickSatellites(notes, {selected: 'n49', hasNewEvidence: (id) => id === 'n7', linkedVisible: (id) => id === 'n8',
+            orbit: (id) => (Number(id.slice(1)) % 3 === 0 ? 'outer' : 'middle')});
+          return [d1.map((v) => Math.round(v * 1000) / 1000), JSON.stringify(d2) === JSON.stringify(d3), Math.round(Math.hypot(...d2) * 1000) / 1000,
+            r.shown.length, r.shown.slice(0, 3), r.shown.includes('n3'), r.more.outer + r.more.middle + r.more.inner]; })()""")
+        self.assertEqual(got[0], [0.707, 0.707, 0])
+        self.assertTrue(got[1])
+        self.assertEqual(got[2], 1)
+        self.assertEqual(got[3], 30)
+        self.assertEqual(got[4], ["n49", "n7", "n8"])          # selected, new evidence, linked to what is shown
+        self.assertFalse(got[5])                                # archived notes never orbit
+        self.assertEqual(got[6], 49 - 30)                       # every other unarchived note is counted
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_shell_labels_stay_on_screen(self):
+        # The outer shell's label sat above the top of the screen.
+        got = run_js(["shellLabelPlace"], "", "[shellLabelPlace(400, 300, 200, 800, 600, 80), "
+                     "shellLabelPlace(400, 300, 400, 800, 600, 80), shellLabelPlace(400, 300, 900, 800, 600, 80)]")
+        self.assertEqual(got[0], {"x": 400, "y": 96, "align": "center"})        # top fits
+        self.assertEqual(got[1], {"x": 6, "y": 300, "align": "left"})           # left edge of the circle
+        self.assertIsNone(got[2])                                               # nowhere on screen
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:

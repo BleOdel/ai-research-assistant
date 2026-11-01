@@ -109,3 +109,126 @@ function showRebuilt() {
     el("button", { on: { click: () => { if (!NT.dirty || window.confirm("Your note has unsaved changes. Reload anyway?")) location.reload(); } } }, "Reload"));
 }
 window.addEventListener("beforeunload", (e) => { if (NT.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------- satellites ---------- */
+/* Three shells around the globe; distance from it is distance from evidence. */
+const SAT_ALT = { inner: 1.17, middle: 1.38, outer: 1.62 };
+const SAT_CAP = 30;
+const SAT_WORDS = { inner: "in a report", middle: "backed by papers", outer: "an idea, no papers yet" };
+/* Where a note sits: above the middle of what it links to, so its tethers stay short and it
+   moves only when its links change. A note with nothing placeable gets a stable direction
+   from its id. POSITIONS(link) gives a unit vector for a link, or null. */
+function satDirection(note, positions) {
+  let x = 0, y = 0, z = 0;
+  for (const l of note.links || []) { const v = positions(l); if (v) { x += v[0]; y += v[1]; z += v[2]; } }
+  const m = Math.hypot(x, y, z);
+  if (m > 1e-6) return [x / m, y / m, z / m];
+  const lon = hash01(note.id) * 2 * Math.PI, lat = Math.asin(hash01(note.id + "z") * 1.6 - 0.8);
+  return [Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon)];
+}
+/* Which notes orbit: at most SAT_CAP, the selected one first, then those with new evidence,
+   then those linked to what the filters show, then the most recently updated. The rest are
+   counted per orbit. Archived notes never orbit. */
+function pickSatellites(notes, ctx) {
+  const rank = (n) => (n.id === ctx.selected ? 0 : ctx.hasNewEvidence(n.id) ? 1 : ctx.linkedVisible(n.id) ? 2 : 3);
+  const live = notes.filter((n) => !n.archived)
+    .sort((a, b) => rank(a) - rank(b) || String(b.updated || "").localeCompare(String(a.updated || "")) || (a.id < b.id ? -1 : 1));
+  const shown = live.slice(0, SAT_CAP).map((n) => n.id), more = { inner: 0, middle: 0, outer: 0 };
+  for (const n of live.slice(SAT_CAP)) more[ctx.orbit(n.id)]++;
+  return { shown, more };
+}
+/* Where a shell's label goes: the top of the circle if it is on screen, else its left or
+   right edge, else its bottom; null if none of them is (a W x H canvas, a label W wide). */
+function shellLabelPlace(cx, cy, r, W, H, w) {
+  const m = 6;
+  if (cy - r - 4 > 14) return { x: cx, y: cy - r - 4, align: "center" };
+  if (cx - r + m >= m && cx - r + m + w <= W && cy > 14 && cy < H - 14) return { x: cx - r + m, y: cy, align: "left" };
+  if (cx + r - m <= W - m && cx + r - m - w >= 0 && cy > 14 && cy < H - 14) return { x: cx + r - m, y: cy, align: "right" };
+  if (cy + r + 14 < H - 60) return { x: cx, y: cy + r + 14, align: "center" };
+  return null;
+}
+const SAT = { hits: [], shellHits: [], pulseStart: null, moving: new Map() };   /* moving: id -> {from, to, start} */
+function satPosition(link) {
+  const id = linkNodeId(link), i = GL.index ? GL.index.get(id) : undefined;
+  return i == null ? null : [GL.model.vx[i], GL.model.vy[i], GL.model.vz[i]];
+}
+function satColour(note) {
+  for (const l of note.links || []) {
+    const i = GL.index ? GL.index.get(linkNodeId(l)) : undefined;
+    if (i != null) return interestColor(GL.model.interests[GL.model.interest[i]]);
+  }
+  return css("--muted");
+}
+function drawSatellites(g, P, R, cx, cy) {
+  SAT.hits = []; SAT.shellHits = [];
+  if (!NT.notes.size || !GL.model) return;
+  const notes = [...NT.notes.values()], orbitOf = new Map(notes.map((n) => [n.id, noteOrbit(n, noteHas)]));
+  const pick = pickSatellites(notes, { selected: S.note, hasNewEvidence: (id) => (NT.evidence.get(id) || []).length > 0,
+    linkedVisible: (id) => (NT.notes.get(id).links || []).some((l) => VISIBLE.has(linkNodeId(l))), orbit: (id) => orbitOf.get(id) });
+  const now = performance.now(), muted = css("--muted"), ink = css("--ink"), cites = css("--cites");
+  /* the shells, labelled, with how many more each holds */
+  g.lineWidth = 1; g.font = "10.5px system-ui"; g.textAlign = "center";
+  for (const orbit of ["inner", "middle", "outer"]) {
+    const r = R * SAT_ALT[orbit];
+    g.strokeStyle = hexA(muted, 0.18); g.setLineDash([2, 5]); g.beginPath(); g.arc(cx, cy, r, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]);
+    const text = SAT_WORDS[orbit] + (pick.more[orbit] ? " · +" + pick.more[orbit] + " more" : "");
+    const w = g.measureText(text).width, at = shellLabelPlace(cx, cy, r, g.canvas.clientWidth, g.canvas.clientHeight, w);
+    if (!at) continue;
+    g.fillStyle = muted; g.textAlign = at.align; g.fillText(text, at.x, at.y);
+    const x0 = at.align === "center" ? at.x - w / 2 : at.align === "left" ? at.x : at.x - w;
+    if (pick.more[orbit]) SAT.shellHits.push([x0, at.y - 12, x0 + w, at.y + 2, orbit]);
+  }
+  let animating = false;
+  for (const id of pick.shown) {
+    const n = NT.notes.get(id), orbit = orbitOf.get(id), d = satDirection(n, satPosition);
+    let alt = SAT_ALT[orbit];
+    const mv = SAT.moving.get(id);
+    if (mv) {
+      const t = Math.min(1, (now - mv.start) / 800);
+      alt = SAT_ALT[mv.from] + (SAT_ALT[mv.to] - SAT_ALT[mv.from]) * (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+      if (t < 1) animating = true; else SAT.moving.delete(id);
+    }
+    const p = P(d[0] * alt, d[1] * alt, d[2] * alt);
+    /* hidden behind the globe, unless it is out beyond the globe's edge */
+    if (p[2] < 0 && Math.hypot(p[0] - cx, p[1] - cy) < R) continue;
+    const selected = id === S.note, colour = satColour(n);
+    /* tethers to what it links */
+    g.strokeStyle = hexA(colour, selected ? 0.9 : 0.25); g.lineWidth = selected ? 1.4 : 1;
+    for (const l of n.links || []) {
+      const i = GL.index ? GL.index.get(linkNodeId(l)) : undefined;
+      if (i == null || !GL.mask[i]) continue;
+      const q = P(GL.model.vx[i], GL.model.vy[i], GL.model.vz[i]);
+      if (q[2] < 0) continue;
+      g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+    }
+    const r = selected ? 8 : 6;
+    g.lineWidth = 2; g.strokeStyle = colour; g.fillStyle = colour;
+    g.beginPath(); g.arc(p[0], p[1], r, 0, 2 * Math.PI);
+    if (orbit === "outer") g.stroke(); else g.fill();
+    if (selected) { g.strokeStyle = ink; g.lineWidth = 1.5; g.beginPath(); g.arc(p[0], p[1], r + 4, 0, 2 * Math.PI); g.stroke(); }
+    /* new evidence: three pulses when the map opens, then a steady ring */
+    if ((NT.evidence.get(id) || []).length) {
+      if (SAT.pulseStart == null) SAT.pulseStart = now;
+      const t = (now - SAT.pulseStart) / 1000;
+      g.strokeStyle = cites; g.lineWidth = 1.5;
+      if (t < 3) {
+        const ph = t % 1;
+        g.globalAlpha = 1 - ph; g.beginPath(); g.arc(p[0], p[1], r + 3 + ph * 10, 0, 2 * Math.PI); g.stroke(); g.globalAlpha = 1;
+        animating = true;
+      } else { g.beginPath(); g.arc(p[0], p[1], r + 3, 0, 2 * Math.PI); g.stroke(); }
+    }
+    SAT.hits.push([p[0], p[1], r + 4, id]);
+  }
+  if (animating) requestAnimationFrame(() => globeDraw());
+}
+function satHit(x, y) {
+  for (const [hx, hy, r, id] of SAT.hits) if (Math.hypot(hx - x, hy - y) <= r) return { kind: "note", id };
+  for (const [x0, y0, x1, y1, orbit] of SAT.shellHits) if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { kind: "shell", orbit };
+  return null;
+}
+/* A note whose orbit changed moves to its new shell once, so the researcher sees it happen. */
+function satMove(id, from, to) {
+  if (from && to && from !== to) { SAT.moving.set(id, { from, to, start: performance.now() }); globeRequestDraw(); }
+}
+GL.overlays.push({ draw: drawSatellites, hit: satHit });
+NT.onChange.push(() => globeRequestDraw());

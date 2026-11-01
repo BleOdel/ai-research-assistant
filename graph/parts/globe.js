@@ -211,6 +211,7 @@ const GL = {
   model: null, index: null, mask: null, fresh: null, stats: [], out: null, inn: null, strong: [],
   yaw: -0.6, pitch: 0.2, zoom: 1, panX: 0, panY: 0, mode: "rotate", back: null,
   hits: [], clusterHits: [], arcHits: [], counts: { inView: 0, drawn: 0 }, lastDraw: 0, firstDraw: null,
+  overlays: [],   /* drawn last and hit-tested first, e.g. the notes' satellites: {draw(g, P, R, cx, cy), hit(x, y)} */
   insets: () => ({ left: 0, right: 0 }),   /* room the Overview's cards take; overview.js sets it */
   onSelect: (id) => select(id),
   onHover: () => {}, afterDraw: () => {},
@@ -419,6 +420,7 @@ function globeDraw() {
     g.lineWidth = 3; g.strokeStyle = hexA(tok.surface, 0.85); g.strokeText(lb.text, lb.x, lb.y + 4);
     g.fillStyle = tok.ink; g.fillText(lb.text, lb.x, lb.y + 4);
   }
+  for (const o of GL.overlays) o.draw(g, P, R, cx, cy);
   GL.lastDraw = performance.now() - t0;
   if (GL.firstDraw == null) { GL.firstDraw = performance.now(); globePerfRun(); }
   GL.afterDraw();
@@ -455,6 +457,7 @@ function globeSetMode(mode) {
 }
 /* What is under the pointer: the nearest drawn item within 12px, else a region. */
 function globeHitAt(x, y) {
+  for (const o of GL.overlays) { const h = o.hit(x, y); if (h) return h; }
   let best = null, bd = 12;
   for (const [hx, hy, i] of GL.hits) { const d = Math.hypot(hx - x, hy - y); if (d < bd) { bd = d; best = i; } }
   if (best != null) return { kind: "item", i: best };
@@ -468,6 +471,7 @@ function segDist(px, py, a, b) {
   return Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy);
 }
 function globeHover(x, y) {
+  for (const o of GL.overlays) { const h = o.hit(x, y); if (h && h.kind === "note") return h; }
   let best = null, bd = 9;
   for (const [hx, hy, i] of GL.hits) { const d = Math.hypot(hx - x, hy - y); if (d < bd) { bd = d; best = i; } }
   if (best != null) return { kind: "item", id: GL.model.ids[best] };
@@ -508,6 +512,8 @@ function globeInput() {
     const [x, y] = at(e), now = performance.now(), hit = globeHitAt(x, y);
     const double = last && now - last.t < 350 && Math.hypot(x - last.x, y - last.y) < 10;
     last = double ? null : { t: now, x, y };
+    if (hit && hit.kind === "note") { if (typeof openEditor === "function") openEditor(hit.id); return; }
+    if (hit && hit.kind === "shell") { if (typeof openNotesList === "function") openNotesList({ orbit: hit.orbit }); return; }
     if (double) {
       if (GL.back) { const b = GL.back; GL.back = null; globeTween({ yaw: GL.yaw, pitch: GL.pitch, zoom: GL.zoom, panX: GL.panX, panY: GL.panY }, b); }
       else if (hit) { GL.back = { yaw: GL.yaw, pitch: GL.pitch, zoom: GL.zoom, panX: GL.panX, panY: GL.panY }; globeFly(...globeTarget(hit), Math.max(GL.zoom * 2, 3.4)); }

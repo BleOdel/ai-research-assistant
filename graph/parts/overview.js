@@ -239,7 +239,11 @@ function afterGlobeDraw() {
 function globeTip(info, x, y) {
   const tip = $("#globe-tip");
   if (!info) { tip.hidden = true; return; }
-  if (info.kind === "item") {
+  if (info.kind === "note") {
+    const n = NT.notes.get(info.id);
+    if (!n) { tip.hidden = true; return; }
+    tip.replaceChildren(el("strong", {}, n.title), el("div", { class: "muted" }, orbitWords(n, noteHas, reportTitleOf)));
+  } else if (info.kind === "item") {
     const n = byId.get(info.id);
     tip.replaceChildren(el("strong", {}, n.title), el("div", { class: "muted" }, (n.year == null ? "Undated" : n.year) + " · " + (n.type === "web" ? "web source, not peer-reviewed" : "paper")));
     if (isNew(n)) tip.append(el("div", {}, "○ New since your last search (" + shortDate(S.since) + ")"));
