@@ -30,6 +30,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import tempfile
@@ -113,8 +114,11 @@ class Handler(BaseHTTPRequestHandler):
         self.server.last_activity = time.monotonic()
 
     def read_json(self) -> dict:
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > MAX_BODY:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise Refused(400, "The request's length was not valid.") from None
+        if length < 0 or length > MAX_BODY:
             raise Refused(413, "That is too large to save.")
         try:
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -125,10 +129,19 @@ class Handler(BaseHTTPRequestHandler):
         return data
 
     def handle_refusals(self, fn):
+        """Every request gets an answer the page can show: a dropped connection would read
+        as "the helper is not answering" whatever the real reason was."""
         try:
             fn()
         except Refused as r:
             self.send_json(r.status, {"error": r.message, **r.extra})
+        except state.StateError:   # the note's lock is held: another save is still writing
+            self.send_json(503, {"error": "Another save is still writing this note; try again in a moment."})
+        except Exception as exc:
+            try:   # the type only: a message can quote a path or the note's text
+                self.send_json(500, {"error": f"The helper hit an unexpected error ({type(exc).__name__})."})
+            except OSError:
+                pass
 
     # ---------- reading ----------
     def do_GET(self):
@@ -154,7 +167,10 @@ class Handler(BaseHTTPRequestHandler):
                 folder, rel = root / "research" / "fulltext", unquote(pdf.group(1))
             else:
                 folder, rel = root / "reports", unquote(pdf.group(1)) + "/report.pdf"
-            target = (folder / rel).resolve()
+            try:
+                target = (folder / rel).resolve()
+            except (ValueError, OSError):   # a NUL byte or a path the system refuses
+                raise Refused(404, "Not found.") from None
             if not (target.is_relative_to(folder.resolve()) and target.suffix.lower() == ".pdf" and target.is_file()):
                 raise Refused(404, "Not found.")
             return self.send_file(target, "application/pdf")
@@ -202,10 +218,10 @@ class Handler(BaseHTTPRequestHandler):
             if version is not None:
                 raise Refused(409, "This note was deleted elsewhere since you opened it.", {"deleted": True})
             return None
-        text = path.read_text(encoding="utf-8")
         try:
+            text = path.read_text(encoding="utf-8")
             disk = kg_notes.parse(text)
-        except kg_notes.NoteError:
+        except (kg_notes.NoteError, UnicodeDecodeError):
             raise Refused(409, UNREADABLE) from None
         if version != kg_notes.version(text):
             raise Refused(409, "This note changed since you opened it.",
@@ -385,6 +401,8 @@ def run_foreground(root: Path, token: str, rebuild) -> None:
     server.timeout = 1
     record = {"port": server.server_address[1], "token": token, "pid": os.getpid(), "started": time.time()}
     _write_private(serve_file(root), json.dumps(record) + "\n")
+    # kill, a logout or a shutdown sends SIGTERM: leave through the tidy-up below.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:
         while time.monotonic() - server.last_activity <= idle_seconds():
             server.handle_request()

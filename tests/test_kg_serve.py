@@ -158,6 +158,35 @@ class RequestTests(HelperFixture):
         self.assertEqual(self.call("GET", "/api/state")[0], 403)
         self.assertEqual(sorted(p.name for p in self.root.iterdir()), self.layout)   # nothing new at the root
 
+    def test_helper_errors_say_why(self):
+        # Review: these raised inside the handler and dropped the connection, so the page
+        # said "the helper is not answering" instead of the real reason.
+        (self.root / "notes").mkdir(exist_ok=True)
+        (self.root / "notes" / "n-20261101-eeeeee.md").write_bytes(b"---\ntitle: \xff\n---\n")
+        st, r, _ = self.api("/api/note", {"note": {"id": "n-20261101-eeeeee", "title": "T", "links": [], "body": ""},
+                                          "version": "x"})
+        self.assertEqual((st, r["error"]), (409, kg_serve.UNREADABLE))
+        st, r, _ = self.api("/api/note", b"{}", extra={"Content-Length": "abc"})
+        self.assertEqual(st, 400)
+        self.assertIn("error", r)
+        self.assertEqual(self.call("GET", "/research/fulltext/a%00.pdf?t=tok")[0], 404)
+        (self.root / "notes" / "n-20261101-dddddd.md.lock").write_text("1 1")
+        os.environ["STATE_LOCK_TIMEOUT"] = "0.2"
+        self.addCleanup(os.environ.pop, "STATE_LOCK_TIMEOUT", None)
+        st, r, _ = self.api("/api/note", {"note": {"id": "n-20261101-dddddd", "title": "T", "links": [], "body": ""},
+                                          "version": None})
+        self.assertEqual(st, 503)
+        self.assertIn("try again", r["error"])
+
+    def test_an_unexpected_error_still_answers(self):
+        def boom(_self, _body):
+            raise RuntimeError("disk on fire")
+        self.server.RequestHandlerClass = type("H", (kg_serve.Handler,), {"heartbeat": boom})
+        st, r, _ = self.api("/api/heartbeat", {})
+        self.assertEqual(st, 500)
+        self.assertIn("RuntimeError", r["error"])
+        self.assertNotIn("disk on fire", r["error"])
+
     def test_prompts_are_checked(self):
         st, r, _ = self.api("/api/prompts", {"prompts": [{"name": "Method", "question": "How?"}]})
         self.assertEqual(st, 200)
@@ -217,6 +246,13 @@ class LifecycleTests(unittest.TestCase):
         self.assertTrue(args.strip())
         self.assertNotIn(record["token"], args)
         self.wait_until_stopped()
+
+    def test_a_terminated_helper_removes_its_record(self):
+        # Review: a helper stopped with SIGTERM (kill, a logout) left graph/.serve.json behind.
+        r = self.run_graph("--serve", "--no-open", env=dict(os.environ, KG_IDLE_SECONDS="60"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        os.kill(json.loads(self.record.read_text())["pid"], signal.SIGTERM)
+        self.wait_until_stopped(seconds=5)
 
     def test_a_stale_record_is_replaced(self):
         self.record.write_text(json.dumps({"port": 1, "token": "x", "pid": 999999, "started": 0}))

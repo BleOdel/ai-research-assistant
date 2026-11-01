@@ -36,7 +36,7 @@ import state
 
 ROOT = state.ROOT
 NOTES = ROOT / "notes"
-ID_RE = re.compile(r"^n-\d{8}-[0-9a-f]{6}$")
+ID_RE = re.compile(r"^n-[0-9]{8}-[0-9a-f]{6}\Z")   # \Z: "$" would let a trailing newline through
 FIELDS = ("id", "title", "links", "in_report", "dismissed", "created", "updated", "archived")
 LINK_RE = re.compile(r"^(paper|web|group|subarea):.+")
 DEFAULTS = {"links": [], "dismissed": []}

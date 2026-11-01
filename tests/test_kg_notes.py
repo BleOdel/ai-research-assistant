@@ -65,6 +65,11 @@ class NoteFormatTests(unittest.TestCase):
         self.assertRegex(kg_notes.new_id("2026-11-01"), r"^n-20261101-[0-9a-f]{6}$")
         self.assertEqual(len(kg_notes.version("abc")), 16)
         self.assertNotEqual(kg_notes.version("abc"), kg_notes.version("abd"))
+        # Review: "$" let a trailing newline through, and "\d" let in other scripts' digits.
+        for bad in ("n-20261101-abcdef\n", "n-\uff12\uff10\uff12\uff16\uff11\uff11\uff10\uff11-abcdef", "n-20261101-ABCDEF"):
+            self.assertIsNone(kg_notes.ID_RE.match(bad), repr(bad))
+            self.assertIn("the note id is not valid", kg_notes.validate({"id": bad, "title": "T", "links": [], "dismissed": []}))
+        self.assertIsNotNone(kg_notes.ID_RE.match("n-20261101-abcdef"))
 
     def test_prompts_file(self):
         d = Path(tempfile.mkdtemp())
