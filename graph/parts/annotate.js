@@ -253,6 +253,10 @@ function placeMarkActions(geo) {
 }
 
 /* ---------- the toolbar ---------- */
+/* Whether the toolbar's box TB ([left, top, right, bottom]) covers any of the CARDS (null: not shown). */
+function crowds(tb, cards) {
+  return cards.some((c) => c && tb[0] < c[2] && c[0] < tb[2] && tb[1] < c[3] && c[1] < tb[3]);
+}
 function renderAnnotbar() {
   const tb = $("#annotbar"), min = !!S.min.cards.annotbar;
   tb.classList.toggle("min", min);
@@ -278,7 +282,19 @@ function annotInit() {
     return { x: (area.clientWidth - tb.offsetWidth) / 2, y: Math.min(area.clientHeight - 14, ...tops) - tb.offsetHeight - 8 };
   };
   makeToolbar(tb, area, $("#ann-grip"), "kg-annotbar", home);
-  new ResizeObserver(() => { if (area.clientWidth && store.get("kg-annotbar") == null) { const d = home(); placeToolbar(tb, area, "kg-annotbar", d.x, d.y, false); } }).observe(tb);
+  let firstPlace = true;
+  new ResizeObserver(() => {
+    if (!area.clientWidth || store.get("kg-annotbar") != null) return;
+    const d = home();
+    placeToolbar(tb, area, "kg-annotbar", d.x, d.y, false);
+    /* On a narrow window its first spot can cover a card: then it starts as the "▸ Draw" chip,
+       unless the researcher has already opened or closed it. */
+    if (firstPlace && !tb.classList.contains("min") && S.min.cards.annotbar === undefined) {
+      firstPlace = false;
+      const box = (e) => { if (!e || e.hidden || !e.offsetWidth || e.classList.contains("min")) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+      if (crowds(box(tb), ["mapcard", "selcard", "noteeditor", "noteslist"].map((id) => box(document.getElementById(id))))) setCardMin("annotbar", true);
+    }
+  }).observe(tb);
   for (const t of TOOLS) $("#ann-" + t).addEventListener("click", () => setTool(t));
   $("#ann-shape-kind").addEventListener("change", (e) => { AN.shape = e.target.value; setTool("shape"); });
   for (const b of document.querySelectorAll(".ann-colour")) b.addEventListener("click", () => {

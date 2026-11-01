@@ -896,6 +896,20 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("Saving", {r["label"] for r in two})
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_status_reports_annotations(self):
+        # Review Focus 4: a broken notes/annotations.json is named, as a problem.
+        d = '{meta: {built: "2026-11-01", newSince: "2026-10-24", warnings: [], coverage: {}, labels: {}, counts: {}}, edges: []}'
+        c = "{shown: 1, shortlist: 0, offTopic: 0, other: 0}"
+        row = lambda info: {r["label"]: r for r in run_js(["statusRows"], "", f"statusRows({d}, {c}, {{serving: true, missing: 0}}, {info})")}["Annotations"]
+        self.assertEqual(row("{views: 2, marks: 7, error: null}")["value"], "2 saved views, 7 marks")
+        self.assertEqual(row("{views: 1, marks: 1, error: null}")["value"], "1 saved view, 1 mark")
+        self.assertEqual(row("{views: 0, marks: 0, error: null}")["value"], "none yet")
+        bad = row('{views: 0, marks: 0, error: "notes/annotations.json could not be read: x"}')
+        self.assertEqual((bad["value"], bad["problem"]), ("notes/annotations.json could not be read: x", True))
+        self.assertIn("annotations.json", bad["fix"])
+        self.assertIn("AN.views", page_function("renderStatus"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_ask_about_notes(self):
         ctx = """{since: "2026-10-01", interests: [{name: "XR Security"}], gaps: [], labs: [], items: [],
           notes: [{id: "n1", orbit: "outer", evidence: 0}, {id: "n2", orbit: "middle", evidence: 2}]}"""
@@ -1288,6 +1302,12 @@ class MarksTests(unittest.TestCase):
           AN.save = 'off'; AN.history = {undo: [], redo: []}; resumeMarksSaving(); out.push(saves);   /* nothing drawn */
           return out; })()""")
         self.assertEqual(got, [0, 1, 1, 2, 2])
+
+    def test_toolbar_starts_minimised_where_it_would_cover_a_card(self):
+        # Found at 600 px: at its default spot the toolbar covered the "On your map" card.
+        got = run_js(["crowds"], "", """[crowds([12, 438, 588, 549], [[12, 56, 312, 608], null]),
+          crowds([246, 730, 1155, 792], [[12, 56, 312, 600], [1068, 56, 1388, 553]]), crowds([0, 0, 10, 10], [])]""")
+        self.assertEqual(got, [True, False, False])
 
     def test_globe_hands_drags_to_the_toolbar(self):
         src = page_function("globeInput")

@@ -2,8 +2,8 @@
 
    Every problem sits next to the command that fixes it. */
 
-function statusRows(data, counts, notesInfo) {
-  const ni = notesInfo || { serving: false, missing: 0 }, notes = data.notes || [], bad = data.notesUnreadable || [];
+function statusRows(data, counts, notesInfo, marksInfo) {
+  const ni = notesInfo || { serving: false, missing: 0 }, mi = marksInfo || { views: 0, marks: 0, error: null }, notes = data.notes || [], bad = data.notesUnreadable || [];
   const m = data.meta, cov = m.coverage || {}, lab = m.labels || {}, warn = m.warnings || [];
   const n = (v) => (v || 0).toLocaleString();
   const missing = (cov.notFound || 0) + (cov.mismatch || 0) + (cov.noId || 0) + (cov.notFetched || 0);
@@ -26,6 +26,9 @@ function statusRows(data, counts, notesInfo) {
       + n(ni.missing) + " with missing links" + (bad.length ? " · " + n(bad.length) + " could not be read: " + bad.map((b) => b.file).join(", ") : ""),
     problem: bad.length > 0 || ni.missing > 0,
     fix: "Fix or remove the files that could not be read; open a note with missing links to remove them." },
+    { label: "Annotations", value: mi.error ? mi.error : mi.views ? mi.views + " saved " + (mi.views === 1 ? "view" : "views") + ", "
+      + mi.marks + " " + (mi.marks === 1 ? "mark" : "marks") : "none yet", problem: !!mi.error,
+    fix: "Fix or remove notes/annotations.json; until then marks drawn on the map are not saved." },
     { label: "Saving", value: ni.serving ? "on (the helper is running)" : "off: the page was opened from disk", problem: !ni.serving,
       fix: "Run python3 tools/knowledge_graph.py --serve, then open the address it prints." },
     { label: "Warnings from the build", value: warn.length ? warn.join("; ") : "None", problem: warn.length > 0,
@@ -41,7 +44,8 @@ function statusCounts() {
 function renderStatus() {
   const notes = [...NT.notes.values()];
   const rows = statusRows({ ...D, notes, notesUnreadable: NT.unreadable }, statusCounts(),
-    { serving: NT.serving, missing: notes.filter((x) => resolveLinks(x, noteHas).some((l) => l.missing)).length });
+    { serving: NT.serving, missing: notes.filter((x) => resolveLinks(x, noteHas).some((l) => l.missing)).length },
+    { views: AN.views.length, marks: AN.views.reduce((t, v) => t + v.marks.length, 0), error: AN.error });
   const fixCell = (text) => {
     const td = el("td", { class: "fix" });
     /* Commands in a fix read as code, so they can be copied exactly. */

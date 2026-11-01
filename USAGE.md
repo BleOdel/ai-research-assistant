@@ -286,6 +286,17 @@ If a note changed elsewhere since you opened it (by hand, by Claude, in another 
 page shows both versions and lets you choose. `/reset notes` deletes them, and `/reset
 all` asks separately first.
 
+**Drawing on the map.** The toolbar at the bottom of the Overview has Select, Pen, Shapes
+(rectangle, ellipse, an arrow that snaps to a dot), Text labels, five colours, undo and
+redo, Clear, "＋ Note" and Save as image. One tool at a time; Esc goes back to Select, and
+in Select a plain drag still turns the globe while Shift+drag picks the papers under a box.
+Marks belong to the view they were drawn on (the globe's angle, zoom and filters): turn
+away and they hide, and "Annotated view: … · Back to it" brings them back. Select a mark
+and "Make a note from this" starts a note linked to the papers inside it. Views are listed
+under "Views" in the notes list, where you can rename or delete them. Marks save to
+`notes/annotations.json` through the same helper as notes; without it they last for the
+session, and Save as image keeps a picture.
+
 The address bar keeps the tab, view, selection, note and filters, so a bookmark reopens
 the same picture, open note included.
 

@@ -39,7 +39,24 @@ Design, 2026-10-30. Builds on the library knowledge graph
     never disagree; the word list is plain English only, rarity does the rest;
   - a note pulses three times when the map opens, then keeps a ring; the editor shows the
     first three new-evidence rows and "Show all N".
-- **Part 3** (the annotation toolbar): not built yet.
+- **Part 3, built 2026-11-01** (plan `docs/superpowers/plans/2026-11-01-orbit-toolbar.md`):
+  the annotation toolbar, saved views, "Back to it", notes from marks, Save as image.
+  Decisions made while building it:
+  - marks are stored in globe units (offsets from the globe's centre in globe radii), so a
+    resized window or a card that moves the globe keeps them on what they marked;
+  - a view is the camera and the filter state; the first mark where no view is active
+    creates one, named "<filter summary> · <date>";
+  - picking papers is Shift+drag in Select, so a plain drag always turns the globe; the
+    toolbar always opens in Select;
+  - an arrow snaps to a dot actually drawn; "what a mark holds" counts every shown
+    near-side item inside it, and a note from a mark links at most 100, highest scored;
+  - the five mark colours are Ink, Red, Lime, Green, Violet, at least 25 degrees of hue from
+    every interest and line colour in dark mode;
+  - the toolbar sits centred above the cards along the bottom until moved; the zoom
+    toolbar stays where it was;
+  - marks save whole to `notes/annotations.json` with the notes' conflict rules, and save
+    themselves when the helper answers again after a gap;
+  - a bookmark or saved view naming a filter value the library no longer has keeps the rest.
 
 ## Intent
 

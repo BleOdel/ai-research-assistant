@@ -63,16 +63,19 @@ gaps are. Web sources appear as their own kind, marked not peer-reviewed. It is 
 libraries of tens of thousands of items and opens offline as one file. You can write
 notes beside the evidence: each note orbits the globe as a satellite, closer the better it
 is backed (an idea, backed by papers, written into a report), with a guide that asks the
-questions a reviewer would and flags claims with no source. Notes are files in `notes/`,
-saved by a small helper that runs only on your computer and never committed to git.
+questions a reviewer would and flags claims with no source. You can also draw on the globe
+(pen, shapes, arrows that snap to a paper, labels), keep each drawing with the view it was
+made on, turn a mark into a note, and save the view as a picture. Notes and marks are files
+in `notes/`, saved by a small helper that runs only on your computer and never committed to
+git.
 
 ```
 research/seen_sources.json --+
 blog/seen_web_sources.json --+--> tools/knowledge_graph.py --> graph/index.html
 reports/*/ + OpenAlex cache --+       (--check lints it)        (one offline file)
-notes/*.md -------------------+                                      ^   |
+notes/*.md, annotations.json -+                                      ^   |
                                   --serve helper (127.0.0.1 only) ---+   |
-                                  saves notes back into notes/           |
+                                  saves notes and marks into notes/      |
      +-------------+-----------------+--------------+---------+------+
      |             |                 |              |         |
      v             v                 v              v         v
@@ -244,8 +247,8 @@ evidence basis, citation-count divergence). The list below is the summary.
   it), with a sortable list that exports. **Ask** turns plain questions into exact
   filters, with no AI. **Status** shows coverage and what to fix. Notes orbit the globe as
   satellites and are written in an editor with a guide (prompts, checks with their basis,
-  suggested papers, new evidence); `/graph` starts the local helper that saves them into
-  `notes/`. Every encoding is
+  suggested papers, new evidence), and a drawing toolbar marks up saved views of the globe;
+  `/graph` starts the local helper that saves both into `notes/`. Every encoding is
   explained where it appears and every count opens the list of what it counts. The
   search commands rebuild it as their last step; it is linted by
   `tools/knowledge_graph.py --check` and works offline.

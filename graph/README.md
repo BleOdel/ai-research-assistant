@@ -137,6 +137,43 @@ map" card or "Write a note about this" on a paper's card; the notes list (from t
   kept and shown as missing. Without the helper, notes show read-only and Export keeps a
   copy of anything you type; nothing is ever discarded without a warning.
 
+## Drawing on the map
+
+The toolbar at the bottom of the Overview marks up the globe the way you would a slide.
+One tool is active at a time, the pressed one is highlighted, and Esc goes back to Select,
+so it is always clear whether a drag draws or turns the globe.
+
+| Tool | What it does |
+|---|---|
+| **Select** | Click a mark to move it, resize it (the square handle), recolour it or delete it (Delete key). A plain drag still turns the globe; **Shift+drag** across dots picks those papers and highlights them. |
+| **Pen** | Freehand, Thin, Medium or Thick. |
+| **Shapes** | Rectangle, ellipse or arrow (the list beside it). An arrow snaps to the dot it points at. |
+| **Text** | A short label, 60 characters at most; anything longer belongs in a note. |
+| **Colours** | Ink, Red, Lime, Green and Violet, kept clear of the interest colours so a mark is never read as data. |
+| **Undo / redo** | Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z, or the buttons. |
+| **Clear** | Removes every mark in the view (it asks first); the eraser removes one. |
+| **＋ Note** | A note linked to the selected mark's papers, else the highlight, else the selected item. |
+| **Save as image** | The view and its marks as a PNG, for slides or a viva. |
+| **×** | Collapses the toolbar to "▸ Draw"; `M` minimises it with everything else. |
+
+- **Marks belong to a view.** A view is the globe's angle and zoom plus the filters. The
+  first mark drawn saves the view, named for what it shows and the date ("Whole library ·
+  1 Nov"); more marks there join it. Turning the globe or changing the filters hides the
+  marks, and a chip, "Annotated view: … · Back to it", returns to exactly that view. Marks
+  sit in the globe's own units, so a resized window keeps them on the dots they marked.
+- **From a mark to a note.** Select a mark and "Make a note from this" opens a note linked
+  to the papers inside it (a rectangle, an ellipse or a pen loop; an arrow gives the dot it
+  points at), at most 100, highest scored first.
+- **Views in the notes list.** The list's "Views" filter shows every saved view with its
+  marks and date: Go to, Rename or Delete (it asks first; undo brings it back).
+- **Saving.** Marks save themselves a moment after each change, to `notes/annotations.json`
+  (gitignored) through the same helper and with the same rules as notes: a file changed
+  elsewhere is never overwritten (the toolbar offers Keep mine or Use the file's), a file
+  that cannot be read is never overwritten (Status names it), and one deleted elsewhere is
+  only saved again if you say so. Without the helper, marks work for the session and the
+  toolbar says plainly they will not be kept; Save as image still works. `/reset notes`
+  deletes saved marks with the notes.
+
 ## Performance
 
 The page is built for libraries of tens of thousands of items. The limits, measured at
