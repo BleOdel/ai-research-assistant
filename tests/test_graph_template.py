@@ -751,6 +751,36 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("Export", PAGE_SOURCE)
         self.assertRegex(TEMPLATE, r'id="noteeditor"')
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_matcher_and_new_evidence(self):
+        stop = re.search(r"^const STOPWORDS = .*?;$", PAGE_SOURCE, re.M | re.S)
+        self.assertIsNotNone(stop, "const STOPWORDS not found")
+        prelude = "const SUGGEST_AT = 5;" + stop.group(0)
+        got = run_js(["stem", "tokens", "buildIndex", "matchScore", "suggestPapers", "newEvidence"], prelude,
+                     """(() => { const items = [
+            {id: 'paper:a', type: 'paper', title: 'Gaze tracking leaks identity', subareas: ['Eye-tracking privacy'], firstSeen: '2026-09-01'},
+            {id: 'paper:b', type: 'paper', title: 'Keystroke inference from headset motion', subareas: ['Side channels'], firstSeen: '2026-10-20'},
+            {id: 'paper:c', type: 'paper', title: 'Gaze identity attacks revisited', subareas: ['Eye-tracking privacy'], firstSeen: '2026-10-21'},
+            {id: 'paper:d', type: 'paper', title: 'Unrelated databases', subareas: [], firstSeen: '2026-10-22'}]
+            .concat(Array.from({length: 40}, (_, i) => ({id: 'paper:z' + i, type: 'paper', title: 'filler study number ' + i, subareas: [], firstSeen: '2026-01-01'})));
+          const idx = buildIndex(items);
+          const note = {title: 'Gaze identity', body: 'Claim: gaze tracking leaks identity', links: ['paper:a'], dismissed: [], updated: '2026-10-01T00:00:00Z'};
+          const sub = (id) => (items.find((x) => x.id === id) || {}).subareas || [];
+          return [tokens('Tracking trackers tracked'), suggestPapers(note, idx, new Set(note.links)).map((s) => s.id),
+            newEvidence(note, items, idx, sub), newEvidence({...note, dismissed: ['paper:c']}, items, idx, sub),
+            newEvidence({...note, updated: null}, items, idx, sub)]; })()""")
+        self.assertEqual(got[0], ["track", "tracker", "track"])
+        self.assertEqual(got[1], ["paper:c"])                       # a is linked; b and d share nothing rare
+        self.assertEqual(got[2], [{"id": "paper:c", "why": "shares the sub-area Eye-tracking privacy"}])
+        self.assertEqual(got[3], [])                                 # dismissed
+        self.assertEqual(got[4], [])                                 # an unsaved note has nothing to be newer than
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_new_evidence_rows_are_capped(self):
+        # 27 related papers once filled the editor with check rows.
+        got = run_js(["evidenceRows"], "", "[evidenceRows([1, 2, 3, 4, 5], false), evidenceRows([1, 2, 3, 4, 5], true), evidenceRows([1, 2], false)]")
+        self.assertEqual(got, [{"shown": [1, 2, 3], "more": 2}, {"shown": [1, 2, 3, 4, 5], "more": 0}, {"shown": [1, 2], "more": 0}])
+
     def test_page_script_parses(self):
         script = TEMPLATE.split("<script>", 1)[1].split("</script>", 1)[0]
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:

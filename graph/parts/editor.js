@@ -48,9 +48,14 @@ function checksFor(note, ctx) {
   return out;
 }
 
+/* New-evidence rows in the editor: the first three, and a count of the rest until asked. */
+function evidenceRows(list, showAll) {
+  return showAll || list.length <= 3 ? { shown: list.slice(), more: 0 } : { shown: list.slice(0, 3), more: list.length - 3 };
+}
+
 /* ---------- the editor ---------- */
 const ED = { open: false, id: null, draft: null, version: null, state: "saved", msg: "", timer: null, conflict: null,
-  addingPrompt: false, promptError: "", els: null };
+  addingPrompt: false, promptError: "", els: null, allEvidence: false };
 MIN_CARDS.push("noteeditor");
 function editorOpen() { return ED.open; }
 function blankDraft(links) { return { title: "", body: "", links: links.slice(), in_report: null, dismissed: [] }; }
@@ -63,7 +68,7 @@ function openEditor(id, links) {
   const note = id ? NT.notes.get(id) : null;
   ED.open = true; ED.id = note ? id : null; ED.version = note ? note.version : null;
   ED.draft = note ? draftOf(note) : blankDraft(links || []);
-  ED.conflict = null; ED.msg = ""; NT.dirty = !note && (links || []).length > 0;
+  ED.conflict = null; ED.msg = ""; ED.allEvidence = false; NT.dirty = !note && (links || []).length > 0;
   ED.state = NT.serving ? (NT.dirty ? "unsaved" : "saved") : "readonly";
   S.note = ED.id; writeHash(true);
   if (S.min.cards.noteeditor) { S.min.cards.noteeditor = false; applyMin(true); }
@@ -172,11 +177,15 @@ function renderEditorParts() {
   /* checks */
   const checks = checksFor(d, { kind: (l) => (parseLink(l) || {}).kind, lab: (l) => { const n = byId.get(linkNodeId(l)); return n ? n.primaryLab || null : null; },
     labName: (id) => (labById.get(id) || {}).name || id, newEvidence: () => (typeof noteEvidence === "function" ? noteEvidence(ED.id, d) : []) });
-  E.checks.replaceChildren(...(checks.length ? [el("div", { class: "note", style: "margin-top:8px" }, "Checks")] : []), ...checks.map((c) => el("div", { class: "ed-check" },
+  const rows = evidenceRows(checks.filter((c) => c.kind === "newevidence"), ED.allEvidence);
+  const visibleChecks = checks.filter((c) => c.kind !== "newevidence").concat(rows.shown);
+  E.checks.replaceChildren(...(checks.length ? [el("div", { class: "note", style: "margin-top:8px" }, "Checks")] : []), ...visibleChecks.map((c) => el("div", { class: "ed-check" },
     el("div", {}, c.text), el("div", { class: "note muted" }, "Why: " + c.basis),
     c.kind === "newevidence" ? el("div", { class: "actions" },
       el("button", { disabled: !saving, on: { click: () => { d.links.push(c.id); E.body.focus(); markDirty(); renderEditorParts(); } } }, "Link it"),
-      el("button", { disabled: !saving, on: { click: () => { d.dismissed.push(c.id); saveDraft({ keepUpdated: true }); } } }, "Dismiss")) : null)));
+      el("button", { disabled: !saving, on: { click: () => { d.dismissed.push(c.id); saveDraft({ keepUpdated: true }); } } }, "Dismiss")) : null)),
+  rows.more ? el("button", { class: "linkbtn", on: { click: () => { ED.allEvidence = true; renderEditorParts(); } } },
+    "Show all " + (rows.more + rows.shown.length) + " new papers that look related") : null);
   /* suggested papers (Task 7 fills suggestionsFor) */
   const sug = typeof suggestionsFor === "function" ? suggestionsFor(d) : [];
   E.suggest.replaceChildren(...(sug.length ? [el("div", { class: "note", style: "margin-top:8px" }, "Suggested papers")] : []), ...sug.map((s) => el("div", { class: "ed-row" },
@@ -222,3 +231,95 @@ async function archiveNote(note) {
   else { ED.state = "failed"; ED.msg = (r.data && r.data.error) || "The helper is not answering."; }
   renderEditorParts();
 }
+
+/* ---------- suggested papers and new evidence ---------- */
+/* One matcher for both, so the editor's suggestions and the satellites' new-evidence ring
+   never disagree. A note and an item match on the words they share, each word weighted by
+   how rare it is in this library: a rare shared word counts more than a common one. The
+   word list is plain English only; the library's own common words are discounted by
+   rarity, so nothing here is specific to one researcher's topics. */
+const STOPWORDS = new Set(("about which their there these those would could should where while being between because other under " +
+  "after before through during again against within without paper papers study using based towards toward claim evidence next step " +
+  "with from that this when what have does been into were will your them than then they more also only some such each most over same " +
+  "both very much many data").split(" "));
+const SUGGEST_AT = 5;
+function stem(w) {
+  return w.length > 5 ? w.replace(/(ing|ed|es|s)$/, "") : w;
+}
+function tokens(text) {
+  return (String(text || "").toLowerCase().match(/[a-z]{4,}/g) || []).filter((w) => !STOPWORDS.has(w)).map(stem);
+}
+function buildIndex(items) {
+  const docs = new Map(), df = new Map();
+  for (const it of items) {
+    const set = new Set(tokens(it.title + " " + (it.subareas || []).join(" ")));
+    docs.set(it.id, set);
+    for (const w of set) df.set(w, (df.get(w) || 0) + 1);
+  }
+  return { n: items.length, df, docs };
+}
+function matchScore(noteTokens, id, idx) {
+  const doc = idx.docs.get(id), words = [];
+  let score = 0;
+  if (!doc) return { score, words };
+  for (const w of new Set(noteTokens)) if (doc.has(w)) { score += Math.log(idx.n / idx.df.get(w)); words.push(w); }
+  words.sort((a, b) => idx.df.get(a) - idx.df.get(b));   /* the rarest first */
+  return { score, words };
+}
+function suggestPapers(note, idx, linked, limit = 8) {
+  const nt = tokens(note.title + " " + note.body), out = [];
+  for (const id of idx.docs.keys()) {
+    if (linked.has(id)) continue;
+    const m = matchScore(nt, id, idx);
+    if (m.score >= SUGGEST_AT) out.push({ id, score: m.score, words: m.words.slice(0, 3) });
+  }
+  return out.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : 1)).slice(0, limit);
+}
+/* Papers first seen after the note was last updated that look related: they share a
+   sub-area with a linked paper, or the note's text matches them strongly. Never one the
+   note links or has dismissed; nothing for a note not yet saved. */
+function newEvidence(note, items, idx, subOf) {
+  if (!note.updated) return [];
+  const since = String(note.updated).slice(0, 10), links = new Set(note.links || []), dismissed = new Set(note.dismissed || []);
+  const subs = new Set((note.links || []).filter((l) => l.startsWith("paper:")).flatMap((l) => subOf(l)));
+  const nt = tokens(note.title + " " + note.body), out = [];
+  for (const it of items) {
+    if (it.type !== "paper" || links.has(it.id) || dismissed.has(it.id) || !(String(it.firstSeen || "") > since)) continue;
+    const shared = subOf(it.id).find((s) => subs.has(s));
+    if (shared) { out.push({ id: it.id, why: "shares the sub-area " + shared }); continue; }
+    const m = matchScore(nt, it.id, idx);
+    if (m.score >= SUGGEST_AT) out.push({ id: it.id, why: "shares the words " + m.words.slice(0, 3).join(", ") });
+  }
+  return out;
+}
+const MATCH = { idx: null, items: null };
+function matchData() {
+  if (!MATCH.idx) {
+    MATCH.items = ITEMS.map((n) => ({ id: n.id, type: n.type, title: n.title, subareas: n.subareas || [], firstSeen: n.firstSeen }));
+    MATCH.idx = buildIndex(MATCH.items);
+  }
+  return MATCH;
+}
+function subOfItem(id) { const n = byId.get(id); return (n && n.subareas) || []; }
+/* For the editor's check rows: what is new for the open note, with titles. */
+function noteEvidence(id, draft) {
+  const note = id ? NT.notes.get(id) : null;
+  if (!note) return [];
+  const m = matchData();
+  return newEvidence({ ...note, ...draft, updated: note.updated }, m.items, m.idx, subOfItem)
+    .map((e) => ({ ...e, title: (byId.get(e.id) || {}).title || e.id }));
+}
+function suggestionsFor(draft) {
+  if (!(draft.title + draft.body).trim()) return [];
+  return suggestPapers(draft, matchData().idx, new Set(draft.links));
+}
+/* Every note's new evidence, for the satellites' ring and the notes list. */
+function computeAllEvidence() {
+  const m = matchData();
+  NT.evidence = new Map();
+  for (const n of NT.notes.values()) if (!n.archived) {
+    const ev = newEvidence(n, m.items, m.idx, subOfItem);
+    if (ev.length) NT.evidence.set(n.id, ev);
+  }
+}
+NT.onChange.unshift(computeAllEvidence);   /* before the redraws that read it */
