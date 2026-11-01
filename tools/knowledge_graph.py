@@ -41,6 +41,7 @@ import kg_enrich
 import kg_gaps
 import kg_labs
 import kg_notes
+import kg_serve
 import state
 
 ROOT = state.ROOT
@@ -525,11 +526,37 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--check", action="store_true", help="lint the built page")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--synthetic", type=int, default=0, metavar="N")
+    parser.add_argument("--serve", action="store_true",
+                        help="start the local helper that saves notes, and print its address")
+    parser.add_argument("--no-open", action="store_true", help="with --serve: do not open a browser")
+    parser.add_argument("--serve-foreground", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--token", help=argparse.SUPPRESS)
     return parser
+
+
+def write_page(new_since: str | None = None, synthetic: int = 0) -> dict:
+    """Build the data and write graph/index.html; return the data."""
+    data = build(new_since=new_since, synthetic=synthetic)
+    state.atomic_write(PAGE, render(data, TEMPLATE.read_text(encoding="utf-8")))
+    return data
 
 
 def main(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.serve_foreground:
+        if not args.token:
+            print("--serve-foreground needs --token", file=sys.stderr)
+            return 2
+        kg_serve.run_foreground(ROOT, args.token, rebuild=write_page)
+        return 0
+    if args.serve:
+        try:
+            print(kg_serve.start(ROOT, open_browser=not args.no_open))
+        except RuntimeError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        return 0
 
     if args.check:
         if not PAGE.exists():
@@ -560,9 +587,7 @@ def main(argv: list[str]) -> int:
             line = f"OpenAlex: enrichment failed ({exc}); building from the cache"
         if not args.json:
             print(line)
-    data = build(new_since=args.new_since, synthetic=args.synthetic)
-    html = render(data, TEMPLATE.read_text(encoding="utf-8"))
-    state.atomic_write(PAGE, html)
+    data = write_page(new_since=args.new_since, synthetic=args.synthetic)
     path = str(PAGE.relative_to(ROOT))
     if args.json:
         print(json.dumps({"path": path, "counts": data["meta"]["counts"],

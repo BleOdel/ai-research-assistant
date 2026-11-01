@@ -23,10 +23,14 @@ Stdlib only. It logs nothing, so the token can never end up in a log.
 """
 
 import json
+import os
 import re
 import secrets
+import subprocess
 import sys
 import time
+import urllib.request
+import webbrowser
 from datetime import datetime, timezone
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -283,6 +287,99 @@ def make_server(root: Path, token: str, port: int = 0) -> ThreadingHTTPServer:
     server.root, server.token = Path(root), token
     server.last_activity = time.monotonic()
     return server
+
+
+# ---------- starting and stopping ----------
+def serve_file(root: Path) -> Path:
+    """Where a running helper records its port, token and process: graph/.serve.json,
+    gitignored with the rest of graph/."""
+    return Path(root) / "graph" / ".serve.json"
+
+
+def idle_seconds() -> int:
+    """Stop after this long with no request: the open page sends a heartbeat every
+    minute, so 30 minutes idle means the map has been closed."""
+    return int(os.environ.get("KG_IDLE_SECONDS", "1800"))
+
+
+def address(record: dict) -> str:
+    return f"http://127.0.0.1:{record['port']}/?t={record['token']}"
+
+
+def _alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def _answers(record: dict) -> bool:
+    req = urllib.request.Request(f"http://127.0.0.1:{record['port']}/api/ping",
+                                 headers={"X-KG-Token": record["token"]})
+    try:
+        with urllib.request.urlopen(req, timeout=2) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
+def running(root: Path) -> dict | None:
+    """The helper already serving ROOT, if its process is alive and it answers."""
+    try:
+        record = json.loads(serve_file(root).read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not {"port", "token", "pid"} <= set(record):
+        return None
+    return record if _alive(record["pid"]) and _answers(record) else None
+
+
+def start(root: Path, open_browser: bool) -> str:
+    """Start the helper in the background (or find the one running) and return the
+    address to open. Raises RuntimeError, in plain words, if it does not come up."""
+    record = running(root)
+    if record is None:
+        token = secrets.token_hex(16)
+        subprocess.Popen([sys.executable, str(Path(root) / "tools" / "knowledge_graph.py"),
+                          "--serve-foreground", "--token", token],
+                         cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                candidate = json.loads(serve_file(root).read_text())
+            except (OSError, ValueError):
+                candidate = None
+            if candidate and candidate.get("token") == token and _answers(candidate):
+                record = candidate
+                break
+            time.sleep(0.2)
+        if record is None:
+            raise RuntimeError("The helper did not start within 10 seconds; "
+                               "run python3 tools/knowledge_graph.py --serve again.")
+    if open_browser:
+        webbrowser.open(address(record))
+    return address(record)
+
+
+def run_foreground(root: Path, token: str, rebuild) -> None:
+    """The helper itself: rebuild the page, serve until idle, then tidy up."""
+    rebuild()
+    server = make_server(root, token)
+    server.timeout = 1
+    record = {"port": server.server_address[1], "token": token, "pid": os.getpid(), "started": time.time()}
+    state.atomic_write(serve_file(root), json.dumps(record) + "\n")
+    try:
+        while time.monotonic() - server.last_activity <= idle_seconds():
+            server.handle_request()
+    finally:
+        server.server_close()
+        try:
+            if json.loads(serve_file(root).read_text()).get("token") == token:
+                serve_file(root).unlink()
+        except (OSError, ValueError):
+            pass
 
 
 if __name__ == "__main__":

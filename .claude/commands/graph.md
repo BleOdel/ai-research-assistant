@@ -57,7 +57,20 @@ From its output, report two things:
   "missing contribution"): they sit under "unassigned" and are left out of the
   sub-area gap rules. Offer the same relabelling.
 
-## Step 4: Present
+## Step 4: Open it with saving on
+
+```bash
+python3 tools/knowledge_graph.py --serve
+```
+
+This starts the local helper that lets the page save notes (`tools/kg_serve.py`), opens
+the map in the browser, and prints the address it opened, one line ending `?t=<token>`.
+If a helper is already running it reuses it. It runs only on this computer, writes only
+into `notes/`, and stops by itself 30 minutes after the page is closed. If it fails to
+start, say so and give the error; the page still opens from `graph/index.html`, with
+notes read-only.
+
+## Step 5: Present
 
 ```
 ## Library map - YYYY-MM-DD
@@ -69,7 +82,9 @@ OpenAlex: <fetched> fetched (<stopped early, if it did>).
 Check: PASS
 Labels: <n> stale, <m> missing (or "all current")
 
-Open graph/index.html in a browser.
+Open <the address --serve printed>: notes are saved while it is open. It stops by
+itself 30 minutes after the page is closed; graph/index.html also opens on its own,
+with notes read-only.
 ```
 
 ## Important Rules

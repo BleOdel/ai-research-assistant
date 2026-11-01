@@ -1,6 +1,10 @@
 import json
+import os
 import shutil
+import signal
+import subprocess
 import sys
+import time
 import tempfile
 import threading
 import unittest
@@ -139,6 +143,53 @@ class RequestTests(HelperFixture):
         for bad in ([{"name": "claim", "question": ""}], [{"name": "x" * 25, "question": ""}],
                     [{"name": "A", "question": ""}, {"name": "a", "question": ""}], [{"name": "", "question": ""}]):
             self.assertEqual(self.api("/api/prompts", {"prompts": bad})[0], 400, bad)
+
+
+
+class LifecycleTests(unittest.TestCase):
+    """--serve run the way /graph runs it: a real background helper in a temp repo."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        shutil.copytree(REPO_ROOT / "tools", self.root / "tools", ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(REPO_ROOT / "graph", self.root / "graph", ignore=shutil.ignore_patterns("index.html", ".serve.json"))
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.addCleanup(self.stop_helper)
+        self.record = self.root / "graph" / ".serve.json"
+
+    def stop_helper(self):
+        try:
+            os.kill(json.loads(self.record.read_text())["pid"], signal.SIGTERM)
+        except (OSError, ValueError, KeyError):
+            pass
+
+    def run_graph(self, *args, env=None):
+        return subprocess.run([sys.executable, str(self.root / "tools" / "knowledge_graph.py"), *args],
+                              capture_output=True, text=True, env=env, timeout=60)
+
+    def wait_until_stopped(self, seconds=15):
+        deadline = time.time() + seconds
+        while self.record.exists() and time.time() < deadline:
+            time.sleep(0.5)
+        self.assertFalse(self.record.exists(), "the helper did not stop when idle")
+
+    def test_start_reuses_a_live_helper_and_stops_when_idle(self):
+        env = dict(os.environ, KG_IDLE_SECONDS="3")
+        first = self.run_graph("--serve", "--no-open", env=env)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        addr = first.stdout.strip().splitlines()[-1]
+        self.assertRegex(addr, r"^http://127\.0\.0\.1:\d+/\?t=[0-9a-f]{32}$")
+        second = self.run_graph("--serve", "--no-open", env=env)
+        self.assertEqual(second.stdout.strip().splitlines()[-1], addr)        # same helper, not a new one
+        self.assertTrue((self.root / "graph" / "index.html").exists())          # it rebuilt on start
+        self.wait_until_stopped()                                               # stopped itself when idle
+
+    def test_a_stale_record_is_replaced(self):
+        self.record.write_text(json.dumps({"port": 1, "token": "x", "pid": 999999, "started": 0}))
+        r = self.run_graph("--serve", "--no-open", env=dict(os.environ, KG_IDLE_SECONDS="2"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn(":1/", r.stdout)
+        self.wait_until_stopped()        # so no helper outlives the temp folder
 
 
 if __name__ == "__main__":
