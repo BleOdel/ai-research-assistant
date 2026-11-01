@@ -122,14 +122,29 @@ h2:first-child { margin-top: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 #summary { position: absolute; top: 12px; left: 12px; right: 12px; max-width: 640px; z-index: 3; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px var(--ring); }
 #summary p { margin: 0 0 6px; }
-#navtools, #globe-nav { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 2px 10px var(--ring); touch-action: none; user-select: none; }
-#navtools button, #globe-nav button { min-width: 32px; padding: 3px 8px; white-space: nowrap; }
-#navtools .icon, #globe-nav .icon { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-#navtools .sep, #globe-nav .sep { width: 1px; align-self: stretch; background: var(--hair); margin: 0 2px; }
+#navtools, #globe-nav, #annotbar { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 2px 10px var(--ring); touch-action: none; user-select: none; }
+#navtools button, #globe-nav button, #annotbar button { min-width: 32px; padding: 3px 8px; white-space: nowrap; }
+#navtools .icon, #globe-nav .icon, #annotbar .icon { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+#navtools .sep, #globe-nav .sep, #annotbar .sep { width: 1px; align-self: stretch; background: var(--hair); margin: 0 2px; }
 #nav-grip, #gnav-grip { cursor: grab; border: none; background: none; color: var(--muted); font-size: 16px; padding: 2px 4px; min-width: 0; }
 #nav-grip:active, #gnav-grip:active { cursor: grabbing; }
 #tab-overview { background: var(--plane); }
 #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#globe.draw-mode { cursor: crosshair; }
+#annotbar { flex-wrap: wrap; max-width: calc(100% - 24px); }
+#annotbar [aria-pressed="true"] { border-color: var(--focus); color: var(--ink); background: var(--plane); }
+#annotbar select { padding: 2px 4px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); font-size: 12.5px; }
+#annotbar .ann-colour { min-width: 0; width: 20px; height: 20px; padding: 0; border-radius: 50%; background: var(--sw); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--axis); }
+#annotbar .ann-colour[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--focus); }
+#ann-msg { flex-basis: 100%; contain: inline-size; font-size: 12px; color: var(--ink-2); padding: 2px 4px 0; }
+#ann-msg .warn { color: var(--gap); }
+#ann-msg button { min-width: 0; padding: 1px 6px; margin-left: 4px; font-size: 12px; }
+#ann-chip, #annotbar.min > * { display: none; }
+#annotbar.min > #ann-chip { display: inline-block; }
+#mark-actions { padding: 4px 6px; display: flex; gap: 4px; z-index: 5; }
+#mark-actions[hidden] { display: none; }
+#mark-actions button { padding: 2px 8px; font-size: 12.5px; }
+.ann-label { position: absolute; z-index: 6; font: 600 14px system-ui; padding: 2px 6px; border: 1px solid var(--focus); border-radius: 4px; background: var(--surface); color: var(--ink); width: 18em; }
 #globe:active { cursor: grabbing; }
 #globe.pan-mode { cursor: move; }
 .page h2 { font-size: 16px; margin: 0 0 4px; }
@@ -265,6 +280,32 @@ h2:first-child { margin-top: 0; }
     <button id="gnav-rotate" aria-pressed="true" title="Dragging the globe turns it">&#8635; Rotate</button>
     <button id="gnav-pan" aria-pressed="false" title="Dragging the globe moves it (H)">&#9995; Move</button>
   </div>
+  <div id="annotbar" role="toolbar" aria-label="Draw on the map">
+    <button id="ann-chip" title="Show the drawing toolbar">&#9656; Draw</button>
+    <button id="ann-grip" title="Drag to move this toolbar; or focus it and use the arrow keys" aria-label="Move this toolbar">&#10303;</button>
+    <button id="ann-select" aria-pressed="true" title="Select: click a mark to change it; Shift+drag to pick papers (Esc)" aria-label="Select"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 2 L3 13 L6 10 L8.5 14.5 L10.5 13.5 L8 9 L12 9 Z"/></svg></button>
+    <button id="ann-pen" aria-pressed="false" title="Pen: draw freehand" aria-label="Pen"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M2 14 L3 10.5 L11 2.5 L13.5 5 L5.5 13 Z"/><line x1="9.5" y1="4" x2="12" y2="6.5"/></svg></button>
+    <button id="ann-shape" aria-pressed="false" title="Shapes: rectangle, ellipse or arrow" aria-label="Shapes"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="2" y="3" width="8" height="6"/><circle cx="11" cy="11" r="3.5"/></svg></button>
+    <select id="ann-shape-kind" aria-label="Shape"><option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="arrow">Arrow</option></select>
+    <button id="ann-text" aria-pressed="false" title="Text: a short label" aria-label="Text label"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><line x1="3" y1="3" x2="13" y2="3"/><line x1="8" y1="3" x2="8" y2="14"/></svg></button>
+    <button id="ann-eraser" aria-pressed="false" title="Eraser: click a mark to remove it" aria-label="Eraser"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 14 L2.5 10.5 L9.5 3.5 L14 8 L8 14 Z"/><line x1="6" y1="14" x2="14" y2="14"/></svg></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="ann-colour" data-c="0" aria-label="Ink" title="Ink" style="--sw: var(--mk1)"></button>
+    <button class="ann-colour" data-c="1" aria-label="Red" title="Red" style="--sw: var(--mk2)"></button>
+    <button class="ann-colour" data-c="2" aria-label="Lime" title="Lime" style="--sw: var(--mk3)"></button>
+    <button class="ann-colour" data-c="3" aria-label="Green" title="Green" style="--sw: var(--mk4)"></button>
+    <button class="ann-colour" data-c="4" aria-label="Violet" title="Violet" style="--sw: var(--mk5)"></button>
+    <select id="ann-width" aria-label="Line width"><option value="0">Thin</option><option value="1" selected>Medium</option><option value="2">Thick</option></select>
+    <span class="sep" aria-hidden="true"></span>
+    <button id="ann-undo" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 3 L2 6 L5 9"/><path d="M2 6 H10 a4 4 0 0 1 0 8 H6"/></svg></button>
+    <button id="ann-redo" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M11 3 L14 6 L11 9"/><path d="M14 6 H6 a4 4 0 0 0 0 8 H10"/></svg></button>
+    <button id="ann-clear" title="Remove every mark in this view">Clear</button>
+    <button id="ann-note" title="Write a note, linked to the selected mark's papers, the highlight or the selected item">&#65291; Note</button>
+    <button id="ann-image" title="Save the view and its marks as a picture (PNG)">Save as image</button>
+    <button id="ann-close" title="Close the drawing toolbar (M minimises everything)" aria-label="Close the drawing toolbar">&times;</button>
+    <div id="ann-msg" aria-live="polite"></div>
+  </div>
+  <div id="mark-actions" class="ocard" hidden></div>
   <section id="mapcard" class="ocard" aria-label="On your map"></section>
   <section id="selcard" class="ocard" aria-label="Selected item" aria-live="polite" hidden></section>
   <section id="noteeditor" class="ocard" aria-label="Note" hidden></section>
@@ -1562,6 +1603,7 @@ function onKey(e) {
     /* On the Overview, Esc leaves the selection there; Explore's list and focus are not on screen. */
     if (S.tab === "overview") {
       if (typeof editorOpen === "function" && editorOpen()) closeEditor();
+      else if (typeof annotEsc === "function" && annotEsc()) { /* stepped back one thing in the drawing toolbar */ }
       else if (S.current != null || S.highlight) globeClear();
       return;
     }
@@ -1631,6 +1673,7 @@ function restoreFromHash() {
 <script data-part="notes.js"></script>
 <script data-part="editor.js"></script>
 <script data-part="marks.js"></script>
+<script data-part="annotate.js"></script>
 <script data-part="connects.js"></script>
 <script data-part="ask.js"></script>
 <script data-part="status.js"></script>

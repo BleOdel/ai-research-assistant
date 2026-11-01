@@ -268,6 +268,7 @@ function renderOverview() {
     else if (store.get("kg-min") == null && window.matchMedia("(max-width: 900px)").matches) S.min.cards["globe-legend"] = true;
   }
   renderMapCard(); renderSelCard(); renderHighlightChip(); renderGlobeLegend();
+  if (typeof renderAnnotbar === "function") renderAnnotbar();
   if (typeof renderNotesList === "function") renderNotesList();
   if (typeof editorOpen === "function" && editorOpen()) renderEditor();
 }

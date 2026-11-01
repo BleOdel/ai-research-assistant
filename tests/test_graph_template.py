@@ -973,7 +973,7 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_every_part_parses(self):
-        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "notes.js", "editor.js", "marks.js", "connects.js", "ask.js", "status.js"])
+        self.assertEqual(PART_NAMES, ["globe.js", "overview.js", "notes.js", "editor.js", "marks.js", "annotate.js", "connects.js", "ask.js", "status.js"])
         for name in PART_NAMES:
             code = (PARTS / name).read_text()
             r = subprocess.run(["node", "--check", "-"], input=code, capture_output=True, text=True)
@@ -1147,6 +1147,73 @@ class MarksTests(unittest.TestCase):
         self.assertEqual(got[10:13], ["disk", "d2", "saved"])
         self.assertEqual(got[13], "deleted")
         self.assertEqual(got[14:], [None, "saved"])
+
+    TOOL_DOC = """const pressed = {}; const document = {getElementById: (id) => ({setAttribute: (k, v) => { if (k === 'aria-pressed') pressed[id] = v; }})};
+      const saved = {}; const store = {set: (k, v) => { saved[k] = v; }, get: (k) => saved[k]};
+      const TOOLS = ["select", "pen", "shape", "text", "eraser"];
+      const AN = {tool: "select", drawing: null, selected: null, onChange: []};
+      function marksNotify() {} function globeRequestDraw() {}"""
+
+    def test_one_tool_at_a_time(self):
+        got = run_js(["setTool"], self.TOOL_DOC, """(() => { setTool("pen"); const a = {...pressed};
+          setTool("bogus"); return [a, {...pressed}, AN.tool]; })()""")
+        on = lambda d: [k for k, v in d.items() if v == "true"]
+        self.assertEqual(on(got[0]), ["ann-pen"])
+        self.assertEqual(len(got[0]), 5)
+        self.assertEqual(on(got[1]), ["ann-select"])
+        self.assertEqual(got[2], "select")
+
+    def test_esc_steps_back_one_thing(self):
+        got = run_js(["setTool", "annotEsc"], self.TOOL_DOC, """(() => { AN.tool = "pen"; AN.drawing = {kind: "pen"}; AN.selected = "m-1"; const out = [];
+          for (let i = 0; i < 4; i++) { out.push([annotEsc(), !!AN.drawing, AN.tool, AN.selected]); } return out; })()""")
+        self.assertEqual(got, [[True, False, "pen", "m-1"], [True, False, "select", "m-1"], [True, False, "select", None],
+                               [False, False, "select", None]])
+        esc = page_function("onKey").split('e.key === "Escape"', 1)[1].split("return;\n    }", 1)[0]
+        self.assertLess(esc.index("closeEditor()"), esc.index("annotEsc()"))
+        self.assertLess(esc.index("annotEsc()"), esc.index("globeClear()"))
+
+    def test_hints(self):
+        hints = re.search(r"^const TOOL_HINTS = \{.*?^\};", PAGE_SOURCE, re.M | re.S).group(0)
+        prelude = "const AN = {error: null, msg: ''};" + hints
+        got = run_js(["annotHint"], prelude, """[annotHint("select", "saved"), annotHint("pen", "saving"), annotHint("shape", "off"),
+          annotHint("text", "conflict"), annotHint("eraser", "deleted"), (AN.msg = "the helper is not answering.", annotHint("pen", "failed")),
+          (AN.error = "notes/annotations.json could not be read: x", annotHint("pen", "saved"))]""")
+        self.assertEqual(got[0], "Click a mark to move, resize, recolour or delete it. Shift+drag across dots to pick papers. Marks saved.")
+        self.assertEqual(got[1], "Draw freehand. Esc returns to Select. Saving…")
+        self.assertEqual(got[2], "Drag to draw. An arrow snaps to the dot it points at. "
+                                 "Marks are not kept: saving is off (run /graph to save). Save as image keeps a picture.")
+        self.assertEqual(got[3], "Click where the label goes. Anything longer belongs in a note. Your marks changed somewhere else.")
+        self.assertEqual(got[4], "Click a mark to remove it. Your saved marks were deleted elsewhere.")
+        self.assertEqual(got[5], "Draw freehand. Esc returns to Select. Not saved: the helper is not answering. Save as image keeps a picture.")
+        self.assertEqual(got[6], "Draw freehand. Esc returns to Select. Marks cannot be saved: notes/annotations.json could not be read: x")
+
+    def test_toolbar_markup(self):
+        for i in ("annotbar", "ann-grip", "ann-select", "ann-pen", "ann-shape", "ann-shape-kind", "ann-text", "ann-note", "ann-undo",
+                  "ann-redo", "ann-width", "ann-eraser", "ann-clear", "ann-image", "ann-close", "ann-msg", "mark-actions"):
+            self.assertRegex(TEMPLATE, rf'id="{i}"', i)
+        self.assertEqual(len(re.findall(r'class="ann-colour"', TEMPLATE)), 5)
+        self.assertIn('MIN_CARDS.push("annotbar")', PAGE_SOURCE)
+        self.assertRegex(TEMPLATE, r'id="annotbar" role="toolbar" aria-label="Draw on the map"')
+
+    def test_spec_tools_only(self):
+        # Not in this version (spec): highlighter, sticky pins, compare-two-dots.
+        self.assertNotRegex(TEMPLATE, r'id="ann-(highlight|pin|compare)')
+
+    def test_first_mark_creates_a_view(self):
+        prelude = """const KIND_PAPER = "Paper", KIND_WEB = "Web"; const GL = {model: {}, yaw: 0.1, pitch: 0.2, zoom: 2, panX: 0, panY: 0};
+          const S = {filters: {sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};
+          const AN = {views: [], history: null, onChange: [], save: 'off'}; const NT = {serving: false}; const HISTORY_MAX = 100;
+          function marksNotify() {} function globeRequestDraw() {} const crypto = {getRandomValues: (a) => a.fill(171)};"""
+        names = ["ensureView", "addMark", "activeView", "viewAt", "sameCamera", "wrapAngle", "cameraOf", "filterKey", "filterState",
+                 "viewName", "shortDate", "newViewId", "hex6", "marksChanged", "record", "newHistory", "undoStep", "applySnapshot"]
+        got = run_js(names, prelude, """(() => {
+          addMark({id: 'm-000001', kind: 'rect', colour: 1, width: 1, pts: [[0, 0], [0.1, 0.1]]});
+          const v = AN.views[0], again = ensureView();
+          const made = [AN.views.length, v === again, /^v-\d{8}-ababab$/.test(v.id), v.name.startsWith('Whole library · ')];
+          AN.views = undoStep(AN.views, AN.history);
+          return [made, AN.views.length]; })()""")
+        self.assertEqual(got[0], [1, True, True, True])
+        self.assertEqual(got[1], 0)        # undoing the first mark removes the view it made
 
     def test_globe_hands_drags_to_the_toolbar(self):
         src = page_function("globeInput")
