@@ -1,3 +1,5 @@
+import copy
+import json
 import shutil
 import sys
 import tempfile
@@ -83,3 +85,50 @@ class NoteFormatTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+MARKS = [{"id": "m-00000a", "kind": "pen", "colour": 0, "width": 1, "pts": [[0.1, 0.2], [0.3, 0.4], [0.5, 0.1]]},
+         {"id": "m-00000b", "kind": "rect", "colour": 1, "width": 0, "pts": [[-0.5, -0.5], [0.2, 0.3]]},
+         {"id": "m-00000c", "kind": "ellipse", "colour": 2, "width": 2, "pts": [[0, 0], [0.4, 0.2]]},
+         {"id": "m-00000d", "kind": "arrow", "colour": 3, "width": 1, "pts": [[0, 0], [0.4, 0.2]], "snap": "paper:abc"},
+         {"id": "m-00000e", "kind": "text", "colour": 4, "width": 0, "pts": [[0.6, -0.2]], "text": "Gaze cluster"}]
+VIEW = {"id": "v-20261101-a1b2c3", "name": "Whole library · 1 Nov", "created": "2026-11-01T10:00:00Z",
+        "updated": "2026-11-01T10:05:00Z", "camera": {"yaw": -0.6, "pitch": 0.2, "zoom": 1, "panX": 0, "panY": 0},
+        "filters": {"sets": {}, "yMin": None, "yMax": None, "u": True, "n": False, "o": False, "a": False}, "marks": MARKS}
+
+
+class AnnotationFormatTests(unittest.TestCase):
+    def test_a_good_document_validates_and_loads(self):
+        self.assertEqual(kg_notes.validate_annotations({"views": [VIEW]}), [])
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+        self.assertEqual(kg_notes.load_annotations(d), ({"views": []}, None, None))
+        (d / "annotations.json").write_text(json.dumps({"views": [VIEW]}))
+        doc, ver, err = kg_notes.load_annotations(d)
+        self.assertEqual((doc["views"][0]["id"], len(ver), err), ("v-20261101-a1b2c3", 16, None))
+
+    def test_bad_documents_are_refused(self):
+        def broken(fn):
+            v = copy.deepcopy(VIEW)
+            fn(v)
+            return {"views": [v]}
+        for doc in (broken(lambda v: v.update(id="../x")), broken(lambda v: v.update(name="")),
+                    broken(lambda v: v.update(name="x" * 81)), broken(lambda v: v["camera"].update(zoom=float("nan"))),
+                    broken(lambda v: v["camera"].pop("yaw")), broken(lambda v: v["marks"][0].update(kind="highlighter")),
+                    broken(lambda v: v["marks"][0].update(colour=5)), broken(lambda v: v["marks"][1].update(pts=[[0, 0]])),
+                    broken(lambda v: v["marks"][4].update(text="x" * 61)), broken(lambda v: v["marks"][0].update(pts=[[0, 0]] * 2001)),
+                    broken(lambda v: v["marks"][0].update(pts=[[0, 99]] * 2)), broken(lambda v: v["marks"].append(dict(MARKS[0]))),
+                    broken(lambda v: v["marks"][1].update(snap="paper:x")), broken(lambda v: v["marks"][0].update(colour=True)),
+                    {"views": [VIEW] * 2}, {"views": "no"}, []):
+            self.assertTrue(kg_notes.validate_annotations(doc), doc)
+
+    def test_an_unreadable_file_is_reported(self):
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d)
+        (d / "annotations.json").write_text("{not json")
+        doc, ver, err = kg_notes.load_annotations(d)
+        self.assertEqual(doc, {"views": []})
+        self.assertEqual(len(ver), 16)
+        self.assertIn("could not be read", err)
+        (d / "annotations.json").write_text(json.dumps({"views": "no"}))
+        self.assertIn("is not valid", kg_notes.load_annotations(d)[2])

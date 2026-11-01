@@ -425,9 +425,11 @@ def build(new_since: str | None = None, synthetic: int = 0, today: str | None = 
     # that saves them (--serve) is not running. A made-up library has none.
     notes, unreadable = ([], []) if synthetic else kg_notes.load(NOTES_DIR)
     notes.sort(key=lambda n: n.get("updated") or "", reverse=True)
+    marks, _, marks_error = ({"views": []}, None, None) if synthetic else kg_notes.load_annotations(NOTES_DIR)
     return {
         "notes": notes, "notesUnreadable": unreadable,
         "prompts": [] if synthetic else kg_notes.load_prompts(NOTES_DIR),
+        "annotations": marks, "annotationsError": marks_error,
         "meta": {
             "built": today, "latestDate": latest, "newSince": new_since, "summary": summary,
             "warnings": lib["warnings"],

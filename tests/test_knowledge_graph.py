@@ -287,6 +287,20 @@ class BuildTests(GraphFixture):
         self.build("--synthetic", "20000")
         self.assertLess(self.page.stat().st_size, 30 * 1024 * 1024)
 
+    def test_annotations_are_embedded(self):
+        view = {"id": "v-20261101-a1b2c3", "name": "Whole library · 1 Nov", "created": "2026-11-01T10:00:00Z",
+                "updated": "2026-11-01T10:05:00Z", "camera": {"yaw": -0.6, "pitch": 0.2, "zoom": 1, "panX": 0, "panY": 0},
+                "filters": {"sets": {}}, "marks": [{"id": "m-00000b", "kind": "rect", "colour": 1, "width": 0, "pts": [[0, 0], [0.2, 0.3]]}]}
+        (self.root / "notes").mkdir()
+        (self.root / "notes" / "annotations.json").write_text(json.dumps({"views": [view]}))
+        data = self.build()
+        self.assertEqual(data["annotations"]["views"][0]["id"], "v-20261101-a1b2c3")
+        self.assertIsNone(data["annotationsError"])
+        (self.root / "notes" / "annotations.json").write_text("{")
+        data = self.build()
+        self.assertEqual(data["annotations"], {"views": []})
+        self.assertIn("annotations.json", data["annotationsError"])
+
     def test_notes_are_embedded(self):
         import kg_notes
         # The same dict as tests/test_kg_notes.py's NOTE, copied: an import of that
