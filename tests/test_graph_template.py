@@ -680,11 +680,57 @@ class TemplateTests(unittest.TestCase):
                                "Outer orbit · linked to 2 web sources, no papers yet",
                                "Outer orbit · an idea, no papers yet"])
 
-    def test_rebuilt_banner_and_note_in_the_address(self):
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_reload_after_a_rebuild_asks_once(self):
+        # Review: Reload asked about unsaved text, then the browser asked again.
         self.assertRegex(TEMPLATE, r'id="rebuilt"')
-        self.assertIn("The library was rebuilt", PAGE_SOURCE)
-        self.assertIn("note:", page_function("writeHash"))
-        self.assertIn("beforeunload", PAGE_SOURCE)
+        self.assertIn("reloadAfterRebuild", page_function("showRebuilt"))
+        prelude = """let answer, asked = 0, reloads = 0; const NT = {dirty: true};
+          const window = {confirm: () => { asked++; return answer; }}; const location = {reload: () => { reloads++; }};"""
+        got = run_js(["reloadAfterRebuild", "warnBeforeLeaving"], prelude, """(() => {
+          const leave = () => { let stopped = false; warnBeforeLeaving({preventDefault: () => { stopped = true; }}); return stopped; };
+          answer = false; reloadAfterRebuild(); const declined = [asked, reloads, leave()];
+          answer = true; reloadAfterRebuild(); const accepted = [asked, reloads, leave()];
+          NT.dirty = false; NT.leaving = false; asked = 0; reloadAfterRebuild();
+          return [declined, accepted, [asked, reloads, leave()]]; })()""")
+        self.assertEqual(got, [[1, 0, True], [2, 1, False], [0, 2, False]])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_the_open_note_is_in_the_address(self):
+        prelude = """let pushed = null; const location = {hash: ""}; const history = {pushState: (a, b, h) => { pushed = h; }, replaceState: (a, b, h) => { pushed = h; }};
+          const S = {tab: "overview", view: "library", current: null, note: "n-20261101-abcdef", since: "2026-10-01", dims: 3,
+            filters: {sets: {}, yearMin: null, yearMax: null, undated: true, newOnly: false, offTopic: false, all: false}};"""
+        got = run_js(["writeHash"], prelude, "(writeHash(true), new URLSearchParams(pushed.slice(1)).get('note'))")
+        self.assertEqual(got, "n-20261101-abcdef")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_note_in_the_address_opens_the_editor(self):
+        # Review: opening the page at #note=<id>, or Back/Forward to it, left the editor
+        # closed, so the address and the screen disagreed.
+        prelude = """let calls = [], declines = false, hashes = 0;
+          const NT = {notes: new Map([["a", {}], ["b", {}]])}; const S = {note: null}; const ED = {open: false, id: null};
+          function openEditor(id, links, push) { calls.push(["open", id, push]); if (!declines) { ED.open = true; ED.id = id; } }
+          function closeEditor(push) { calls.push(["close", push]); if (!declines) { ED.open = false; ED.id = null; } }
+          function writeHash(push) { hashes++; }"""
+        got = run_js(["syncEditorToHash"], prelude, """(() => { const out = [];
+          const step = (note) => { calls = []; S.note = note; syncEditorToHash(); out.push([calls, ED.open, ED.id, S.note]); };
+          step("a");            /* opened at #note=a */
+          step("a");            /* already open: nothing */
+          step(null);           /* Back to an address with no note: close */
+          ED.open = true; ED.id = null; step(null);     /* a new, unsaved note stays open */
+          ED.open = false; step("gone");                /* a note this page does not have */
+          ED.open = true; ED.id = "a"; declines = true; step("b");   /* unsaved text, and they stay */
+          return [out, hashes]; })()""")
+        out, hashes = got
+        self.assertEqual(out[0], [[["open", "a", False]], True, "a", "a"])
+        self.assertEqual(out[1], [[], True, "a", "a"])
+        self.assertEqual(out[2], [[["close", False]], False, None, None])
+        self.assertEqual(out[3], [[], True, None, None])
+        self.assertEqual(out[4], [[], False, None, None])           # cleared from the address
+        self.assertEqual(out[5], [[["open", "b", False]], True, "a", "a"])   # the address goes back to the open note
+        self.assertEqual(hashes, 2)
+        self.assertIn("syncEditorToHash", page_function("notesInit"))
+        self.assertRegex(PAGE_SOURCE, r'addEventListener\("popstate", \(\) => syncEditorToHash\(\)\)')
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_satellite_placement_and_cap(self):
@@ -743,13 +789,53 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(got[3], [["webonly", "every linked item is a web source (not peer-reviewed)"]])
         self.assertEqual(got[4], [["noagainst", '3 linked papers, no "Against:" line']])   # b2 has no group: not one group
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_failed_save_keeps_the_text(self):
         # Review Focus 3: the helper stops while the researcher types.
-        src = page_function("saveDraft")
-        self.assertIn('"failed"', src)
-        self.assertIn("Not saved", PAGE_SOURCE)
-        self.assertIn("Export", PAGE_SOURCE)
         self.assertRegex(TEMPLATE, r'id="noteeditor"')
+        prelude = """const NT = {serving: true, dirty: true, notes: new Map([["n-1", {id: "n-1", version: "v1"}]])}; const S = {};
+          const ED = {id: "n-1", version: "v1", draft: {title: "T", body: "my words", links: [], in_report: null, dismissed: []}, state: "unsaved", msg: ""};
+          function renderEditorParts() {} function noteOrbit() { return "outer"; } function noteHas() { return true; }
+          function satMove() {} function notesChanged() {} function writeHash() {}
+          function noteApi() { return Promise.resolve({status: 0, data: {error: "the helper is not answering."}}); }"""
+        got = run_js(["saveDraft"], prelude, "saveDraft().then(() => [ED.state, ED.msg, ED.draft.body, NT.dirty, NT.notes.get('n-1').version])")
+        self.assertEqual(got, ["failed", "the helper is not answering.", "my words", True, "v1"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_use_the_files_version_updates_the_notes(self):
+        # Review: choosing the file's version updated the editor but not NT.notes, so the
+        # list and the satellites kept the old text and an archive from the list conflicted.
+        prelude = """let changed = 0, rendered = 0; const NT = {dirty: true, notes: new Map([["n-1", {id: "n-1", title: "Old", body: "old", version: "v1", file: "notes/n-1.md"}]])};
+          const ED = {id: "n-1", version: "v1", state: "conflict", draft: {title: "Mine", body: "mine", links: [], in_report: null, dismissed: []},
+            conflict: {disk: {id: "n-1", title: "File", body: "from the file", links: ["paper:a"], in_report: null, dismissed: [], extra: []}, diskVersion: "v2"}};
+          function notesChanged() { changed++; } function renderEditor() { rendered++; }"""
+        got = run_js(["useFileVersion", "draftOf"], prelude, """(useFileVersion(), [ED.draft.body, ED.version, ED.state, ED.conflict, NT.dirty,
+          NT.notes.get("n-1").body, NT.notes.get("n-1").version, NT.notes.get("n-1").file, changed, rendered])""")
+        self.assertEqual(got, ["from the file", "v2", "saved", None, False, "from the file", "v2", "notes/n-1.md", 1, 1])
+        self.assertIn("useFileVersion", page_function("renderEditorParts"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_archive_from_the_list_says_why_it_failed(self):
+        # Review: an archive from the notes list that failed (a conflict, a stopped helper)
+        # did nothing and said nothing.
+        prelude = """let answer; const NL = {msg: ""}; const NT = {notes: new Map()}; let changed = 0;
+          function notesChanged() { changed++; } function noteApi() { return Promise.resolve(answer); }
+          const reset = () => NT.notes = new Map([["n-1", {id: "n-1", title: "Gaze", archived: null, version: "v1"}]]);"""
+        got = run_js(["archiveFromList"], prelude, """(async () => { const out = [];
+          const run = async (a) => { reset(); answer = a; await archiveFromList(NT.notes.get("n-1"));
+            const n = NT.notes.get("n-1"); out.push([NL.msg, n ? [n.archived, n.version] : null]); };
+          await run({status: 200, data: {note: {id: "n-1", title: "Gaze", archived: "2026-11-01T00:00:00Z"}, version: "v2"}});
+          await run({status: 409, data: {conflict: true, disk: {id: "n-1", title: "Gaze", archived: null}, diskVersion: "v3"}});
+          await run({status: 409, data: {deleted: true, error: "This note was deleted elsewhere since you opened it."}});
+          await run({status: 0, data: {error: "the helper is not answering."}});
+          return [out, changed]; })()""")
+        out, changed = got
+        self.assertEqual(out[0], ["", ["2026-11-01T00:00:00Z", "v2"]])
+        self.assertEqual(out[1], ["Not archived: Gaze changed in its file since the list was loaded. The list now shows the file's version; try again.", [None, "v3"]])
+        self.assertEqual(out[2], ["Not archived: Gaze was deleted elsewhere.", None])
+        self.assertEqual(out[3], ["Not archived: the helper is not answering.", [None, "v1"]])
+        self.assertEqual(changed, 4)                                # the list redraws to show the message
+        self.assertIn("archiveFromList(", page_function("renderNotesList"))
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_matcher_and_new_evidence(self):

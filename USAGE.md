@@ -287,7 +287,7 @@ page shows both versions and lets you choose. `/reset notes` deletes them, and `
 all` asks separately first.
 
 The address bar keeps the tab, view, selection, note and filters, so a bookmark reopens
-the same picture.
+the same picture, open note included.
 
 The labels behind it are the `subareas` and `contribution` fields scoring adds to each
 source. `/graph` lists any that are missing or name a sub-area your profile no longer

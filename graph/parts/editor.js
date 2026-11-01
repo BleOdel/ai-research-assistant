@@ -63,22 +63,24 @@ function draftOf(note) {
   return { title: note.title || "", body: note.body || "", links: (note.links || []).slice(), in_report: note.in_report || null,
     dismissed: (note.dismissed || []).slice() };
 }
-function openEditor(id, links) {
+/* PUSH false: following the address (Back, Forward, opening the page at #note=), so
+   it is left as it is. */
+function openEditor(id, links, push) {
   if (ED.open && NT.dirty && ED.id !== id && !window.confirm("Your note has unsaved changes. Open another anyway?")) return;
   const note = id ? NT.notes.get(id) : null;
   ED.open = true; ED.id = note ? id : null; ED.version = note ? note.version : null;
   ED.draft = note ? draftOf(note) : blankDraft(links || []);
   ED.conflict = null; ED.msg = ""; ED.allEvidence = false; NT.dirty = !note && (links || []).length > 0;
   ED.state = NT.serving ? (NT.dirty ? "unsaved" : "saved") : "readonly";
-  S.note = ED.id; writeHash(true);
+  S.note = ED.id; writeHash(push !== false);
   if (S.min.cards.noteeditor) { S.min.cards.noteeditor = false; applyMin(true); }
   renderEditor();
   if (typeof renderSelCard === "function") renderSelCard();
   globeRequestDraw();
 }
-function closeEditor() {
+function closeEditor(push) {
   if (NT.dirty && !window.confirm("Your note has unsaved changes. Close it anyway? Export keeps a copy.")) return;
-  ED.open = false; ED.id = null; NT.dirty = false; S.note = null; writeHash(true);
+  ED.open = false; ED.id = null; NT.dirty = false; S.note = null; writeHash(push !== false);
   $("#noteeditor").hidden = true;
   if (typeof renderSelCard === "function") renderSelCard();
   globeRequestDraw();
@@ -123,6 +125,26 @@ async function saveDraft(opts) {
   }
   renderEditorParts();
 }
+/* A conflict settled with the file's version: in the editor, and in the notes everywhere else. */
+function useFileVersion() {
+  const { disk, diskVersion } = ED.conflict;
+  ED.draft = draftOf(disk); ED.version = diskVersion; ED.conflict = null; NT.dirty = false; ED.state = "saved";
+  if (ED.id) NT.notes.set(ED.id, { ...NT.notes.get(ED.id), ...disk, version: diskVersion });
+  notesChanged(); renderEditor();
+}
+/* The address names the open note (#note=<id>). Opening the page at one, or going Back or
+   Forward to one, opens it; an address without one closes the editor (a new note not yet
+   saved has no id, so it stays). If the researcher keeps unsaved text instead, or the note
+   is not in this page, the address goes back to what is on screen. */
+function syncEditorToHash() {
+  if (S.note && !NT.notes.has(S.note)) { S.note = ED.open ? ED.id : null; writeHash(false); return; }
+  if (S.note && !(ED.open && ED.id === S.note)) openEditor(S.note, undefined, false);
+  else if (!S.note && ED.open && ED.id) closeEditor(false);
+  else return;
+  const shown = ED.open ? ED.id : null;
+  if (shown !== S.note) { S.note = shown; writeHash(false); }
+}
+window.addEventListener("popstate", () => syncEditorToHash());   /* after restoreFromHash has read the address */
 function linkLabel(link) {
   const id = linkNodeId(link), p = parseLink(link);
   if (p && p.kind === "group") { const lab = labOf(id); return lab ? lab.name + " (research group)" : link; }
@@ -174,7 +196,7 @@ function renderEditorParts() {
       el("div", {}, el("strong", {}, "Yours"), el("div", { class: "muted" }, d.title), el("pre", {}, d.body))),
     el("div", { class: "actions" },
       el("button", { on: { click: () => { ED.version = ED.conflict.diskVersion; ED.conflict = null; saveDraft(); } } }, "Keep mine"),
-      el("button", { on: { click: () => { ED.draft = draftOf(disk); ED.version = ED.conflict.diskVersion; ED.conflict = null; NT.dirty = false; ED.state = "saved"; renderEditor(); } } }, "Use the file's")));
+      el("button", { on: { click: useFileVersion } }, "Use the file's")));
   }
   /* prompts: presets, then the researcher's own */
   E.chips.replaceChildren(...PRESETS.map(([name, q]) => [name, q, false]).concat(NT.prompts.map((p) => [p.name, p.question, true])).map(([name, q, mine]) => {

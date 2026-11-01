@@ -100,8 +100,8 @@ could not be read). It also says when the map was built, what is shown and hidde
 coverage, missing sub-area and contribution labels, and the build's warnings, each
 problem with the command that fixes it.
 
-The address bar records the tab, view, selection, filters and date, so a bookmark
-reopens the same picture. Bookmarks from the earlier Simple/Advanced page still open, on
+The address bar records the tab, view, selection, open note, filters and date, so a
+bookmark reopens the same picture, and Back and Forward step through notes you opened. Bookmarks from the earlier Simple/Advanced page still open, on
 Overview or Explore respectively.
 
 ## Notes
@@ -132,7 +132,7 @@ map" card or "Write a note about this" on a paper's card; the notes list (from t
   `tools/kg_serve.py`). It listens on 127.0.0.1 only, needs a random token (new every time it
   starts, kept in the page's address and nowhere else), writes only into `notes/` (atomically), serves
   the page and the PDFs it links to read-only, and stops 30 minutes after the page
-  closes. A note edited somewhere else since you opened it is never overwritten: the page
+  closes (or when stopped; it tidies up either way). A note edited somewhere else since you opened it is never overwritten: the page
   shows both versions and you choose. A link to something the library no longer has is
   kept and shown as missing. Without the helper, notes show read-only and Export keeps a
   copy of anything you type; nothing is ever discarded without a warning.

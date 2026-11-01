@@ -12,6 +12,7 @@ const NT = {
   serving: false, token: null, notes: new Map(), unreadable: [], prompts: [], built: null,
   evidence: new Map(),   /* note id -> [{id, why}], filled by the editor's matcher */
   dirty: false,          /* the open draft has text not yet saved */
+  leaving: false,        /* the page asked about unsaved text already and is reloading */
   onChange: [],          /* redraws to run when the notes change */
 };
 function parseLink(link) {
@@ -92,6 +93,7 @@ async function notesInit() {
     }
   }
   notesChanged();
+  if (typeof syncEditorToHash === "function") syncEditorToHash();   /* opened at #note=<id> */
 }
 /* Every minute: keep the helper awake, and notice a rebuild made by another command. */
 async function beatAndCheck() {
@@ -105,9 +107,18 @@ function showRebuilt() {
   const b = $("#rebuilt");
   b.hidden = false;
   b.replaceChildren("The library was rebuilt. ", NT.dirty ? "Save or export your note first. " : "",
-    el("button", { on: { click: () => { if (!NT.dirty || window.confirm("Your note has unsaved changes. Reload anyway?")) location.reload(); } } }, "Reload"));
+    el("button", { on: { click: reloadAfterRebuild } }, "Reload"));
 }
-window.addEventListener("beforeunload", (e) => { if (NT.dirty) { e.preventDefault(); e.returnValue = ""; } });
+/* Asks about unsaved text once: having asked, the browser's own leave-page check stands down. */
+function reloadAfterRebuild() {
+  if (NT.dirty && !window.confirm("Your note has unsaved changes. Reload anyway?")) return;
+  NT.leaving = true;
+  location.reload();
+}
+function warnBeforeLeaving(e) {
+  if (NT.dirty && !NT.leaving) { e.preventDefault(); e.returnValue = ""; }
+}
+window.addEventListener("beforeunload", warnBeforeLeaving);
 
 /* ---------- satellites ---------- */
 /* Three shells around the globe; distance from it is distance from evidence. */
@@ -263,10 +274,10 @@ function noteInterest(note) {
   for (const l of note.links || []) { const n = byId.get(linkNodeId(l)); if (n && (n.type === "paper" || n.type === "web")) return interestOf(n); }
   return null;
 }
-const NL = { open: false, q: "", filter: {}, sort: "updated" };
+const NL = { open: false, q: "", filter: {}, sort: "updated", msg: "" };
 MIN_CARDS.push("noteslist");
 function openNotesList(filter) {
-  NL.open = true; NL.filter = filter || {}; NL.q = "";
+  NL.open = true; NL.filter = filter || {}; NL.q = ""; NL.msg = "";
   if (S.min.cards.noteslist) { S.min.cards.noteslist = false; applyMin(true); }
   renderNotesList();
 }
@@ -289,6 +300,7 @@ function renderNotesList() {
   const body = [
     el("p", { class: "note", style: "margin-top:0" }, notesLine(all.filter((n) => !n.archived).length, withEv) + ". ",
       el("button", { class: "linkbtn", on: { click: () => openEditor(null) } }, "＋ New note")),
+    NL.msg ? el("p", { class: "note warn", role: "alert" }, NL.msg) : null,
     search, el("div", { class: "actions" }, sort),
     el("div", { class: "nl-chips" }, chip("All", {}), chip("In a report", { orbit: "inner" }), chip("Backed by papers", { orbit: "middle" }),
       chip("Ideas", { orbit: "outer" }), ...interests.map((i) => chip(i, { interest: i })), chip("Archived", { archived: true })),
@@ -297,12 +309,22 @@ function renderNotesList() {
       el("button", { class: "linkbtn nl-title", on: { click: () => { NL.open = false; openEditor(n.id); } } }, n.title),
       el("div", { class: "note muted" }, ({ inner: "In a report", middle: "Backed by papers", outer: "Idea" })[n.orbit] + " · " + (n.links || []).length + " linked · updated "
         + (n.updated ? shortDate(n.updated.slice(0, 10)) : "never") + ((NT.evidence.get(n.id) || []).length ? " · new evidence" : "")),
-      NT.serving ? el("button", { class: "linkbtn", on: { click: async () => {
-        const r = await noteApi("/api/note/archive", { id: n.id, archived: !n.archived, version: n.version });
-        if (r.status === 200) { NT.notes.set(n.id, r.data.note); notesChanged(); }
-      } } }, n.archived ? "Restore" : "Archive") : null)),
+      NT.serving ? el("button", { class: "linkbtn", on: { click: () => archiveFromList(n) } }, n.archived ? "Restore" : "Archive") : null)),
   ];
   cardFrame("noteslist", "Notes", cardChip("Notes", all.filter((n) => !n.archived).length, withEv ? withEv + " with new evidence" : ""), body);
   if (cardOpen("noteslist")) card.firstChild.append(el("button", { title: "Close", "aria-label": "Close the notes list", on: { click: () => { NL.open = false; renderNotesList(); } } }, "×"));
+}
+/* Archive or restore N from the list. A failure says why, on the list. */
+async function archiveFromList(n) {
+  const r = await noteApi("/api/note/archive", { id: n.id, archived: !n.archived, version: n.version });
+  const cur = NT.notes.get(n.id) || n, verb = n.archived ? "Not restored: " : "Not archived: ";
+  NL.msg = "";
+  if (r.status === 200) NT.notes.set(n.id, { ...cur, ...r.data.note, version: r.data.version });
+  else if (r.status === 409 && r.data.conflict) {
+    NT.notes.set(n.id, { ...cur, ...r.data.disk, version: r.data.diskVersion });
+    NL.msg = verb + n.title + " changed in its file since the list was loaded. The list now shows the file's version; try again.";
+  } else if (r.status === 409 && r.data.deleted) { NT.notes.delete(n.id); NL.msg = verb + n.title + " was deleted elsewhere."; }
+  else NL.msg = verb + ((r.data && r.data.error) || "the helper refused it.");
+  notesChanged();
 }
 NT.onChange.push(() => { if (NL.open) renderNotesList(); });
